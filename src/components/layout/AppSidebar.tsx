@@ -21,6 +21,7 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Pipeline CRM', href: '/crm', icon: Target },
   { name: 'Leads', href: '/leads', icon: UserPlus },
+  { name: 'Alunos', href: '/students', icon: Users },
   { name: 'Cursos', href: '/courses', icon: GraduationCap },
   { name: 'Agendamentos', href: '/appointments', icon: Calendar },
   { name: 'Relatórios', href: '/reports', icon: BarChart3 },

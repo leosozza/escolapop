@@ -57,14 +57,7 @@ const App = () => (
                 </AppLayout>
               }
             />
-            <Route
-              path="/leads"
-              element={
-                <AppLayout>
-                  <Leads />
-                </AppLayout>
-              }
-            />
+            <Route path="/leads" element={<Navigate to="/crm" replace />} />
             <Route
               path="/courses"
               element={

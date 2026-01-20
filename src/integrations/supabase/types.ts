@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      agents: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          full_name: string
+          id: string
+          is_active: boolean | null
+          updated_at: string | null
+          whatsapp_phone: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          full_name: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+          whatsapp_phone: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          full_name?: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+          whatsapp_phone?: string
+        }
+        Relationships: []
+      }
       appointments: {
         Row: {
           agent_id: string

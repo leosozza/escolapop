@@ -7,17 +7,16 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ROLE_CONFIG } from '@/types/database';
 import { AgentCard, AddAgentCard } from '@/components/dashboard/AgentCard';
 import { StatusBar, StatusSegment } from '@/components/dashboard/StatusBar';
 import { SummaryPanel } from '@/components/dashboard/SummaryPanel';
 import { RelationshipTable } from '@/components/dashboard/RelationshipTable';
 import { DateFilter } from '@/components/dashboard/DateFilter';
 import { OperationalAlerts } from '@/components/dashboard/OperationalAlerts';
+import AddAgentDialog from '@/components/team/AddAgentDialog';
 import { format, differenceInHours, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface StaffMember {
   id: string;
@@ -56,6 +55,7 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [showAddAgentDialog, setShowAddAgentDialog] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -274,7 +274,7 @@ export default function Dashboard() {
                 counters={getAgentCounters(agent.user_id)}
               />
             ))}
-            <AddAgentCard onClick={() => console.log('Add agent')} />
+            <AddAgentCard onClick={() => setShowAddAgentDialog(true)} />
           </div>
           <ScrollBar orientation="horizontal" />
         </ScrollArea>
@@ -349,6 +349,13 @@ export default function Dashboard() {
         />
         <OperationalAlerts alerts={alerts} />
       </div>
+
+      {/* Add Agent Dialog */}
+      <AddAgentDialog
+        open={showAddAgentDialog}
+        onOpenChange={setShowAddAgentDialog}
+        onSuccess={fetchDashboardData}
+      />
     </div>
   );
 }

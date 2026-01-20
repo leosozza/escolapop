@@ -409,6 +409,84 @@ export type Database = {
         }
         Relationships: []
       }
+      csv_imports: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          error_log: Json | null
+          failed_rows: number | null
+          file_name: string
+          id: string
+          imported_by: string | null
+          imported_rows: number | null
+          status: string | null
+          total_rows: number
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_log?: Json | null
+          failed_rows?: number | null
+          file_name: string
+          id?: string
+          imported_by?: string | null
+          imported_rows?: number | null
+          status?: string | null
+          total_rows: number
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_log?: Json | null
+          failed_rows?: number | null
+          file_name?: string
+          id?: string
+          imported_by?: string | null
+          imported_rows?: number | null
+          status?: string | null
+          total_rows?: number
+        }
+        Relationships: []
+      }
+      custom_fields: {
+        Row: {
+          created_at: string | null
+          entity_type: string
+          field_label: string
+          field_name: string
+          field_type: string
+          id: string
+          is_active: boolean | null
+          is_required: boolean | null
+          options: Json | null
+          order_index: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          entity_type?: string
+          field_label: string
+          field_name: string
+          field_type: string
+          id?: string
+          is_active?: boolean | null
+          is_required?: boolean | null
+          options?: Json | null
+          order_index?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          entity_type?: string
+          field_label?: string
+          field_name?: string
+          field_type?: string
+          id?: string
+          is_active?: boolean | null
+          is_required?: boolean | null
+          options?: Json | null
+          order_index?: number | null
+        }
+        Relationships: []
+      }
       enrollment_history: {
         Row: {
           changed_by: string | null
@@ -529,6 +607,57 @@ export type Database = {
           },
         ]
       }
+      lead_custom_values: {
+        Row: {
+          created_at: string | null
+          field_id: string
+          id: string
+          lead_id: string
+          updated_at: string | null
+          value_boolean: boolean | null
+          value_date: string | null
+          value_number: number | null
+          value_text: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          field_id: string
+          id?: string
+          lead_id: string
+          updated_at?: string | null
+          value_boolean?: boolean | null
+          value_date?: string | null
+          value_number?: number | null
+          value_text?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          field_id?: string
+          id?: string
+          lead_id?: string
+          updated_at?: string | null
+          value_boolean?: boolean | null
+          value_date?: string | null
+          value_number?: number | null
+          value_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_custom_values_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: false
+            referencedRelation: "custom_fields"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_custom_values_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_history: {
         Row: {
           changed_by: string | null
@@ -567,22 +696,60 @@ export type Database = {
           },
         ]
       }
+      lead_sources: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          is_system: boolean | null
+          name: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_system?: boolean | null
+          name: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_system?: boolean | null
+          name?: string
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           ad_name: string | null
           ad_set: string | null
           assigned_agent_id: string | null
           assigned_producer_id: string | null
+          attended_at: string | null
           campaign: string | null
           course_interest_id: string | null
           created_at: string
           email: string | null
+          enrolled_at: string | null
+          external_id: string | null
+          external_source: string | null
           full_name: string
+          guardian_name: string | null
           id: string
+          lost_at: string | null
           notes: string | null
           phone: string
+          proposal_at: string | null
           scheduled_at: string | null
           source: Database["public"]["Enums"]["lead_source"]
+          source_id: string | null
           status: Database["public"]["Enums"]["lead_status"]
           updated_at: string
         }
@@ -591,16 +758,24 @@ export type Database = {
           ad_set?: string | null
           assigned_agent_id?: string | null
           assigned_producer_id?: string | null
+          attended_at?: string | null
           campaign?: string | null
           course_interest_id?: string | null
           created_at?: string
           email?: string | null
+          enrolled_at?: string | null
+          external_id?: string | null
+          external_source?: string | null
           full_name: string
+          guardian_name?: string | null
           id?: string
+          lost_at?: string | null
           notes?: string | null
           phone: string
+          proposal_at?: string | null
           scheduled_at?: string | null
           source?: Database["public"]["Enums"]["lead_source"]
+          source_id?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           updated_at?: string
         }
@@ -609,16 +784,24 @@ export type Database = {
           ad_set?: string | null
           assigned_agent_id?: string | null
           assigned_producer_id?: string | null
+          attended_at?: string | null
           campaign?: string | null
           course_interest_id?: string | null
           created_at?: string
           email?: string | null
+          enrolled_at?: string | null
+          external_id?: string | null
+          external_source?: string | null
           full_name?: string
+          guardian_name?: string | null
           id?: string
+          lost_at?: string | null
           notes?: string | null
           phone?: string
+          proposal_at?: string | null
           scheduled_at?: string | null
           source?: Database["public"]["Enums"]["lead_source"]
+          source_id?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           updated_at?: string
         }
@@ -635,6 +818,13 @@ export type Database = {
             columns: ["course_interest_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "lead_sources"
             referencedColumns: ["id"]
           },
         ]

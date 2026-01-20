@@ -52,6 +52,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ChevronsUpDown } from 'lucide-react';
+import { useNotificationCounts, NotificationCounts } from '@/hooks/useNotificationCounts';
+import { NotificationBadge } from './NotificationBadge';
+
+// Mapeamento de rotas para contagem de notificações
+const badgeRouteMap: Record<string, keyof NotificationCounts> = {
+  '/crm': 'crm',
+  '/appointments': 'appointments',
+  '/overdue': 'overdue',
+  '/reception': 'reception',
+};
 
 const sidebarGroups = [
   {
@@ -117,6 +127,7 @@ export function AppSidebar() {
   const { profile, signOut } = useAuth();
   const { state } = useSidebar();
   const isCollapsed = state === 'collapsed';
+  const { counts } = useNotificationCounts();
 
   const getInitials = (name: string) => {
     return name
@@ -129,6 +140,17 @@ export function AppSidebar() {
 
   const isGroupOpen = (group: typeof sidebarGroups[0]) => {
     return group.items.some((item) => location.pathname === item.href);
+  };
+
+  const getBadgeCount = (href: string): number => {
+    const key = badgeRouteMap[href];
+    return key ? counts[key] : 0;
+  };
+
+  const getBadgeVariant = (href: string): 'danger' | 'warning' | 'default' => {
+    if (href === '/overdue') return 'danger';
+    if (href === '/appointments') return 'warning';
+    return 'default';
   };
 
   let globalItemIndex = 0;
@@ -195,6 +217,9 @@ export function AppSidebar() {
                     {group.items.map((item) => {
                       const isActive = location.pathname === item.href;
                       const currentIndex = globalItemIndex++;
+                      const badgeCount = getBadgeCount(item.href);
+                      const badgeVariant = getBadgeVariant(item.href);
+                      
                       return (
                         <motion.div
                           key={item.name}
@@ -215,14 +240,31 @@ export function AppSidebar() {
                             >
                               <Link to={item.href}>
                                 <motion.div
+                                  className="relative"
                                   whileHover={{ scale: 1.1, rotate: isActive ? 0 : 5 }}
                                   whileTap={{ scale: 0.95 }}
                                   transition={{ duration: 0.15 }}
                                 >
                                   <item.icon className={cn('size-4', isActive && 'text-sidebar-primary-foreground')} />
+                                  {badgeCount > 0 && isCollapsed && (
+                                    <NotificationBadge 
+                                      count={badgeCount} 
+                                      variant={badgeVariant}
+                                      pulse={badgeVariant === 'danger'}
+                                      className="-top-2 -right-2"
+                                    />
+                                  )}
                                 </motion.div>
-                                <span>{item.name}</span>
-                                {isActive && (
+                                <span className="flex-1">{item.name}</span>
+                                {badgeCount > 0 && !isCollapsed && (
+                                  <NotificationBadge 
+                                    count={badgeCount} 
+                                    variant={badgeVariant}
+                                    pulse={badgeVariant === 'danger'}
+                                    className="relative top-0 right-0"
+                                  />
+                                )}
+                                {isActive && badgeCount === 0 && (
                                   <motion.span 
                                     className="ml-auto size-1.5 rounded-full bg-sidebar-primary-foreground"
                                     initial={{ scale: 0 }}

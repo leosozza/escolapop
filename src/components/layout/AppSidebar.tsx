@@ -22,6 +22,7 @@ import { Separator } from '@/components/ui/separator';
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Pipeline CRM', href: '/crm', icon: Target },
+  { name: 'Carteira Agente', href: '/agent-portfolio', icon: UserPlus },
   { name: 'Leads', href: '/leads', icon: UserPlus },
   { name: 'Alunos', href: '/students', icon: Users },
   { name: 'Cursos', href: '/courses', icon: GraduationCap },

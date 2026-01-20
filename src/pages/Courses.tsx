@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Monitor, Building, Shuffle, MoreHorizontal, GraduationCap } from 'lucide-react';
+import { Plus, Search, Monitor, Building, Shuffle, MoreHorizontal, GraduationCap, Edit, Eye, Power } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Course, CourseModality } from '@/types/database';
 import { COURSE_MODALITY_CONFIG } from '@/types/database';
 import { AddCourseDialog } from '@/components/courses/AddCourseDialog';
+import { EditCourseDialog } from '@/components/courses/EditCourseDialog';
 
 const modalityIcons = {
   presencial: Building,
@@ -27,6 +28,8 @@ export default function Courses() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const fetchCourses = async () => {
@@ -53,6 +56,30 @@ export default function Courses() {
   useEffect(() => {
     fetchCourses();
   }, []);
+
+  const handleToggleActive = async (course: Course) => {
+    try {
+      const { error } = await supabase
+        .from('courses')
+        .update({ is_active: !course.is_active })
+        .eq('id', course.id);
+
+      if (error) throw error;
+
+      toast({
+        title: course.is_active ? 'Curso desativado' : 'Curso ativado',
+        description: `${course.name} foi ${course.is_active ? 'desativado' : 'ativado'}.`,
+      });
+
+      fetchCourses();
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao atualizar curso',
+        description: 'Tente novamente.',
+      });
+    }
+  };
 
   const filteredCourses = courses.filter(course =>
     course.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -146,9 +173,19 @@ export default function Courses() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>Editar</DropdownMenuItem>
-                      <DropdownMenuItem>Ver detalhes</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        setSelectedCourse(course);
+                        setIsEditDialogOpen(true);
+                      }}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Editar
+                      </DropdownMenuItem>
                       <DropdownMenuItem>
+                        <Eye className="h-4 w-4 mr-2" />
+                        Ver detalhes
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleToggleActive(course)}>
+                        <Power className="h-4 w-4 mr-2" />
                         {course.is_active ? 'Desativar' : 'Ativar'}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -194,6 +231,15 @@ export default function Courses() {
         onOpenChange={setIsAddDialogOpen}
         onSuccess={fetchCourses}
       />
+
+      {selectedCourse && (
+        <EditCourseDialog
+          open={isEditDialogOpen}
+          onOpenChange={setIsEditDialogOpen}
+          course={selectedCourse}
+          onSuccess={fetchCourses}
+        />
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Filter, MoreHorizontal, Phone, Mail, Calendar, Trash2 } from 'lucide-react';
+import { Plus, Search, Filter, MoreHorizontal, Phone, Mail, Calendar, Trash2, Eye, Edit, CalendarPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -16,20 +16,40 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Lead } from '@/types/database';
 import { LEAD_STATUS_CONFIG, LEAD_SOURCE_CONFIG } from '@/types/database';
 import { AddLeadDialog } from '@/components/crm/AddLeadDialog';
+import { LeadDetailsSheet } from '@/components/leads/LeadDetailsSheet';
+import { EditLeadDialog } from '@/components/leads/EditLeadDialog';
 
 export default function Leads() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
   const { toast } = useToast();
+  const { isAdmin } = useAuth();
 
   const fetchLeads = async () => {
     try {
@@ -58,6 +78,35 @@ export default function Leads() {
   useEffect(() => {
     fetchLeads();
   }, []);
+
+  const handleDelete = async () => {
+    if (!leadToDelete) return;
+    
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .delete()
+        .eq('id', leadToDelete.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Lead excluído',
+        description: `${leadToDelete.full_name} foi removido.`,
+      });
+      
+      fetchLeads();
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao excluir lead',
+        description: 'Você não tem permissão para esta ação.',
+      });
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setLeadToDelete(null);
+    }
+  };
 
   const filteredLeads = leads.filter(lead =>
     lead.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -193,13 +242,39 @@ export default function Leads() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Ver detalhes</DropdownMenuItem>
-                        <DropdownMenuItem>Editar</DropdownMenuItem>
-                        <DropdownMenuItem>Agendar</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Excluir
+                        <DropdownMenuItem onClick={() => {
+                          setSelectedLead(lead);
+                          setIsDetailsOpen(true);
+                        }}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          Ver detalhes
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => {
+                          setSelectedLead(lead);
+                          setIsEditOpen(true);
+                        }}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <CalendarPlus className="h-4 w-4 mr-2" />
+                          Agendar
+                        </DropdownMenuItem>
+                        {isAdmin() && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              className="text-destructive"
+                              onClick={() => {
+                                setLeadToDelete(lead);
+                                setIsDeleteDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -222,6 +297,46 @@ export default function Leads() {
         onOpenChange={setIsAddDialogOpen}
         onSuccess={fetchLeads}
       />
+
+      <LeadDetailsSheet
+        open={isDetailsOpen}
+        onOpenChange={setIsDetailsOpen}
+        lead={selectedLead}
+        onEdit={() => {
+          setIsDetailsOpen(false);
+          setIsEditOpen(true);
+        }}
+        onSchedule={() => {
+          setIsDetailsOpen(false);
+          // Open appointment dialog
+        }}
+      />
+
+      {selectedLead && (
+        <EditLeadDialog
+          open={isEditOpen}
+          onOpenChange={setIsEditOpen}
+          lead={selectedLead}
+          onSuccess={fetchLeads}
+        />
+      )}
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Lead</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir {leadToDelete?.full_name}? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

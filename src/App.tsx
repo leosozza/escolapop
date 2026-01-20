@@ -10,6 +10,9 @@ import Dashboard from "./pages/Dashboard";
 import CRM from "./pages/CRM";
 import Leads from "./pages/Leads";
 import Courses from "./pages/Courses";
+import Appointments from "./pages/Appointments";
+import Users from "./pages/Users";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -53,6 +56,30 @@ const App = () => (
               element={
                 <AppLayout>
                   <Courses />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/appointments"
+              element={
+                <AppLayout>
+                  <Appointments />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/users"
+              element={
+                <AppLayout>
+                  <Users />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <AppLayout>
+                  <Settings />
                 </AppLayout>
               }
             />

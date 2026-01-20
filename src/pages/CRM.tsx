@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Filter, MoreHorizontal, Phone, Mail, Calendar } from 'lucide-react';
+import { Plus, Search, Filter, MoreHorizontal, Phone, Mail, Calendar, Eye, Edit, CalendarPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +16,8 @@ import { useToast } from '@/hooks/use-toast';
 import type { Lead, LeadStatus } from '@/types/database';
 import { LEAD_STATUS_CONFIG } from '@/types/database';
 import { AddLeadDialog } from '@/components/crm/AddLeadDialog';
+import { LeadDetailsSheet } from '@/components/leads/LeadDetailsSheet';
+import { EditLeadDialog } from '@/components/leads/EditLeadDialog';
 
 const PIPELINE_COLUMNS: LeadStatus[] = [
   'lead',
@@ -34,6 +36,9 @@ export default function CRM() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const { toast } = useToast();
 
   const fetchLeads = async () => {
@@ -217,9 +222,24 @@ export default function CRM() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>Ver detalhes</DropdownMenuItem>
-                            <DropdownMenuItem>Editar</DropdownMenuItem>
-                            <DropdownMenuItem>Agendar</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedLead(lead);
+                              setIsDetailsOpen(true);
+                            }}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              Ver detalhes
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedLead(lead);
+                              setIsEditOpen(true);
+                            }}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <CalendarPlus className="h-4 w-4 mr-2" />
+                              Agendar
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -258,6 +278,28 @@ export default function CRM() {
         onOpenChange={setIsAddDialogOpen}
         onSuccess={fetchLeads}
       />
+
+      <LeadDetailsSheet
+        open={isDetailsOpen}
+        onOpenChange={setIsDetailsOpen}
+        lead={selectedLead}
+        onEdit={() => {
+          setIsDetailsOpen(false);
+          setIsEditOpen(true);
+        }}
+        onSchedule={() => {
+          setIsDetailsOpen(false);
+        }}
+      />
+
+      {selectedLead && (
+        <EditLeadDialog
+          open={isEditOpen}
+          onOpenChange={setIsEditOpen}
+          lead={selectedLead}
+          onSuccess={fetchLeads}
+        />
+      )}
     </div>
   );
 }

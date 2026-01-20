@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           agent_id: string
           attended: boolean | null
+          checked_in_at: string | null
           confirmed: boolean | null
           created_at: string
           id: string
@@ -30,6 +31,7 @@ export type Database = {
         Insert: {
           agent_id: string
           attended?: boolean | null
+          checked_in_at?: string | null
           confirmed?: boolean | null
           created_at?: string
           id?: string
@@ -42,6 +44,7 @@ export type Database = {
         Update: {
           agent_id?: string
           attended?: boolean | null
+          checked_in_at?: string | null
           confirmed?: boolean | null
           created_at?: string
           id?: string
@@ -58,6 +61,208 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance: {
+        Row: {
+          attendance_date: string
+          class_id: string
+          created_at: string
+          id: string
+          marked_by: string | null
+          notes: string | null
+          status: string
+          student_id: string
+        }
+        Insert: {
+          attendance_date: string
+          class_id: string
+          created_at?: string
+          id?: string
+          marked_by?: string | null
+          notes?: string | null
+          status: string
+          student_id: string
+        }
+        Update: {
+          attendance_date?: string
+          class_id?: string
+          created_at?: string
+          id?: string
+          marked_by?: string | null
+          notes?: string | null
+          status?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_marked_by_fkey"
+            columns: ["marked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "attendance_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      call_logs: {
+        Row: {
+          agent_id: string
+          call_type: string
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          lead_id: string
+          notes: string | null
+          result: string
+          scheduled_callback_at: string | null
+        }
+        Insert: {
+          agent_id: string
+          call_type: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          lead_id: string
+          notes?: string | null
+          result: string
+          scheduled_callback_at?: string | null
+        }
+        Update: {
+          agent_id?: string
+          call_type?: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          lead_id?: string
+          notes?: string | null
+          result?: string
+          scheduled_callback_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_logs_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "call_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      class_enrollments: {
+        Row: {
+          class_id: string
+          created_at: string
+          enrollment_id: string
+          id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          enrollment_id: string
+          id?: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          enrollment_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_enrollments_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_enrollments_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "enrollments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      classes: {
+        Row: {
+          course_id: string
+          created_at: string
+          end_date: string | null
+          id: string
+          is_active: boolean | null
+          max_students: number | null
+          name: string
+          room: string | null
+          schedule: Json | null
+          start_date: string
+          teacher_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_students?: number | null
+          name: string
+          room?: string | null
+          schedule?: Json | null
+          start_date: string
+          teacher_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_students?: number | null
+          name?: string
+          room?: string | null
+          schedule?: Json | null
+          start_date?: string
+          teacher_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classes_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -105,6 +310,59 @@ export type Database = {
           },
           {
             foreignKeyName: "content_progress_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "enrollments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contracts: {
+        Row: {
+          created_at: string
+          discount: number | null
+          enrollment_id: string
+          id: string
+          installments: number
+          notes: string | null
+          payment_day: number
+          signed_at: string | null
+          signed_document_url: string | null
+          status: string
+          total_value: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          discount?: number | null
+          enrollment_id: string
+          id?: string
+          installments?: number
+          notes?: string | null
+          payment_day?: number
+          signed_at?: string | null
+          signed_document_url?: string | null
+          status?: string
+          total_value: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          discount?: number | null
+          enrollment_id?: string
+          id?: string
+          installments?: number
+          notes?: string | null
+          payment_day?: number
+          signed_at?: string | null
+          signed_document_url?: string | null
+          status?: string
+          total_value?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracts_enrollment_id_fkey"
             columns: ["enrollment_id"]
             isOneToOne: false
             referencedRelation: "enrollments"
@@ -314,6 +572,7 @@ export type Database = {
           ad_name: string | null
           ad_set: string | null
           assigned_agent_id: string | null
+          assigned_producer_id: string | null
           campaign: string | null
           course_interest_id: string | null
           created_at: string
@@ -331,6 +590,7 @@ export type Database = {
           ad_name?: string | null
           ad_set?: string | null
           assigned_agent_id?: string | null
+          assigned_producer_id?: string | null
           campaign?: string | null
           course_interest_id?: string | null
           created_at?: string
@@ -348,6 +608,7 @@ export type Database = {
           ad_name?: string | null
           ad_set?: string | null
           assigned_agent_id?: string | null
+          assigned_producer_id?: string | null
           campaign?: string | null
           course_interest_id?: string | null
           created_at?: string
@@ -362,6 +623,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "leads_assigned_producer_id_fkey"
+            columns: ["assigned_producer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "leads_course_interest_id_fkey"
             columns: ["course_interest_id"]
@@ -553,6 +821,59 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          contract_id: string
+          created_at: string
+          due_date: string
+          id: string
+          installment_number: number
+          notes: string | null
+          paid_amount: number | null
+          paid_at: string | null
+          payment_method: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          contract_id: string
+          created_at?: string
+          due_date: string
+          id?: string
+          installment_number: number
+          notes?: string | null
+          paid_amount?: number | null
+          paid_at?: string | null
+          payment_method?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          contract_id?: string
+          created_at?: string
+          due_date?: string
+          id?: string
+          installment_number?: number
+          notes?: string | null
+          paid_amount?: number | null
+          paid_at?: string | null
+          payment_method?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
             referencedColumns: ["id"]
           },
         ]

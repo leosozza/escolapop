@@ -16,6 +16,12 @@ interface WebhookPayload {
   ad_name?: string;
   external_id?: string;
   notes?: string;
+  // Custom fields for webhook
+  telemarketing?: string;
+  scouter?: string;
+  local?: string;
+  event_date?: string;
+  event_time?: string;
   custom_fields?: Record<string, unknown>;
 }
 
@@ -49,7 +55,13 @@ Deno.serve(async (req) => {
         ad_set: params.get("projeto") || params.get("ad_set") || undefined,
         ad_name: params.get("ad_name") || undefined,
         external_id: params.get("lead_id") || params.get("external_id") || undefined,
-        notes: buildNotesFromParams(params),
+        notes: params.get("notes") || undefined,
+        // Custom fields from query params
+        telemarketing: params.get("Telemarketing") || params.get("telemarketing") || undefined,
+        scouter: params.get("scouter") || params.get("Scouter") || undefined,
+        local: params.get("local") || params.get("Local") || undefined,
+        event_date: params.get("event_date") || params.get("Data") || undefined,
+        event_time: params.get("Hora") || params.get("hora") || undefined,
       };
     } else if (req.method === "POST") {
       const body = await req.json();
@@ -65,7 +77,13 @@ Deno.serve(async (req) => {
         ad_set: body.projeto || body.ad_set || undefined,
         ad_name: body.ad_name || undefined,
         external_id: body.lead_id || body.external_id || undefined,
-        notes: buildNotesFromBody(body),
+        notes: body.notes || undefined,
+        // Custom fields from body
+        telemarketing: body.Telemarketing || body.telemarketing || undefined,
+        scouter: body.scouter || body.Scouter || undefined,
+        local: body.local || body.Local || undefined,
+        event_date: body.event_date || body.Data || undefined,
+        event_time: body.Hora || body.hora || undefined,
         custom_fields: body.custom_fields || undefined,
       };
     } else {
@@ -163,27 +181,64 @@ Deno.serve(async (req) => {
 
     console.log("Lead created successfully:", newLead.id);
 
-    // Handle custom fields if provided
-    if (payload.custom_fields && Object.keys(payload.custom_fields).length > 0) {
-      // Get all active custom fields for leads
-      const { data: customFields } = await supabase
-        .from("custom_fields")
-        .select("id, field_name, field_type")
-        .eq("entity_type", "lead")
-        .eq("is_active", true);
+    // Get all active custom fields for leads
+    const { data: customFields } = await supabase
+      .from("custom_fields")
+      .select("id, field_name, field_type")
+      .eq("entity_type", "lead")
+      .eq("is_active", true);
 
-      if (customFields) {
-        const customValuesToInsert = [];
+    if (customFields && customFields.length > 0) {
+      const customValuesToInsert = [];
 
-        for (const [fieldName, value] of Object.entries(payload.custom_fields)) {
+      // Map known webhook fields to custom fields
+      const webhookCustomFields: Record<string, string | undefined> = {
+        telemarketing: payload.telemarketing,
+        scouter: payload.scouter,
+        local: payload.local,
+        event_date: payload.event_date,
+        event_time: payload.event_time,
+      };
+
+      // Add webhook custom fields
+      for (const [fieldName, value] of Object.entries(webhookCustomFields)) {
+        if (value) {
           const field = customFields.find(f => f.field_name === fieldName);
-          if (field && value !== null && value !== undefined) {
+          if (field) {
             const customValue: Record<string, unknown> = {
               lead_id: newLead.id,
               field_id: field.id,
             };
 
             // Set the appropriate value column based on field type
+            if (field.field_type === "date") {
+              customValue.value_date = value;
+            } else if (field.field_type === "number") {
+              customValue.value_number = Number(value);
+            } else if (field.field_type === "boolean") {
+              customValue.value_boolean = Boolean(value);
+            } else {
+              customValue.value_text = String(value);
+            }
+
+            customValuesToInsert.push(customValue);
+          }
+        }
+      }
+
+      // Add any additional custom fields from payload
+      if (payload.custom_fields) {
+        for (const [fieldName, value] of Object.entries(payload.custom_fields)) {
+          const field = customFields.find(f => f.field_name === fieldName);
+          if (field && value !== null && value !== undefined) {
+            // Skip if already added from webhook fields
+            if (webhookCustomFields[fieldName]) continue;
+
+            const customValue: Record<string, unknown> = {
+              lead_id: newLead.id,
+              field_id: field.id,
+            };
+
             switch (field.field_type) {
               case "text":
               case "select":
@@ -203,15 +258,17 @@ Deno.serve(async (req) => {
             customValuesToInsert.push(customValue);
           }
         }
+      }
 
-        if (customValuesToInsert.length > 0) {
-          const { error: customError } = await supabase
-            .from("lead_custom_values")
-            .insert(customValuesToInsert);
+      if (customValuesToInsert.length > 0) {
+        const { error: customError } = await supabase
+          .from("lead_custom_values")
+          .insert(customValuesToInsert);
 
-          if (customError) {
-            console.error("Error inserting custom values:", customError);
-          }
+        if (customError) {
+          console.error("Error inserting custom values:", customError);
+        } else {
+          console.log(`Inserted ${customValuesToInsert.length} custom field values`);
         }
       }
     }
@@ -234,44 +291,3 @@ Deno.serve(async (req) => {
     );
   }
 });
-
-// Helper function to build notes from query params
-function buildNotesFromParams(params: URLSearchParams): string {
-  const parts: string[] = [];
-  
-  const telemarketing = params.get("Telemarketing") || params.get("telemarketing");
-  const scouter = params.get("scouter") || params.get("Scouter");
-  const local = params.get("local") || params.get("Local");
-  const eventDate = params.get("event_date") || params.get("Data");
-  const hora = params.get("Hora") || params.get("hora");
-  
-  if (telemarketing) parts.push(`Telemarketing: ${telemarketing}`);
-  if (scouter) parts.push(`Scouter: ${scouter}`);
-  if (local) parts.push(`Local: ${local}`);
-  if (eventDate) parts.push(`Data Agendamento: ${eventDate}`);
-  if (hora) parts.push(`Hora: ${hora}`);
-  
-  return parts.length > 0 ? parts.join(" | ") : "";
-}
-
-// Helper function to build notes from POST body
-function buildNotesFromBody(body: Record<string, unknown>): string {
-  const parts: string[] = [];
-  
-  const telemarketing = body.Telemarketing || body.telemarketing;
-  const scouter = body.scouter || body.Scouter;
-  const local = body.local || body.Local;
-  const eventDate = body.event_date || body.Data;
-  const hora = body.Hora || body.hora;
-  
-  if (telemarketing) parts.push(`Telemarketing: ${telemarketing}`);
-  if (scouter) parts.push(`Scouter: ${scouter}`);
-  if (local) parts.push(`Local: ${local}`);
-  if (eventDate) parts.push(`Data Agendamento: ${eventDate}`);
-  if (hora) parts.push(`Hora: ${hora}`);
-  
-  // Include any existing notes
-  if (body.notes) parts.push(String(body.notes));
-  
-  return parts.length > 0 ? parts.join(" | ") : "";
-}

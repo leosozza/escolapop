@@ -31,20 +31,56 @@ Deno.serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    if (req.method !== "POST") {
+    // Accept both GET and POST
+    let payload: WebhookPayload;
+
+    if (req.method === "GET") {
+      const url = new URL(req.url);
+      const params = url.searchParams;
+      
+      // Map query params to payload (supporting both naming conventions)
+      payload = {
+        full_name: params.get("client_name") || params.get("full_name") || "",
+        phone: params.get("phone") || params.get("telefone") || "",
+        email: params.get("email") || undefined,
+        guardian_name: params.get("guardian_name") || undefined,
+        source: params.get("source") || params.get("origem") || undefined,
+        campaign: params.get("modelo") || params.get("campaign") || undefined,
+        ad_set: params.get("projeto") || params.get("ad_set") || undefined,
+        ad_name: params.get("ad_name") || undefined,
+        external_id: params.get("lead_id") || params.get("external_id") || undefined,
+        notes: buildNotesFromParams(params),
+      };
+    } else if (req.method === "POST") {
+      const body = await req.json();
+      
+      // Map POST body to payload (supporting both naming conventions)
+      payload = {
+        full_name: body.client_name || body.full_name || "",
+        phone: body.phone || body.telefone || "",
+        email: body.email || undefined,
+        guardian_name: body.guardian_name || undefined,
+        source: body.source || body.origem || undefined,
+        campaign: body.modelo || body.campaign || undefined,
+        ad_set: body.projeto || body.ad_set || undefined,
+        ad_name: body.ad_name || undefined,
+        external_id: body.lead_id || body.external_id || undefined,
+        notes: buildNotesFromBody(body),
+        custom_fields: body.custom_fields || undefined,
+      };
+    } else {
       return new Response(
         JSON.stringify({ error: "Method not allowed" }),
         { status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const payload: WebhookPayload = await req.json();
     console.log("Received webhook payload:", payload);
 
     // Validate required fields
     if (!payload.full_name || !payload.phone) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: full_name and phone are required" }),
+        JSON.stringify({ error: "Missing required fields: full_name/client_name and phone are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -198,3 +234,44 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+// Helper function to build notes from query params
+function buildNotesFromParams(params: URLSearchParams): string {
+  const parts: string[] = [];
+  
+  const telemarketing = params.get("Telemarketing") || params.get("telemarketing");
+  const scouter = params.get("scouter") || params.get("Scouter");
+  const local = params.get("local") || params.get("Local");
+  const eventDate = params.get("event_date") || params.get("Data");
+  const hora = params.get("Hora") || params.get("hora");
+  
+  if (telemarketing) parts.push(`Telemarketing: ${telemarketing}`);
+  if (scouter) parts.push(`Scouter: ${scouter}`);
+  if (local) parts.push(`Local: ${local}`);
+  if (eventDate) parts.push(`Data Agendamento: ${eventDate}`);
+  if (hora) parts.push(`Hora: ${hora}`);
+  
+  return parts.length > 0 ? parts.join(" | ") : "";
+}
+
+// Helper function to build notes from POST body
+function buildNotesFromBody(body: Record<string, unknown>): string {
+  const parts: string[] = [];
+  
+  const telemarketing = body.Telemarketing || body.telemarketing;
+  const scouter = body.scouter || body.Scouter;
+  const local = body.local || body.Local;
+  const eventDate = body.event_date || body.Data;
+  const hora = body.Hora || body.hora;
+  
+  if (telemarketing) parts.push(`Telemarketing: ${telemarketing}`);
+  if (scouter) parts.push(`Scouter: ${scouter}`);
+  if (local) parts.push(`Local: ${local}`);
+  if (eventDate) parts.push(`Data Agendamento: ${eventDate}`);
+  if (hora) parts.push(`Hora: ${hora}`);
+  
+  // Include any existing notes
+  if (body.notes) parts.push(String(body.notes));
+  
+  return parts.length > 0 ? parts.join(" | ") : "";
+}

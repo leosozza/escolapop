@@ -17,6 +17,16 @@ import Students from "./pages/Students";
 import LMS from "./pages/LMS";
 import Reception from "./pages/Reception";
 import AgentPortfolio from "./pages/AgentPortfolio";
+import Telemarketing from "./pages/Telemarketing";
+import ProducerQueue from "./pages/ProducerQueue";
+import Classes from "./pages/Classes";
+import Attendance from "./pages/Attendance";
+import Contracts from "./pages/Contracts";
+import Payments from "./pages/Payments";
+import Overdue from "./pages/Overdue";
+import Certificates from "./pages/Certificates";
+import Team from "./pages/Team";
+import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -100,6 +110,86 @@ const App = () => (
               element={
                 <AppLayout>
                   <AgentPortfolio />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/telemarketing"
+              element={
+                <AppLayout>
+                  <Telemarketing />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/producer-queue"
+              element={
+                <AppLayout>
+                  <ProducerQueue />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/classes"
+              element={
+                <AppLayout>
+                  <Classes />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/attendance"
+              element={
+                <AppLayout>
+                  <Attendance />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/contracts"
+              element={
+                <AppLayout>
+                  <Contracts />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/payments"
+              element={
+                <AppLayout>
+                  <Payments />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/overdue"
+              element={
+                <AppLayout>
+                  <Overdue />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/certificates"
+              element={
+                <AppLayout>
+                  <Certificates />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/team"
+              element={
+                <AppLayout>
+                  <Team />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/reports"
+              element={
+                <AppLayout>
+                  <Reports />
                 </AppLayout>
               }
             />

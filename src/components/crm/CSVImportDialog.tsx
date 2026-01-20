@@ -232,10 +232,22 @@ export function CSVImportDialog({ onSuccess }: CSVImportDialogProps) {
           throw new Error(`Linha ${i + 2}: Telefone já cadastrado`);
         }
 
-        // Insert lead
+        // Insert lead - use type assertion to bypass strict typing
+        const insertData = {
+          full_name: String(leadData.full_name),
+          phone: String(leadData.phone),
+          status: "lead" as const,
+          source_id: sourceId,
+          external_source: "csv",
+          email: leadData.email ? String(leadData.email) : null,
+          guardian_name: leadData.guardian_name ? String(leadData.guardian_name) : null,
+          campaign: leadData.campaign ? String(leadData.campaign) : null,
+          notes: leadData.notes ? String(leadData.notes) : null,
+        };
+        
         const { error: insertError } = await supabase
           .from("leads")
-          .insert(leadData as { full_name: string; phone: string; status: string; source_id: string | undefined; external_source: string });
+          .insert(insertData);
 
         if (insertError) throw insertError;
         

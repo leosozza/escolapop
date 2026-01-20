@@ -11,6 +11,7 @@ import {
   Target,
   UserPlus,
   BookOpen,
+  DoorOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,6 +27,7 @@ const navigation = [
   { name: 'Cursos', href: '/courses', icon: GraduationCap },
   { name: 'LMS - Aulas', href: '/lms', icon: BookOpen },
   { name: 'Agendamentos', href: '/appointments', icon: Calendar },
+  { name: 'Recepção', href: '/reception', icon: DoorOpen },
   { name: 'Relatórios', href: '/reports', icon: BarChart3 },
 ];
 

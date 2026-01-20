@@ -16,6 +16,7 @@ import Settings from "./pages/Settings";
 import Students from "./pages/Students";
 import LMS from "./pages/LMS";
 import Reception from "./pages/Reception";
+import AgentPortfolio from "./pages/AgentPortfolio";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -91,6 +92,14 @@ const App = () => (
               element={
                 <AppLayout>
                   <Reception />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/agent-portfolio"
+              element={
+                <AppLayout>
+                  <AgentPortfolio />
                 </AppLayout>
               }
             />

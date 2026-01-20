@@ -10,6 +10,7 @@ import {
   Sparkles,
   Target,
   UserPlus,
+  BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,6 +24,7 @@ const navigation = [
   { name: 'Leads', href: '/leads', icon: UserPlus },
   { name: 'Alunos', href: '/students', icon: Users },
   { name: 'Cursos', href: '/courses', icon: GraduationCap },
+  { name: 'LMS - Aulas', href: '/lms', icon: BookOpen },
   { name: 'Agendamentos', href: '/appointments', icon: Calendar },
   { name: 'Relatórios', href: '/reports', icon: BarChart3 },
 ];

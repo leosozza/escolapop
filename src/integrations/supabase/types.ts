@@ -61,6 +61,57 @@ export type Database = {
           },
         ]
       }
+      content_progress: {
+        Row: {
+          completed_at: string | null
+          content_id: string
+          created_at: string
+          enrollment_id: string
+          id: string
+          started_at: string | null
+          total_seconds: number | null
+          updated_at: string
+          watched_seconds: number
+        }
+        Insert: {
+          completed_at?: string | null
+          content_id: string
+          created_at?: string
+          enrollment_id: string
+          id?: string
+          started_at?: string | null
+          total_seconds?: number | null
+          updated_at?: string
+          watched_seconds?: number
+        }
+        Update: {
+          completed_at?: string | null
+          content_id?: string
+          created_at?: string
+          enrollment_id?: string
+          id?: string
+          started_at?: string | null
+          total_seconds?: number | null
+          updated_at?: string
+          watched_seconds?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_progress_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_contents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_progress_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "enrollments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       courses: {
         Row: {
           cover_image_url: string | null
@@ -320,6 +371,192 @@ export type Database = {
           },
         ]
       }
+      lesson_contents: {
+        Row: {
+          content_text: string | null
+          content_type: Database["public"]["Enums"]["content_type"]
+          content_url: string | null
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          is_active: boolean
+          lesson_id: string
+          order_index: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content_text?: string | null
+          content_type?: Database["public"]["Enums"]["content_type"]
+          content_url?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          is_active?: boolean
+          lesson_id: string
+          order_index?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content_text?: string | null
+          content_type?: Database["public"]["Enums"]["content_type"]
+          content_url?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          is_active?: boolean
+          lesson_id?: string
+          order_index?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_contents_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          enrollment_id: string
+          id: string
+          last_position_seconds: number | null
+          lesson_id: string
+          progress_percentage: number
+          started_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          enrollment_id: string
+          id?: string
+          last_position_seconds?: number | null
+          lesson_id: string
+          progress_percentage?: number
+          started_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          enrollment_id?: string
+          id?: string
+          last_position_seconds?: number | null
+          lesson_id?: string
+          progress_percentage?: number
+          started_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_progress_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lessons: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_minutes: number | null
+          id: string
+          is_active: boolean
+          module_id: string
+          order_index: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_active?: boolean
+          module_id: string
+          order_index?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_active?: boolean
+          module_id?: string
+          order_index?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lessons_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      modules: {
+        Row: {
+          course_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          order_index: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          order_index?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          order_index?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "modules_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -471,6 +708,7 @@ export type Database = {
         | "produtor"
         | "scouter"
         | "aluno"
+      content_type: "video" | "text" | "file" | "quiz"
       course_modality: "presencial" | "online" | "hibrido"
       lead_source:
         | "whatsapp"
@@ -635,6 +873,7 @@ export const Constants = {
         "scouter",
         "aluno",
       ],
+      content_type: ["video", "text", "file", "quiz"],
       course_modality: ["presencial", "online", "hibrido"],
       lead_source: [
         "whatsapp",

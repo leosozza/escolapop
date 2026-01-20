@@ -13,6 +13,7 @@ import Courses from "./pages/Courses";
 import Appointments from "./pages/Appointments";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
+import Students from "./pages/Students";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +65,14 @@ const App = () => (
               element={
                 <AppLayout>
                   <Appointments />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/students"
+              element={
+                <AppLayout>
+                  <Students />
                 </AppLayout>
               }
             />

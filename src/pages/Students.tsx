@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,6 +34,26 @@ import { ACADEMIC_STATUS_CONFIG, type AcademicStatus } from '@/types/database';
 import { AddEnrollmentDialog } from '@/components/students/AddEnrollmentDialog';
 import { StudentDetailsSheet } from '@/components/students/StudentDetailsSheet';
 
+interface EnrollmentWithRelations {
+  id: string;
+  student_id: string;
+  course_id: string;
+  status: string;
+  enrolled_at: string;
+  progress_percentage: number | null;
+  course: {
+    id: string;
+    name: string;
+  } | null;
+  student: {
+    id: string;
+    user_id: string;
+    full_name: string;
+    phone: string | null;
+    avatar_url: string | null;
+  } | null;
+}
+
 export default function Students() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -49,14 +68,19 @@ export default function Students() {
       let query = supabase
         .from('enrollments')
         .select(`
-          *,
-          course:courses(*),
-          student:profiles!enrollments_student_id_fkey(*)
+          id,
+          student_id,
+          course_id,
+          status,
+          enrolled_at,
+          progress_percentage,
+          course:courses(id, name),
+          student:profiles!enrollments_student_id_fkey(id, user_id, full_name, phone, avatar_url)
         `)
         .order('enrolled_at', { ascending: false });
 
       if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
+        query = query.eq('status', statusFilter as 'ativo' | 'em_curso' | 'inadimplente' | 'evasao' | 'concluido' | 'trancado');
       }
 
       if (courseFilter !== 'all') {
@@ -66,15 +90,17 @@ export default function Students() {
       const { data, error } = await query;
       if (error) throw error;
 
+      const typedData = data as unknown as EnrollmentWithRelations[];
+
       // Filter by search term on client side
       if (searchTerm) {
-        return data?.filter(e => 
+        return typedData?.filter(e => 
           e.student?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           e.course?.name?.toLowerCase().includes(searchTerm.toLowerCase())
         );
       }
 
-      return data;
+      return typedData;
     },
   });
 
@@ -120,8 +146,9 @@ export default function Students() {
       .slice(0, 2);
   };
 
-  const getStatusBadge = (status: AcademicStatus) => {
-    const config = ACADEMIC_STATUS_CONFIG[status];
+  const getStatusBadge = (status: string) => {
+    const config = ACADEMIC_STATUS_CONFIG[status as AcademicStatus];
+    if (!config) return <Badge variant="outline">{status}</Badge>;
     return (
       <Badge variant="outline" className={`${config.bgColor} ${config.color} border-0`}>
         {config.label}
@@ -130,7 +157,7 @@ export default function Students() {
   };
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -275,7 +302,7 @@ export default function Students() {
                         <p className="font-medium">{enrollment.course?.name}</p>
                       </TableCell>
                       <TableCell>
-                        {getStatusBadge(enrollment.status as AcademicStatus)}
+                        {getStatusBadge(enrollment.status)}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -327,6 +354,6 @@ export default function Students() {
         onOpenChange={(open) => !open && setSelectedStudentId(null)}
         onUpdate={refetch}
       />
-    </AppLayout>
+    </>
   );
 }

@@ -34,6 +34,14 @@ export type LeadSource =
   | 'presencial'
   | 'outro';
 
+export type AcademicStatus = 
+  | 'ativo'
+  | 'em_curso'
+  | 'inadimplente'
+  | 'evasao'
+  | 'concluido'
+  | 'trancado';
+
 export interface Profile {
   id: string;
   user_id: string;
@@ -111,6 +119,65 @@ export interface Appointment {
   agent?: Profile;
 }
 
+export interface StudentProfile {
+  id: string;
+  user_id: string;
+  height_cm: number | null;
+  weight_kg: number | null;
+  bust_cm: number | null;
+  waist_cm: number | null;
+  hip_cm: number | null;
+  shoe_size: number | null;
+  eye_color: string | null;
+  hair_color: string | null;
+  skin_tone: string | null;
+  instagram_handle: string | null;
+  tiktok_handle: string | null;
+  youtube_channel: string | null;
+  followers_count: number | null;
+  bio: string | null;
+  portfolio_url: string | null;
+  available_for_casting: boolean;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  profile?: Profile;
+}
+
+export interface Enrollment {
+  id: string;
+  student_id: string;
+  course_id: string;
+  lead_id: string | null;
+  status: AcademicStatus;
+  enrolled_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
+  progress_percentage: number;
+  grade: number | null;
+  certificate_issued: boolean;
+  certificate_issued_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  course?: Course;
+  student?: Profile;
+  lead?: Lead;
+}
+
+export interface EnrollmentHistory {
+  id: string;
+  enrollment_id: string;
+  from_status: AcademicStatus | null;
+  to_status: AcademicStatus;
+  changed_by: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
 // Status labels and colors
 export const LEAD_STATUS_CONFIG: Record<LeadStatus, { label: string; color: string; bgColor: string }> = {
   lead: { label: 'Novo Lead', color: 'text-info', bgColor: 'bg-info/10' },
@@ -149,4 +216,13 @@ export const ROLE_CONFIG: Record<AppRole, { label: string; description: string; 
   produtor: { label: 'Produtor', description: 'Gerencia casting e campanhas', icon: 'Camera' },
   scouter: { label: 'Scouter', description: 'Busca e avalia novos talentos', icon: 'Eye' },
   aluno: { label: 'Aluno', description: 'Acesso às aulas e materiais', icon: 'BookOpen' },
+};
+
+export const ACADEMIC_STATUS_CONFIG: Record<AcademicStatus, { label: string; color: string; bgColor: string }> = {
+  ativo: { label: 'Ativo', color: 'text-success', bgColor: 'bg-success/10' },
+  em_curso: { label: 'Em Curso', color: 'text-primary', bgColor: 'bg-primary/10' },
+  inadimplente: { label: 'Inadimplente', color: 'text-warning', bgColor: 'bg-warning/10' },
+  evasao: { label: 'Evasão', color: 'text-destructive', bgColor: 'bg-destructive/10' },
+  concluido: { label: 'Concluído', color: 'text-info', bgColor: 'bg-info/10' },
+  trancado: { label: 'Trancado', color: 'text-muted-foreground', bgColor: 'bg-muted/50' },
 };

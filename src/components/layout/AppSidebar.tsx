@@ -19,24 +19,42 @@ import {
   FileText,
   CreditCard,
   AlertTriangle,
-  ChevronDown,
   ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarRail,
+  useSidebar,
+} from '@/components/ui/sidebar';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { useState, useEffect } from 'react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ChevronsUpDown } from 'lucide-react';
 
 const sidebarGroups = [
   {
     title: 'Comercial',
-    defaultOpen: true,
     items: [
       { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
       { name: 'CRM', href: '/crm', icon: UserPlus },
@@ -48,7 +66,6 @@ const sidebarGroups = [
   },
   {
     title: 'Acadêmico',
-    defaultOpen: false,
     items: [
       { name: 'Alunos', href: '/students', icon: Users },
       { name: 'Turmas', href: '/classes', icon: Users2 },
@@ -60,7 +77,6 @@ const sidebarGroups = [
   },
   {
     title: 'Financeiro',
-    defaultOpen: false,
     items: [
       { name: 'Contratos', href: '/contracts', icon: FileText },
       { name: 'Pagamentos', href: '/payments', icon: CreditCard },
@@ -69,7 +85,6 @@ const sidebarGroups = [
   },
   {
     title: 'Gestão',
-    defaultOpen: false,
     items: [
       { name: 'Equipe', href: '/team', icon: Users },
       { name: 'Relatórios', href: '/reports', icon: BarChart3 },
@@ -81,30 +96,8 @@ const sidebarGroups = [
 export function AppSidebar() {
   const location = useLocation();
   const { profile, signOut } = useAuth();
-  
-  // Initialize open groups based on current route
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
-    const initial: Record<string, boolean> = {};
-    sidebarGroups.forEach((group) => {
-      const isActive = group.items.some((item) => location.pathname === item.href);
-      initial[group.title] = isActive || group.defaultOpen;
-    });
-    return initial;
-  });
-
-  // Update open groups when route changes
-  useEffect(() => {
-    sidebarGroups.forEach((group) => {
-      const isActive = group.items.some((item) => location.pathname === item.href);
-      if (isActive && !openGroups[group.title]) {
-        setOpenGroups((prev) => ({ ...prev, [group.title]: true }));
-      }
-    });
-  }, [location.pathname]);
-
-  const toggleGroup = (title: string) => {
-    setOpenGroups((prev) => ({ ...prev, [title]: !prev[title] }));
-  };
+  const { state } = useSidebar();
+  const isCollapsed = state === 'collapsed';
 
   const getInitials = (name: string) => {
     return name
@@ -115,91 +108,137 @@ export function AppSidebar() {
       .slice(0, 2);
   };
 
-  return (
-    <aside className="flex h-screen w-64 flex-col bg-sidebar text-sidebar-foreground">
-      {/* Logo */}
-      <div className="flex h-16 items-center gap-3 px-6">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-primary">
-          <Sparkles className="h-5 w-5 text-white" />
-        </div>
-        <div>
-          <h1 className="text-lg font-bold text-white">SAF School</h1>
-          <p className="text-xs text-sidebar-foreground/60">CRM + LMS</p>
-        </div>
-      </div>
+  const isGroupOpen = (group: typeof sidebarGroups[0]) => {
+    return group.items.some((item) => location.pathname === item.href);
+  };
 
-      {/* Main Navigation */}
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+  return (
+    <Sidebar collapsible="icon" className="border-r-0">
+      {/* Header com Logo */}
+      <SidebarHeader className="border-b border-sidebar-border">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              size="lg"
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+            >
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-md">
+                <Sparkles className="size-4" />
+              </div>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-semibold">SAF School</span>
+                <span className="truncate text-xs text-muted-foreground">CRM + LMS</span>
+              </div>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+
+      {/* Navegação Principal */}
+      <SidebarContent>
         {sidebarGroups.map((group) => (
           <Collapsible
             key={group.title}
-            open={openGroups[group.title]}
-            onOpenChange={() => toggleGroup(group.title)}
+            asChild
+            defaultOpen={isGroupOpen(group) || group.title === 'Comercial'}
+            className="group/collapsible"
           >
-            <CollapsibleTrigger asChild>
-              <button className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground/70">
-                {group.title}
-                {openGroups[group.title] ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-              </button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-1 pt-1">
-              {group.items.map((item) => {
-                const isActive = location.pathname === item.href;
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
-                      isActive
-                        ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-md'
-                        : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground'
-                    )}
-                  >
-                    <item.icon
-                      className={cn('h-5 w-5', isActive && 'animate-scale-in')}
-                    />
-                    {item.name}
-                    {isActive && (
-                      <span className="ml-auto h-2 w-2 animate-pulse rounded-full bg-white" />
-                    )}
-                  </Link>
-                );
-              })}
-            </CollapsibleContent>
+            <SidebarGroup>
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="flex w-full items-center gap-2 [&[data-state=open]>svg]:rotate-90">
+                  <span className="uppercase tracking-wider">{group.title}</span>
+                  <ChevronRight className="ml-auto size-4 transition-transform duration-200" />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {group.items.map((item) => {
+                      const isActive = location.pathname === item.href;
+                      return (
+                        <SidebarMenuItem key={item.name}>
+                          <SidebarMenuButton
+                            asChild
+                            isActive={isActive}
+                            tooltip={item.name}
+                            className={cn(
+                              'transition-all duration-200',
+                              isActive && 'bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-sm'
+                            )}
+                          >
+                            <Link to={item.href}>
+                              <item.icon className={cn('size-4', isActive && 'text-sidebar-primary-foreground')} />
+                              <span>{item.name}</span>
+                              {isActive && (
+                                <span className="ml-auto size-1.5 rounded-full bg-sidebar-primary-foreground animate-pulse" />
+                              )}
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </SidebarGroup>
           </Collapsible>
         ))}
-      </nav>
+      </SidebarContent>
 
-      {/* User Profile */}
-      <div className="border-t border-sidebar-border p-4">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10 ring-2 ring-sidebar-primary/50">
-            <AvatarImage src={profile?.avatar_url ?? undefined} />
-            <AvatarFallback className="bg-sidebar-accent text-sidebar-foreground">
-              {profile?.full_name ? getInitials(profile.full_name) : 'U'}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-sidebar-foreground">
-              {profile?.full_name ?? 'Usuário'}
-            </p>
-            <p className="truncate text-xs text-sidebar-foreground/60">Online</p>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={signOut}
-            className="h-8 w-8 text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-          >
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    </aside>
+      {/* Footer com Perfil do Usuário */}
+      <SidebarFooter className="border-t border-sidebar-border">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  size="lg"
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                >
+                  <Avatar className="size-8 rounded-lg ring-2 ring-sidebar-primary/30">
+                    <AvatarImage src={profile?.avatar_url ?? undefined} alt={profile?.full_name ?? 'Usuário'} />
+                    <AvatarFallback className="rounded-lg bg-sidebar-accent text-sidebar-accent-foreground text-xs font-medium">
+                      {profile?.full_name ? getInitials(profile.full_name) : 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">{profile?.full_name ?? 'Usuário'}</span>
+                    <span className="truncate text-xs text-muted-foreground flex items-center gap-1">
+                      <span className="size-1.5 rounded-full bg-emerald-500" />
+                      Online
+                    </span>
+                  </div>
+                  <ChevronsUpDown className="ml-auto size-4" />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+                side={isCollapsed ? "right" : "top"}
+                align="end"
+                sideOffset={4}
+              >
+                <DropdownMenuItem className="gap-2 p-2" asChild>
+                  <Link to="/settings">
+                    <Settings className="size-4" />
+                    Configurações
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="gap-2 p-2 text-destructive focus:text-destructive"
+                  onClick={signOut}
+                >
+                  <LogOut className="size-4" />
+                  Sair
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+
+      {/* Rail para arrastar/clicar para expandir/colapsar */}
+      <SidebarRail />
+    </Sidebar>
   );
 }

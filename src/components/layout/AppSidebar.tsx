@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import {
   LayoutDashboard,
   Users,
@@ -93,6 +94,24 @@ const sidebarGroups = [
   },
 ];
 
+const menuItemVariants = {
+  hidden: { opacity: 0, x: -8 },
+  visible: (i: number) => ({
+    opacity: 1,
+    x: 0,
+    transition: {
+      delay: i * 0.02,
+      duration: 0.2,
+      ease: [0.25, 0.46, 0.45, 0.94] as const,
+    },
+  }),
+};
+
+const logoVariants = {
+  collapsed: { scale: 1.1 },
+  expanded: { scale: 1 },
+};
+
 export function AppSidebar() {
   const location = useLocation();
   const { profile, signOut } = useAuth();
@@ -112,30 +131,50 @@ export function AppSidebar() {
     return group.items.some((item) => location.pathname === item.href);
   };
 
+  let globalItemIndex = 0;
+
   return (
-    <Sidebar collapsible="icon" className="border-r-0">
+    <Sidebar 
+      collapsible="icon" 
+      className="border-r-0 transition-all duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]"
+    >
       {/* Header com Logo */}
       <SidebarHeader className="border-b border-sidebar-border">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground transition-all duration-200"
             >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-md">
+              <motion.div 
+                className="flex aspect-square size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-md"
+                variants={logoVariants}
+                animate={isCollapsed ? "collapsed" : "expanded"}
+                transition={{ duration: 0.2 }}
+                whileHover={{ scale: 1.08, rotate: 5 }}
+                whileTap={{ scale: 0.95 }}
+              >
                 <Sparkles className="size-4" />
-              </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
+              </motion.div>
+              <motion.div 
+                className="grid flex-1 text-left text-sm leading-tight overflow-hidden"
+                initial={false}
+                animate={{ 
+                  opacity: isCollapsed ? 0 : 1,
+                  width: isCollapsed ? 0 : 'auto',
+                }}
+                transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+              >
                 <span className="truncate font-semibold">SAF School</span>
                 <span className="truncate text-xs text-muted-foreground">CRM + LMS</span>
-              </div>
+              </motion.div>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
 
       {/* Navegação Principal */}
-      <SidebarContent>
+      <SidebarContent className="overflow-x-hidden">
         {sidebarGroups.map((group) => (
           <Collapsible
             key={group.title}
@@ -145,36 +184,60 @@ export function AppSidebar() {
           >
             <SidebarGroup>
               <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="flex w-full items-center gap-2 [&[data-state=open]>svg]:rotate-90">
-                  <span className="uppercase tracking-wider">{group.title}</span>
-                  <ChevronRight className="ml-auto size-4 transition-transform duration-200" />
+                <CollapsibleTrigger className="flex w-full items-center gap-2 transition-colors duration-200 hover:text-foreground [&[data-state=open]>svg]:rotate-90">
+                  <span className="uppercase tracking-wider text-xs font-semibold">{group.title}</span>
+                  <ChevronRight className="ml-auto size-3.5 transition-transform duration-200" />
                 </CollapsibleTrigger>
               </SidebarGroupLabel>
-              <CollapsibleContent>
+              <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {group.items.map((item) => {
                       const isActive = location.pathname === item.href;
+                      const currentIndex = globalItemIndex++;
                       return (
-                        <SidebarMenuItem key={item.name}>
-                          <SidebarMenuButton
-                            asChild
-                            isActive={isActive}
-                            tooltip={item.name}
-                            className={cn(
-                              'transition-all duration-200',
-                              isActive && 'bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-sm'
-                            )}
-                          >
-                            <Link to={item.href}>
-                              <item.icon className={cn('size-4', isActive && 'text-sidebar-primary-foreground')} />
-                              <span>{item.name}</span>
-                              {isActive && (
-                                <span className="ml-auto size-1.5 rounded-full bg-sidebar-primary-foreground animate-pulse" />
+                        <motion.div
+                          key={item.name}
+                          custom={currentIndex}
+                          initial="hidden"
+                          animate="visible"
+                          variants={menuItemVariants}
+                        >
+                          <SidebarMenuItem>
+                            <SidebarMenuButton
+                              asChild
+                              isActive={isActive}
+                              tooltip={item.name}
+                              className={cn(
+                                'transition-all duration-200 hover:translate-x-0.5',
+                                isActive && 'bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-sm'
                               )}
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
+                            >
+                              <Link to={item.href}>
+                                <motion.div
+                                  whileHover={{ scale: 1.1, rotate: isActive ? 0 : 5 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  transition={{ duration: 0.15 }}
+                                >
+                                  <item.icon className={cn('size-4', isActive && 'text-sidebar-primary-foreground')} />
+                                </motion.div>
+                                <span>{item.name}</span>
+                                {isActive && (
+                                  <motion.span 
+                                    className="ml-auto size-1.5 rounded-full bg-sidebar-primary-foreground"
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    transition={{ 
+                                      type: "spring",
+                                      stiffness: 500,
+                                      damping: 25
+                                    }}
+                                  />
+                                )}
+                              </Link>
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
+                        </motion.div>
                       );
                     })}
                   </SidebarMenu>
@@ -193,31 +256,49 @@ export function AppSidebar() {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground transition-all duration-200"
                 >
-                  <Avatar className="size-8 rounded-lg ring-2 ring-sidebar-primary/30">
-                    <AvatarImage src={profile?.avatar_url ?? undefined} alt={profile?.full_name ?? 'Usuário'} />
-                    <AvatarFallback className="rounded-lg bg-sidebar-accent text-sidebar-accent-foreground text-xs font-medium">
-                      {profile?.full_name ? getInitials(profile.full_name) : 'U'}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <Avatar className="size-8 rounded-lg ring-2 ring-sidebar-primary/30 transition-all duration-200">
+                      <AvatarImage src={profile?.avatar_url ?? undefined} alt={profile?.full_name ?? 'Usuário'} />
+                      <AvatarFallback className="rounded-lg bg-sidebar-accent text-sidebar-accent-foreground text-xs font-medium">
+                        {profile?.full_name ? getInitials(profile.full_name) : 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                  </motion.div>
+                  <motion.div 
+                    className="grid flex-1 text-left text-sm leading-tight overflow-hidden"
+                    initial={false}
+                    animate={{ 
+                      opacity: isCollapsed ? 0 : 1,
+                      width: isCollapsed ? 0 : 'auto',
+                    }}
+                    transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+                  >
                     <span className="truncate font-semibold">{profile?.full_name ?? 'Usuário'}</span>
                     <span className="truncate text-xs text-muted-foreground flex items-center gap-1">
-                      <span className="size-1.5 rounded-full bg-emerald-500" />
+                      <motion.span 
+                        className="size-1.5 rounded-full bg-emerald-500"
+                        animate={{ scale: [1, 1.2, 1] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      />
                       Online
                     </span>
-                  </div>
-                  <ChevronsUpDown className="ml-auto size-4" />
+                  </motion.div>
+                  <ChevronsUpDown className="ml-auto size-4 transition-transform duration-200" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
-                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg animate-scale-in"
                 side={isCollapsed ? "right" : "top"}
                 align="end"
                 sideOffset={4}
               >
-                <DropdownMenuItem className="gap-2 p-2" asChild>
+                <DropdownMenuItem className="gap-2 p-2 cursor-pointer transition-colors duration-150" asChild>
                   <Link to="/settings">
                     <Settings className="size-4" />
                     Configurações
@@ -225,7 +306,7 @@ export function AppSidebar() {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  className="gap-2 p-2 text-destructive focus:text-destructive"
+                  className="gap-2 p-2 text-destructive focus:text-destructive cursor-pointer transition-colors duration-150"
                   onClick={signOut}
                 >
                   <LogOut className="size-4" />
@@ -238,7 +319,7 @@ export function AppSidebar() {
       </SidebarFooter>
 
       {/* Rail para arrastar/clicar para expandir/colapsar */}
-      <SidebarRail />
+      <SidebarRail className="transition-opacity duration-200 hover:opacity-100 opacity-50" />
     </Sidebar>
   );
 }

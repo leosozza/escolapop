@@ -100,6 +100,119 @@ export type Database = {
         }
         Relationships: []
       }
+      enrollment_history: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          enrollment_id: string
+          from_status: Database["public"]["Enums"]["academic_status"] | null
+          id: string
+          notes: string | null
+          to_status: Database["public"]["Enums"]["academic_status"]
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          enrollment_id: string
+          from_status?: Database["public"]["Enums"]["academic_status"] | null
+          id?: string
+          notes?: string | null
+          to_status: Database["public"]["Enums"]["academic_status"]
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          enrollment_id?: string
+          from_status?: Database["public"]["Enums"]["academic_status"] | null
+          id?: string
+          notes?: string | null
+          to_status?: Database["public"]["Enums"]["academic_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrollment_history_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "enrollments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      enrollments: {
+        Row: {
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          certificate_issued: boolean | null
+          certificate_issued_at: string | null
+          completed_at: string | null
+          course_id: string
+          created_at: string
+          enrolled_at: string
+          grade: number | null
+          id: string
+          lead_id: string | null
+          notes: string | null
+          progress_percentage: number | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["academic_status"]
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          certificate_issued?: boolean | null
+          certificate_issued_at?: string | null
+          completed_at?: string | null
+          course_id: string
+          created_at?: string
+          enrolled_at?: string
+          grade?: number | null
+          id?: string
+          lead_id?: string | null
+          notes?: string | null
+          progress_percentage?: number | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["academic_status"]
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          certificate_issued?: boolean | null
+          certificate_issued_at?: string | null
+          completed_at?: string | null
+          course_id?: string
+          created_at?: string
+          enrolled_at?: string
+          grade?: number | null
+          id?: string
+          lead_id?: string | null
+          notes?: string | null
+          progress_percentage?: number | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["academic_status"]
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrollments_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_history: {
         Row: {
           changed_by: string | null
@@ -230,6 +343,75 @@ export type Database = {
         }
         Relationships: []
       }
+      student_profiles: {
+        Row: {
+          available_for_casting: boolean | null
+          bio: string | null
+          bust_cm: number | null
+          created_at: string
+          eye_color: string | null
+          followers_count: number | null
+          hair_color: string | null
+          height_cm: number | null
+          hip_cm: number | null
+          id: string
+          instagram_handle: string | null
+          portfolio_url: string | null
+          shoe_size: number | null
+          skin_tone: string | null
+          tiktok_handle: string | null
+          updated_at: string
+          user_id: string
+          waist_cm: number | null
+          weight_kg: number | null
+          youtube_channel: string | null
+        }
+        Insert: {
+          available_for_casting?: boolean | null
+          bio?: string | null
+          bust_cm?: number | null
+          created_at?: string
+          eye_color?: string | null
+          followers_count?: number | null
+          hair_color?: string | null
+          height_cm?: number | null
+          hip_cm?: number | null
+          id?: string
+          instagram_handle?: string | null
+          portfolio_url?: string | null
+          shoe_size?: number | null
+          skin_tone?: string | null
+          tiktok_handle?: string | null
+          updated_at?: string
+          user_id: string
+          waist_cm?: number | null
+          weight_kg?: number | null
+          youtube_channel?: string | null
+        }
+        Update: {
+          available_for_casting?: boolean | null
+          bio?: string | null
+          bust_cm?: number | null
+          created_at?: string
+          eye_color?: string | null
+          followers_count?: number | null
+          hair_color?: string | null
+          height_cm?: number | null
+          hip_cm?: number | null
+          id?: string
+          instagram_handle?: string | null
+          portfolio_url?: string | null
+          shoe_size?: number | null
+          skin_tone?: string | null
+          tiktok_handle?: string | null
+          updated_at?: string
+          user_id?: string
+          waist_cm?: number | null
+          weight_kg?: number | null
+          youtube_channel?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -266,6 +448,13 @@ export type Database = {
       is_staff: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
+      academic_status:
+        | "ativo"
+        | "em_curso"
+        | "inadimplente"
+        | "evasao"
+        | "concluido"
+        | "trancado"
       app_role:
         | "admin"
         | "gestor"
@@ -421,6 +610,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      academic_status: [
+        "ativo",
+        "em_curso",
+        "inadimplente",
+        "evasao",
+        "concluido",
+        "trancado",
+      ],
       app_role: [
         "admin",
         "gestor",

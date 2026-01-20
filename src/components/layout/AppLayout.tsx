@@ -39,6 +39,7 @@ const routeNames: Record<string, string> = {
   '/settings': 'Configurações',
   '/agent-portfolio': 'Portfólio do Agente',
   '/users': 'Usuários',
+  '/roadmap': 'Roadmap',
 };
 
 const pageVariants = {

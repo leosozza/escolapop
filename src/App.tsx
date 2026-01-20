@@ -27,6 +27,7 @@ import Overdue from "./pages/Overdue";
 import Certificates from "./pages/Certificates";
 import Team from "./pages/Team";
 import Reports from "./pages/Reports";
+import Roadmap from "./pages/Roadmap";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -183,6 +184,14 @@ const App = () => (
               element={
                 <AppLayout>
                   <Reports />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/roadmap"
+              element={
+                <AppLayout>
+                  <Roadmap />
                 </AppLayout>
               }
             />

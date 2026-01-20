@@ -21,6 +21,7 @@ import {
   CreditCard,
   AlertTriangle,
   ChevronRight,
+  Rocket,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -99,6 +100,7 @@ const sidebarGroups = [
     items: [
       { name: 'Equipe', href: '/team', icon: Users },
       { name: 'Relatórios', href: '/reports', icon: BarChart3 },
+      { name: 'Roadmap', href: '/roadmap', icon: Rocket },
       { name: 'Configurações', href: '/settings', icon: Settings },
     ],
   },

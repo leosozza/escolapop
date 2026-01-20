@@ -42,6 +42,12 @@ export type AcademicStatus =
   | 'concluido'
   | 'trancado';
 
+export type ContentType = 
+  | 'video'
+  | 'text'
+  | 'file'
+  | 'quiz';
+
 export interface Profile {
   id: string;
   user_id: string;
@@ -178,6 +184,82 @@ export interface EnrollmentHistory {
   created_at: string;
 }
 
+// LMS Types
+export interface Module {
+  id: string;
+  course_id: string;
+  title: string;
+  description: string | null;
+  order_index: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  course?: Course;
+  lessons?: Lesson[];
+}
+
+export interface Lesson {
+  id: string;
+  module_id: string;
+  title: string;
+  description: string | null;
+  order_index: number;
+  duration_minutes: number | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  module?: Module;
+  contents?: LessonContent[];
+}
+
+export interface LessonContent {
+  id: string;
+  lesson_id: string;
+  content_type: ContentType;
+  title: string;
+  content_url: string | null;
+  content_text: string | null;
+  order_index: number;
+  duration_seconds: number | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  lesson?: Lesson;
+}
+
+export interface LessonProgress {
+  id: string;
+  enrollment_id: string;
+  lesson_id: string;
+  started_at: string | null;
+  completed_at: string | null;
+  progress_percentage: number;
+  last_position_seconds: number;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  enrollment?: Enrollment;
+  lesson?: Lesson;
+}
+
+export interface ContentProgress {
+  id: string;
+  enrollment_id: string;
+  content_id: string;
+  started_at: string | null;
+  completed_at: string | null;
+  watched_seconds: number;
+  total_seconds: number | null;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  enrollment?: Enrollment;
+  content?: LessonContent;
+}
+
 // Status labels and colors
 export const LEAD_STATUS_CONFIG: Record<LeadStatus, { label: string; color: string; bgColor: string }> = {
   lead: { label: 'Novo Lead', color: 'text-info', bgColor: 'bg-info/10' },
@@ -225,4 +307,11 @@ export const ACADEMIC_STATUS_CONFIG: Record<AcademicStatus, { label: string; col
   evasao: { label: 'Evasão', color: 'text-destructive', bgColor: 'bg-destructive/10' },
   concluido: { label: 'Concluído', color: 'text-info', bgColor: 'bg-info/10' },
   trancado: { label: 'Trancado', color: 'text-muted-foreground', bgColor: 'bg-muted/50' },
+};
+
+export const CONTENT_TYPE_CONFIG: Record<ContentType, { label: string; icon: string }> = {
+  video: { label: 'Vídeo', icon: 'Video' },
+  text: { label: 'Texto', icon: 'FileText' },
+  file: { label: 'Arquivo', icon: 'File' },
+  quiz: { label: 'Quiz', icon: 'HelpCircle' },
 };

@@ -39,7 +39,7 @@ const sidebarGroups = [
     defaultOpen: true,
     items: [
       { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-      { name: 'Leads', href: '/leads', icon: UserPlus },
+      { name: 'CRM', href: '/crm', icon: UserPlus },
       { name: 'Telemarketing', href: '/telemarketing', icon: Headphones },
       { name: 'Agendamentos', href: '/appointments', icon: Calendar },
       { name: 'Recepção', href: '/reception', icon: DoorOpen },

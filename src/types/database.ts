@@ -90,13 +90,14 @@ export interface Lead {
   status: LeadStatus;
   course_interest_id: string | null;
   assigned_agent_id: string | null;
+  assigned_producer_id: string | null;
   notes: string | null;
   scheduled_at: string | null;
   created_at: string;
   updated_at: string;
-  // Joined data
-  course?: Course;
-  agent?: Profile;
+  // Joined data (partial joins from queries)
+  course?: Partial<Course> | { name: string } | null;
+  agent?: Partial<Profile> | null;
 }
 
 export interface LeadHistory {
@@ -117,12 +118,13 @@ export interface Appointment {
   scheduled_time: string;
   confirmed: boolean;
   attended: boolean | null;
+  checked_in_at: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
   // Joined data
-  lead?: Lead;
-  agent?: Profile;
+  lead?: Partial<Lead> | null;
+  agent?: Partial<Profile> | null;
 }
 
 export interface StudentProfile {

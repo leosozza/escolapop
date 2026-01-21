@@ -26,6 +26,14 @@ interface StaffMember {
   role: string;
 }
 
+interface RelationshipAgent {
+  id: string;
+  full_name: string;
+  avatar_url: string | null;
+  whatsapp_phone: string;
+  is_active: boolean;
+}
+
 interface LeadData {
   id: string;
   full_name: string;
@@ -47,6 +55,7 @@ interface Alert {
 
 export default function Dashboard() {
   const { profile } = useAuth();
+  const [relationshipAgents, setRelationshipAgents] = useState<RelationshipAgent[]>([]);
   const [agents, setAgents] = useState<StaffMember[]>([]);
   const [producers, setProducers] = useState<StaffMember[]>([]);
   const [scouters, setScouters] = useState<StaffMember[]>([]);
@@ -77,6 +86,15 @@ export default function Dashboard() {
 
   const fetchDashboardData = async () => {
     try {
+      // Fetch relationship agents from dedicated agents table
+      const { data: agentsData } = await supabase
+        .from('agents')
+        .select('id, full_name, avatar_url, whatsapp_phone, is_active')
+        .eq('is_active', true)
+        .order('full_name');
+
+      setRelationshipAgents(agentsData || []);
+
       const { data: leadsData } = await supabase
         .from('leads')
         .select('id, full_name, status, updated_at, assigned_agent_id, scheduled_at')
@@ -261,17 +279,17 @@ export default function Dashboard() {
         <div className="flex items-center gap-2">
           <Handshake className="h-5 w-5 text-primary" />
           <h2 className="font-semibold text-lg">Agentes de Relacionamento</h2>
-          <span className="text-sm text-muted-foreground">({agents.length})</span>
+          <span className="text-sm text-muted-foreground">({relationshipAgents.length})</span>
         </div>
         <ScrollArea className="w-full whitespace-nowrap">
           <div className="flex gap-4 pb-4">
-            {agents.map((agent) => (
+            {relationshipAgents.map((agent) => (
               <AgentCard
                 key={agent.id}
                 id={agent.id}
                 name={agent.full_name}
                 avatarUrl={agent.avatar_url}
-                counters={getAgentCounters(agent.user_id)}
+                counters={[]}
               />
             ))}
             <AddAgentCard onClick={() => setShowAddAgentDialog(true)} />

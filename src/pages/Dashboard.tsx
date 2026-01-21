@@ -12,9 +12,9 @@ import { StatusBar, StatusSegment } from '@/components/dashboard/StatusBar';
 import { SummaryPanel } from '@/components/dashboard/SummaryPanel';
 import { RelationshipTable } from '@/components/dashboard/RelationshipTable';
 import { DateFilter } from '@/components/dashboard/DateFilter';
-import { OperationalAlerts } from '@/components/dashboard/OperationalAlerts';
+import { ScheduleByHour } from '@/components/dashboard/ScheduleByHour';
 import AddAgentDialog from '@/components/team/AddAgentDialog';
-import { format, differenceInHours, isSameDay } from 'date-fns';
+import { format, differenceInHours, isSameDay, setHours, setMinutes, addHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
@@ -43,15 +43,43 @@ interface LeadData {
   assigned_agent_id: string | null;
 }
 
-interface Alert {
-  id: string;
-  type: 'overdue' | 'no_response' | 'pending_confirmation' | 'at_risk';
-  title: string;
-  description: string;
-  leadName: string;
-  timeAgo: string;
-  priority: 'high' | 'medium' | 'low';
+interface ScheduleSlot {
+  hour: string;
+  count: number;
+  leads: { id: string; name: string; status: 'agendado' | 'confirmado' }[];
 }
+
+// Mock data for testing - will be removed when real data is available
+const generateMockLeads = (): LeadData[] => {
+  const now = new Date();
+  const statuses = ['lead', 'em_atendimento', 'agendado', 'confirmado', 'compareceu', 'proposta', 'matriculado', 'perdido'];
+  const names = [
+    'Ana Carolina Silva', 'Bruno Fernandes', 'Camila Oliveira', 'Daniel Costa',
+    'Eduarda Santos', 'Felipe Rodrigues', 'Gabriela Lima', 'Henrique Almeida',
+    'Isabela Martins', 'João Pedro Souza', 'Larissa Pereira', 'Marcos Vinícius',
+    'Natália Ribeiro', 'Otávio Gomes', 'Patricia Carvalho', 'Rafael Mendes',
+    'Sabrina Barbosa', 'Thiago Nascimento', 'Vanessa Araujo', 'William Castro',
+    'Amanda Ferreira', 'Bruna Machado', 'Carlos Eduardo', 'Diana Rocha',
+    'Emanuel Torres', 'Fernanda Dias', 'Gustavo Nunes', 'Helena Cardoso'
+  ];
+  
+  return names.map((name, index) => {
+    const status = statuses[index % statuses.length];
+    const hoursAgo = Math.floor(Math.random() * 72);
+    const scheduledHour = 8 + (index % 12);
+    
+    return {
+      id: `mock-${index}`,
+      full_name: name,
+      status,
+      updated_at: new Date(now.getTime() - hoursAgo * 60 * 60 * 1000).toISOString(),
+      scheduled_at: ['agendado', 'confirmado'].includes(status) 
+        ? setMinutes(setHours(now, scheduledHour), (index % 4) * 15).toISOString()
+        : null,
+      assigned_agent_id: null,
+    };
+  });
+};
 
 export default function Dashboard() {
   const { profile } = useAuth();
@@ -60,7 +88,6 @@ export default function Dashboard() {
   const [producers, setProducers] = useState<StaffMember[]>([]);
   const [scouters, setScouters] = useState<StaffMember[]>([]);
   const [leads, setLeads] = useState<LeadData[]>([]);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -95,64 +122,15 @@ export default function Dashboard() {
 
       setRelationshipAgents(agentsData || []);
 
+      // Fetch leads or use mock data for testing
       const { data: leadsData } = await supabase
         .from('leads')
         .select('id, full_name, status, updated_at, assigned_agent_id, scheduled_at')
         .order('updated_at', { ascending: false });
 
-      setLeads(leadsData || []);
-
-      // Generate alerts
-      const generatedAlerts: Alert[] = [];
-      const now = new Date();
-
-      (leadsData || []).forEach((lead) => {
-        const hoursAgo = differenceInHours(now, new Date(lead.updated_at));
-
-        if (lead.status === 'em_atendimento' && hoursAgo > 24) {
-          generatedAlerts.push({
-            id: `nr-${lead.id}`,
-            type: 'no_response',
-            title: 'Sem resposta há mais de 24h',
-            description: `Lead em atendimento sem atualização`,
-            leadName: lead.full_name,
-            timeAgo: `${hoursAgo}h`,
-            priority: hoursAgo > 48 ? 'high' : 'medium',
-          });
-        }
-
-        if (lead.status === 'lead' && hoursAgo > 12) {
-          generatedAlerts.push({
-            id: `od-${lead.id}`,
-            type: 'overdue',
-            title: 'Atrasado para agendamento',
-            description: `Lead novo sem agendamento`,
-            leadName: lead.full_name,
-            timeAgo: `${hoursAgo}h`,
-            priority: hoursAgo > 24 ? 'high' : 'medium',
-          });
-        }
-
-        if (lead.status === 'agendado' && lead.scheduled_at) {
-          const scheduledDate = new Date(lead.scheduled_at);
-          const tomorrow = new Date();
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          
-          if (scheduledDate.toDateString() === tomorrow.toDateString()) {
-            generatedAlerts.push({
-              id: `pc-${lead.id}`,
-              type: 'pending_confirmation',
-              title: 'Confirmação pendente para amanhã',
-              description: `Agendado para ${format(scheduledDate, 'dd/MM', { locale: ptBR })}`,
-              leadName: lead.full_name,
-              timeAgo: 'Amanhã',
-              priority: 'medium',
-            });
-          }
-        }
-      });
-
-      setAlerts(generatedAlerts.slice(0, 10));
+      // Use mock data if no real leads exist
+      const finalLeads = (leadsData && leadsData.length > 0) ? leadsData : generateMockLeads();
+      setLeads(finalLeads);
 
       // Fetch staff by role
       const { data: rolesData } = await supabase
@@ -241,6 +219,35 @@ export default function Dashboard() {
     { key: 'lead', label: 'Novos', count: filteredLeadsByDate.filter((l) => l.status === 'lead').length, colorClass: 'bg-primary' },
     { key: 'perdido', label: 'Declinou', count: filteredLeadsByDate.filter((l) => l.status === 'perdido').length, colorClass: 'bg-destructive' },
   ], [filteredLeadsByDate]);
+
+  // Schedule by hour slots
+  const scheduleSlots: ScheduleSlot[] = useMemo(() => {
+    const scheduledLeads = filteredLeadsByDate.filter(
+      (l) => ['agendado', 'confirmado'].includes(l.status) && l.scheduled_at
+    );
+
+    const slots: ScheduleSlot[] = [];
+    for (let hour = 8; hour <= 20; hour++) {
+      const hourStr = `${hour.toString().padStart(2, '0')}:00`;
+      const leadsInHour = scheduledLeads.filter((lead) => {
+        if (!lead.scheduled_at) return false;
+        const scheduledHour = new Date(lead.scheduled_at).getHours();
+        return scheduledHour === hour;
+      });
+
+      slots.push({
+        hour: hourStr,
+        count: leadsInHour.length,
+        leads: leadsInHour.map((l) => ({
+          id: l.id,
+          name: l.full_name,
+          status: l.status as 'agendado' | 'confirmado',
+        })),
+      });
+    }
+
+    return slots;
+  }, [filteredLeadsByDate]);
 
   if (isLoading) {
     return (
@@ -358,14 +365,14 @@ export default function Dashboard() {
         onSegmentClick={setStatusFilter}
       />
 
-      {/* Bottom Grid: Table + Alerts */}
+      {/* Bottom Grid: Table + Schedule by Hour */}
       <div className="grid gap-6 lg:grid-cols-2">
         <RelationshipTable
-          leads={filteredLeads.slice(0, 20)}
+          leads={filteredLeads}
           agents={agents}
           onLeadClick={(lead) => console.log('Lead clicked:', lead)}
         />
-        <OperationalAlerts alerts={alerts} />
+        <ScheduleByHour slots={scheduleSlots} />
       </div>
 
       {/* Add Agent Dialog */}

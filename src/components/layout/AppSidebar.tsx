@@ -189,8 +189,8 @@ export function AppSidebar() {
                 }}
                 transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
               >
-                <span className="truncate font-semibold">SAF School</span>
-                <span className="truncate text-xs text-muted-foreground">CRM + LMS</span>
+                <span className="truncate font-semibold">PEPS</span>
+                <span className="truncate text-xs text-muted-foreground">CRM + Gestão + Acadêmico</span>
               </motion.div>
             </SidebarMenuButton>
           </SidebarMenuItem>

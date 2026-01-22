@@ -117,7 +117,7 @@ export default function Auth() {
       <div className="absolute inset-0 bg-black/40" />
       
       {/* Card centralizado com fundo translúcido */}
-      <Card className="relative z-10 w-full max-w-md border-0 shadow-2xl bg-white/90 backdrop-blur-md">
+      <Card className="relative z-10 w-full max-w-md border-0 shadow-2xl bg-white/70 backdrop-blur-md">
         <CardHeader className="text-center pb-2">
           <div className="flex justify-center mb-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-primary shadow-lg">
@@ -125,7 +125,7 @@ export default function Auth() {
             </div>
           </div>
           <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-            PEPS Academy
+            PEPS
           </CardTitle>
           <CardDescription className="text-muted-foreground">
             Sistema integrado de gestão acadêmica

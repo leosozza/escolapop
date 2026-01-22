@@ -12,6 +12,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import authBackground from '@/assets/auth-background.jpg';
+import logoPrada from '@/assets/logo-prada.png';
+import logoPop from '@/assets/logo-pop.png';
+import logoModelo from '@/assets/logo-modelo.png';
+import logoSntv from '@/assets/logo-sntv.png';
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -305,6 +309,14 @@ export default function Auth() {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Logos dos parceiros */}
+      <div className="relative z-10 mt-8 flex items-center justify-center gap-6">
+        <img src={logoPrada} alt="Escola Prada" className="h-12 w-auto object-contain bg-white/80 rounded-lg p-2" />
+        <img src={logoPop} alt="Pop School" className="h-12 w-auto object-contain bg-white/80 rounded-lg p-2" />
+        <img src={logoModelo} alt="Escola de Modelo" className="h-12 w-auto object-contain bg-white/80 rounded-lg p-2" />
+        <img src={logoSntv} alt="SNTV Produtora" className="h-12 w-auto object-contain bg-white/80 rounded-lg p-2" />
+      </div>
     </div>
   );
 }

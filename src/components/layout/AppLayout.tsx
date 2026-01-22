@@ -113,7 +113,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                     href="/dashboard" 
                     className="transition-colors duration-200 hover:text-primary"
                   >
-                    SAF School
+                    PEPS
                   </BreadcrumbLink>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator className="hidden md:block" />

@@ -6,6 +6,7 @@ import {
   Calendar,
   MessageCircleWarning,
   Clock,
+  RefreshCw,
   XCircle,
   HelpCircle,
 } from 'lucide-react';
@@ -24,6 +25,7 @@ interface SummaryPanelProps {
     agendados: number;
     semResposta: number;
     atrasados: number;
+    reagendar: number;
     declinou: number;
     limbo: number;
   };
@@ -37,6 +39,7 @@ export function SummaryPanel({ totals, className }: SummaryPanelProps) {
     { label: 'Agendados', value: totals.agendados, icon: Calendar, colorClass: 'text-info' },
     { label: 'Sem Resposta', value: totals.semResposta, icon: MessageCircleWarning, colorClass: 'text-warning' },
     { label: 'Atrasados', value: totals.atrasados, icon: Clock, colorClass: 'text-destructive' },
+    { label: 'Reagendar', value: totals.reagendar, icon: RefreshCw, colorClass: 'text-orange-500' },
     { label: 'Declinou', value: totals.declinou, icon: XCircle, colorClass: 'text-destructive' },
     { label: 'Limbo', value: totals.limbo, icon: HelpCircle, colorClass: 'text-muted-foreground' },
   ];

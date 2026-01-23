@@ -206,8 +206,9 @@ export default function Dashboard() {
       agendados: filteredLeadsByDate.filter((l) => l.status === 'agendado').length,
       semResposta: filteredLeadsByDate.filter((l) => l.status === 'em_atendimento' && differenceInHours(now, new Date(l.updated_at)) > 24).length,
       atrasados: filteredLeadsByDate.filter((l) => l.status === 'lead' && differenceInHours(now, new Date(l.updated_at)) > 12).length,
+      reagendar: filteredLeadsByDate.filter((l) => l.status === 'reagendar').length,
       declinou: filteredLeadsByDate.filter((l) => l.status === 'perdido').length,
-      limbo: 0,
+      limbo: filteredLeadsByDate.filter((l) => l.status === 'limbo').length,
     };
   }, [filteredLeadsByDate]);
 

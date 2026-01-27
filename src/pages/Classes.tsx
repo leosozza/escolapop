@@ -29,6 +29,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -73,6 +80,7 @@ export default function Classes() {
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [isStudentsListOpen, setIsStudentsListOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
+  const [selectedRoom, setSelectedRoom] = useState<string>('all');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -138,10 +146,20 @@ export default function Classes() {
     }
   };
 
-  const filteredClasses = classes.filter(c =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.course?.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Get unique rooms for filter
+  const uniqueRooms = useMemo(() => {
+    const rooms = classes
+      .map(c => c.room)
+      .filter((room): room is string => !!room);
+    return [...new Set(rooms)].sort();
+  }, [classes]);
+
+  const filteredClasses = classes.filter(c => {
+    const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.course?.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesRoom = selectedRoom === 'all' || c.room === selectedRoom;
+    return matchesSearch && matchesRoom;
+  });
 
   // Separate active and completed classes
   const { activeClasses, completedClasses } = useMemo(() => {
@@ -378,6 +396,20 @@ export default function Classes() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Select value={selectedRoom} onValueChange={setSelectedRoom}>
+            <SelectTrigger className="w-40">
+              <MapPin className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Sala" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as Salas</SelectItem>
+              {uniqueRooms.map((room) => (
+                <SelectItem key={room} value={room}>
+                  {room}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input

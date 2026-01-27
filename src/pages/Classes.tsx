@@ -28,6 +28,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { AddClassDialog } from '@/components/classes/AddClassDialog';
 
 interface Class {
   id: string;
@@ -50,6 +51,7 @@ export default function Classes() {
   const [classes, setClasses] = useState<Class[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -130,7 +132,10 @@ export default function Classes() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <Button className="bg-gradient-primary hover:opacity-90">
+          <Button 
+            className="bg-gradient-primary hover:opacity-90"
+            onClick={() => setIsAddDialogOpen(true)}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Nova Turma
           </Button>
@@ -246,6 +251,15 @@ export default function Classes() {
           ))
         )}
       </div>
+
+      <AddClassDialog
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+        onSuccess={() => {
+          fetchClasses();
+          setIsAddDialogOpen(false);
+        }}
+      />
     </div>
   );
 }

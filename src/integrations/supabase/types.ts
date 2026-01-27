@@ -561,17 +561,22 @@ export type Database = {
           cancelled_at: string | null
           certificate_issued: boolean | null
           certificate_issued_at: string | null
+          class_id: string | null
           completed_at: string | null
           course_id: string
           created_at: string
           enrolled_at: string
+          enrollment_type: Database["public"]["Enums"]["enrollment_type"] | null
           grade: number | null
           id: string
+          influencer_name: string | null
           lead_id: string | null
           notes: string | null
           progress_percentage: number | null
+          referral_agent_code: string | null
           started_at: string | null
           status: Database["public"]["Enums"]["academic_status"]
+          student_age: number | null
           student_id: string
           updated_at: string
         }
@@ -580,17 +585,24 @@ export type Database = {
           cancelled_at?: string | null
           certificate_issued?: boolean | null
           certificate_issued_at?: string | null
+          class_id?: string | null
           completed_at?: string | null
           course_id: string
           created_at?: string
           enrolled_at?: string
+          enrollment_type?:
+            | Database["public"]["Enums"]["enrollment_type"]
+            | null
           grade?: number | null
           id?: string
+          influencer_name?: string | null
           lead_id?: string | null
           notes?: string | null
           progress_percentage?: number | null
+          referral_agent_code?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["academic_status"]
+          student_age?: number | null
           student_id: string
           updated_at?: string
         }
@@ -599,21 +611,35 @@ export type Database = {
           cancelled_at?: string | null
           certificate_issued?: boolean | null
           certificate_issued_at?: string | null
+          class_id?: string | null
           completed_at?: string | null
           course_id?: string
           created_at?: string
           enrolled_at?: string
+          enrollment_type?:
+            | Database["public"]["Enums"]["enrollment_type"]
+            | null
           grade?: number | null
           id?: string
+          influencer_name?: string | null
           lead_id?: string | null
           notes?: string | null
           progress_percentage?: number | null
+          referral_agent_code?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["academic_status"]
+          student_age?: number | null
           student_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "enrollments_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "enrollments_course_id_fkey"
             columns: ["course_id"]
@@ -636,6 +662,27 @@ export type Database = {
             referencedColumns: ["user_id"]
           },
         ]
+      }
+      influencers: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+        }
+        Relationships: []
       }
       lead_custom_values: {
         Row: {
@@ -1251,6 +1298,11 @@ export type Database = {
         | "aluno"
       content_type: "video" | "text" | "file" | "quiz"
       course_modality: "presencial" | "online" | "hibrido"
+      enrollment_type:
+        | "modelo_agenciado_maxfama"
+        | "modelo_agenciado_popschool"
+        | "indicacao_influencia"
+        | "indicacao_aluno"
       lead_source:
         | "whatsapp"
         | "instagram"
@@ -1416,6 +1468,12 @@ export const Constants = {
       ],
       content_type: ["video", "text", "file", "quiz"],
       course_modality: ["presencial", "online", "hibrido"],
+      enrollment_type: [
+        "modelo_agenciado_maxfama",
+        "modelo_agenciado_popschool",
+        "indicacao_influencia",
+        "indicacao_aluno",
+      ],
       lead_source: [
         "whatsapp",
         "instagram",

@@ -82,7 +82,6 @@ const sidebarGroups = [
       { name: 'Turmas', href: '/classes', icon: Users2 },
       { name: 'Cursos', href: '/courses', icon: GraduationCap },
       { name: 'Aulas (LMS)', href: '/lms', icon: BookOpen },
-      { name: 'Presença', href: '/attendance', icon: ClipboardCheck },
       { name: 'Certificados', href: '/certificates', icon: Award },
     ],
   },

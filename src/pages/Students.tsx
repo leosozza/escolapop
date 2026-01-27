@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Table,
   TableBody,
@@ -27,18 +27,20 @@ import {
   GraduationCap, 
   Users, 
   BookOpen,
-  TrendingUp,
+  TrendingDown,
   Eye,
   CheckCircle2,
+  AlertCircle,
+  MessageCircle,
 } from 'lucide-react';
 import { ACADEMIC_STATUS_CONFIG, type AcademicStatus } from '@/types/database';
 import { AddEnrollmentDialog } from '@/components/students/AddEnrollmentDialog';
 import { StudentDetailsSheet } from '@/components/students/StudentDetailsSheet';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
 
-interface EnrollmentWithRelations {
+interface EnrollmentWithLead {
   id: string;
-  student_id: string;
+  lead_id: string;
   course_id: string;
   class_id: string | null;
   status: string;
@@ -52,12 +54,11 @@ interface EnrollmentWithRelations {
     id: string;
     name: string;
   } | null;
-  student: {
+  lead: {
     id: string;
-    user_id: string;
     full_name: string;
-    phone: string | null;
-    avatar_url: string | null;
+    phone: string;
+    email: string | null;
   } | null;
   attendance_count?: number;
 }
@@ -75,17 +76,17 @@ export default function Students() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [courseFilter, setCourseFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
 
-  // Fetch enrollments with student and course data
+  // Fetch enrollments with lead data (students are leads now)
   const { data: enrollments, isLoading, refetch } = useQuery({
-    queryKey: ['enrollments', searchTerm, statusFilter, courseFilter],
+    queryKey: ['enrollments-leads', searchTerm, statusFilter, courseFilter],
     queryFn: async () => {
       let query = supabase
         .from('enrollments')
         .select(`
           id,
-          student_id,
+          lead_id,
           course_id,
           class_id,
           status,
@@ -96,12 +97,13 @@ export default function Students() {
           referral_agent_code,
           student_age,
           course:courses(id, name),
-          student:profiles!enrollments_student_id_fkey(id, user_id, full_name, phone, avatar_url)
+          lead:leads!enrollments_lead_id_fkey(id, full_name, phone, email)
         `)
+        .not('lead_id', 'is', null)
         .order('enrolled_at', { ascending: false });
 
       if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter as 'ativo' | 'em_curso' | 'inadimplente' | 'evasao' | 'concluido' | 'trancado');
+        query = query.eq('status', statusFilter as AcademicStatus);
       }
 
       if (courseFilter !== 'all') {
@@ -111,16 +113,16 @@ export default function Students() {
       const { data, error } = await query;
       if (error) throw error;
 
-      const typedData = data as unknown as EnrollmentWithRelations[];
+      const typedData = data as unknown as EnrollmentWithLead[];
 
       // Fetch attendance counts for each enrollment with a class
       const enrollmentsWithAttendance = await Promise.all(
         typedData.map(async (enrollment) => {
-          if (enrollment.class_id) {
+          if (enrollment.class_id && enrollment.lead_id) {
             const { count } = await supabase
               .from('attendance')
               .select('*', { count: 'exact', head: true })
-              .eq('student_id', enrollment.student_id)
+              .eq('student_id', enrollment.lead_id)
               .eq('class_id', enrollment.class_id)
               .eq('status', 'presente');
             
@@ -133,7 +135,7 @@ export default function Students() {
       // Filter by search term on client side
       if (searchTerm) {
         return enrollmentsWithAttendance?.filter(e => 
-          e.student?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          e.lead?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           e.course?.name?.toLowerCase().includes(searchTerm.toLowerCase())
         );
       }
@@ -156,22 +158,25 @@ export default function Students() {
     },
   });
 
-  // Stats
+  // Stats - all enrollment stats using lead_id
   const { data: stats } = useQuery({
-    queryKey: ['enrollment-stats'],
+    queryKey: ['enrollment-stats-leads'],
     queryFn: async () => {
       const { data: allEnrollments, error } = await supabase
         .from('enrollments')
-        .select('status');
+        .select('status')
+        .not('lead_id', 'is', null);
       
       if (error) throw error;
 
       const total = allEnrollments?.length || 0;
-      const active = allEnrollments?.filter(e => e.status === 'ativo' || e.status === 'em_curso').length || 0;
+      const matriculados = allEnrollments?.filter(e => e.status === 'ativo').length || 0;
+      const ativos = allEnrollments?.filter(e => e.status === 'em_curso').length || 0;
+      const inadimplentes = allEnrollments?.filter(e => e.status === 'inadimplente').length || 0;
       const completed = allEnrollments?.filter(e => e.status === 'concluido').length || 0;
       const dropouts = allEnrollments?.filter(e => e.status === 'evasao').length || 0;
 
-      return { total, active, completed, dropouts };
+      return { total, matriculados, ativos, inadimplentes, completed, dropouts };
     },
   });
 
@@ -205,6 +210,12 @@ export default function Students() {
     );
   };
 
+  const openWhatsApp = (phone: string, name: string) => {
+    const cleanPhone = phone.replace(/\D/g, '');
+    const message = encodeURIComponent(`Olá ${name}! Entramos em contato sobre suas aulas na escola.`);
+    window.open(`https://wa.me/55${cleanPhone}?text=${message}`, '_blank');
+  };
+
   return (
     <>
       <div className="space-y-6">
@@ -220,15 +231,16 @@ export default function Students() {
           </Button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
+        {/* Stats Cards - Updated with new metrics */}
+        <div className="grid gap-4 md:grid-cols-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Matriculados</CardTitle>
+              <CardTitle className="text-sm font-medium">Matriculados</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats?.total || 0}</div>
+              <div className="text-2xl font-bold">{stats?.matriculados || 0}</div>
+              <p className="text-xs text-muted-foreground">Aguardando início</p>
             </CardContent>
           </Card>
           <Card>
@@ -237,7 +249,18 @@ export default function Students() {
               <GraduationCap className="h-4 w-4 text-success" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-success">{stats?.active || 0}</div>
+              <div className="text-2xl font-bold text-success">{stats?.ativos || 0}</div>
+              <p className="text-xs text-muted-foreground">Em curso</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Inadimplentes</CardTitle>
+              <AlertCircle className="h-4 w-4 text-warning" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-warning">{stats?.inadimplentes || 0}</div>
+              <p className="text-xs text-muted-foreground">Pagamento pendente</p>
             </CardContent>
           </Card>
           <Card>
@@ -247,15 +270,27 @@ export default function Students() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-info">{stats?.completed || 0}</div>
+              <p className="text-xs text-muted-foreground">Formados</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Evasão</CardTitle>
-              <TrendingUp className="h-4 w-4 text-destructive" />
+              <TrendingDown className="h-4 w-4 text-destructive" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-destructive">{stats?.dropouts || 0}</div>
+              <p className="text-xs text-muted-foreground">Desistências</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-muted/30">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Geral</CardTitle>
+              <Users className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-primary">{stats?.total || 0}</div>
+              <p className="text-xs text-muted-foreground">Todos os status</p>
             </CardContent>
           </Card>
         </div>
@@ -337,15 +372,14 @@ export default function Students() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-9 w-9">
-                            <AvatarImage src={enrollment.student?.avatar_url ?? undefined} />
                             <AvatarFallback>
-                              {enrollment.student?.full_name ? getInitials(enrollment.student.full_name) : 'A'}
+                              {enrollment.lead?.full_name ? getInitials(enrollment.lead.full_name) : 'A'}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-medium">{enrollment.student?.full_name || 'Aluno'}</p>
+                            <p className="font-medium">{enrollment.lead?.full_name || 'Aluno'}</p>
                             <div className="flex items-center gap-2">
-                              <p className="text-xs text-muted-foreground">{enrollment.student?.phone}</p>
+                              <p className="text-xs text-muted-foreground">{enrollment.lead?.phone}</p>
                               {enrollment.student_age && (
                                 <span className="text-xs text-muted-foreground">• {enrollment.student_age} anos</span>
                               )}
@@ -401,14 +435,25 @@ export default function Students() {
                         {new Date(enrollment.enrolled_at).toLocaleDateString('pt-BR')}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedStudentId(enrollment.student_id)}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          Ver
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          {enrollment.lead?.phone && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openWhatsApp(enrollment.lead!.phone, enrollment.lead!.full_name)}
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedLeadId(enrollment.lead_id)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Ver
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -429,9 +474,9 @@ export default function Students() {
       />
 
       <StudentDetailsSheet
-        studentId={selectedStudentId}
-        open={!!selectedStudentId}
-        onOpenChange={(open) => !open && setSelectedStudentId(null)}
+        studentId={selectedLeadId}
+        open={!!selectedLeadId}
+        onOpenChange={(open) => !open && setSelectedLeadId(null)}
         onUpdate={refetch}
       />
     </>

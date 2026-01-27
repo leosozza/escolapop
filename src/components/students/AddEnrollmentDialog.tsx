@@ -44,10 +44,11 @@ const ENROLLMENT_TYPES = [
   { id: 'indicacao_aluno', label: 'Indicação de Aluno', color: 'bg-green-500' },
 ] as const;
 
-// Schema para aluno novo
+// Schema para novo aluno (agora é lead direto)
 const newStudentSchema = z.object({
   full_name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   phone: z.string().min(10, 'Telefone deve ter pelo menos 10 dígitos'),
+  email: z.string().email('Email inválido').optional().or(z.literal('')),
   course_id: z.string().min(1, 'Selecione um curso'),
   class_id: z.string().optional(),
   enrollment_type: z.string().min(1, 'Selecione o tipo de matrícula'),
@@ -57,12 +58,11 @@ const newStudentSchema = z.object({
   notes: z.string().optional(),
 });
 
-// Schema para aluno existente
-const existingStudentSchema = z.object({
-  student_id: z.string().min(1, 'Selecione um aluno'),
+// Schema para lead existente
+const existingLeadSchema = z.object({
+  lead_id: z.string().min(1, 'Selecione um lead'),
   course_id: z.string().min(1, 'Selecione um curso'),
   class_id: z.string().optional(),
-  lead_id: z.string().optional(),
   enrollment_type: z.string().optional(),
   influencer_name: z.string().optional(),
   referral_agent_code: z.string().optional(),
@@ -71,7 +71,7 @@ const existingStudentSchema = z.object({
 });
 
 type NewStudentFormValues = z.infer<typeof newStudentSchema>;
-type ExistingStudentFormValues = z.infer<typeof existingStudentSchema>;
+type ExistingLeadFormValues = z.infer<typeof existingLeadSchema>;
 
 interface AddEnrollmentDialogProps {
   open: boolean;
@@ -89,6 +89,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
     defaultValues: {
       full_name: '',
       phone: '',
+      email: '',
       course_id: '',
       class_id: '',
       enrollment_type: '',
@@ -99,14 +100,13 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
     },
   });
 
-  // Form para aluno existente
-  const existingStudentForm = useForm<ExistingStudentFormValues>({
-    resolver: zodResolver(existingStudentSchema),
+  // Form para lead existente
+  const existingLeadForm = useForm<ExistingLeadFormValues>({
+    resolver: zodResolver(existingLeadSchema),
     defaultValues: {
-      student_id: '',
+      lead_id: '',
       course_id: '',
       class_id: '',
-      lead_id: '',
       enrollment_type: '',
       influencer_name: '',
       referral_agent_code: '',
@@ -118,16 +118,16 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
   const selectedEnrollmentTypeNew = newStudentForm.watch('enrollment_type');
   const selectedCourseIdNew = newStudentForm.watch('course_id');
   
-  const selectedEnrollmentTypeExisting = existingStudentForm.watch('enrollment_type');
-  const selectedCourseIdExisting = existingStudentForm.watch('course_id');
+  const selectedEnrollmentTypeExisting = existingLeadForm.watch('enrollment_type');
+  const selectedCourseIdExisting = existingLeadForm.watch('course_id');
 
-  // Fetch existing users
-  const { data: students } = useQuery({
-    queryKey: ['students-for-enrollment'],
+  // Fetch leads that can be enrolled (not already enrolled)
+  const { data: leads } = useQuery({
+    queryKey: ['leads-for-enrollment'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('id, user_id, full_name, phone')
+        .from('leads')
+        .select('id, full_name, phone, status')
         .order('full_name');
       if (error) throw error;
       return data;
@@ -165,7 +165,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
     enabled: !!selectedCourseIdNew,
   });
 
-  // Fetch classes for selected course (existing student)
+  // Fetch classes for selected course (existing lead)
   const { data: classesExisting } = useQuery({
     queryKey: ['classes-for-enrollment', selectedCourseIdExisting],
     queryFn: async () => {
@@ -196,16 +196,17 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
     },
   });
 
-  // Submit para novo aluno de indicação
+  // Submit para novo aluno - cria lead E matrícula
   const onSubmitNewStudent = async (values: NewStudentFormValues) => {
     setIsSubmitting(true);
     try {
-      // 1. Criar o lead primeiro
+      // 1. Criar o lead
       const { data: leadData, error: leadError } = await supabase
         .from('leads')
         .insert({
           full_name: values.full_name,
           phone: values.phone,
+          email: values.email || null,
           course_interest_id: values.course_id,
           source: 'indicacao' as const,
           status: 'matriculado' as const,
@@ -216,12 +217,30 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
 
       if (leadError) throw leadError;
 
-      // 2. Criar um perfil básico para o aluno (precisamos de um user_id)
-      // Por enquanto, vamos usar o lead_id como referência
-      // NOTA: Em produção, o aluno precisaria criar uma conta
+      // 2. Criar a matrícula usando o lead_id
+      const enrollmentData: Record<string, unknown> = {
+        lead_id: leadData.id,
+        student_id: leadData.id, // Using lead_id as student_id for compatibility
+        course_id: values.course_id,
+        notes: values.notes || null,
+        status: 'ativo' as const,
+        progress_percentage: 0,
+        enrollment_type: values.enrollment_type,
+        student_age: values.student_age,
+      };
 
-      toast.success('Lead de indicação criado!', {
-        description: `${values.full_name} foi cadastrado como lead matriculado. Para completar a matrícula, o aluno precisa criar uma conta.`,
+      if (values.class_id) enrollmentData.class_id = values.class_id;
+      if (values.influencer_name) enrollmentData.influencer_name = values.influencer_name;
+      if (values.referral_agent_code) enrollmentData.referral_agent_code = values.referral_agent_code;
+
+      const { error: enrollmentError } = await supabase
+        .from('enrollments')
+        .insert(enrollmentData as never);
+
+      if (enrollmentError) throw enrollmentError;
+
+      toast.success('Matrícula realizada!', {
+        description: `${values.full_name} foi matriculado com sucesso. ${COURSE_WEEKS} aulas agendadas.`,
       });
 
       newStudentForm.reset();
@@ -234,14 +253,20 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
     }
   };
 
-  // Submit para aluno existente
-  const onSubmitExistingStudent = async (values: ExistingStudentFormValues) => {
+  // Submit para lead existente
+  const onSubmitExistingLead = async (values: ExistingLeadFormValues) => {
     setIsSubmitting(true);
     try {
+      // Update lead status to matriculado
+      await supabase
+        .from('leads')
+        .update({ status: 'matriculado' as const })
+        .eq('id', values.lead_id);
+
       const enrollmentData: Record<string, unknown> = {
-        student_id: values.student_id,
+        lead_id: values.lead_id,
+        student_id: values.lead_id, // Using lead_id as student_id for compatibility
         course_id: values.course_id,
-        lead_id: values.lead_id || null,
         notes: values.notes || null,
         status: 'ativo' as const,
         progress_percentage: 0,
@@ -259,7 +284,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
 
       if (error) {
         if (error.code === '23505') {
-          toast.error('Este aluno já está matriculado neste curso');
+          toast.error('Este lead já está matriculado neste curso');
         } else {
           throw error;
         }
@@ -269,7 +294,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
       toast.success('Matrícula realizada!', {
         description: `${COURSE_WEEKS} aulas agendadas para o aluno`,
       });
-      existingStudentForm.reset();
+      existingLeadForm.reset();
       onSuccess();
     } catch (error) {
       console.error('Error creating enrollment:', error);
@@ -296,7 +321,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
         <DialogHeader>
           <DialogTitle>Nova Matrícula</DialogTitle>
           <DialogDescription>
-            Cadastre um novo aluno ou matricule um aluno existente
+            Cadastre um novo aluno ou matricule um lead existente
           </DialogDescription>
         </DialogHeader>
 
@@ -304,22 +329,22 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="new" className="gap-2">
               <UserPlus className="h-4 w-4" />
-              Novo Aluno (Indicação)
+              Novo Aluno
             </TabsTrigger>
             <TabsTrigger value="existing" className="gap-2">
               <Users className="h-4 w-4" />
-              Aluno Existente
+              Lead Existente
             </TabsTrigger>
           </TabsList>
 
-          {/* TAB: Novo Aluno de Indicação */}
+          {/* TAB: Novo Aluno */}
           <TabsContent value="new" className="mt-4">
             <Form {...newStudentForm}>
               <form onSubmit={newStudentForm.handleSubmit(onSubmitNewStudent)} className="space-y-4">
                 <Alert>
                   <Info className="h-4 w-4" />
                   <AlertDescription>
-                    Cadastre leads novos que vieram por indicação. Após o cadastro, o aluno precisa criar uma conta para finalizar a matrícula.
+                    Cadastre novos alunos diretamente. Eles serão salvos como leads e matriculados automaticamente.
                   </AlertDescription>
                 </Alert>
 
@@ -356,6 +381,20 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={newStudentForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="email@exemplo.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={newStudentForm.control}
                     name="student_age"
                     render={({ field }) => (
                       <FormItem>
@@ -372,35 +411,35 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                       </FormItem>
                     )}
                   />
-
-                  <FormField
-                    control={newStudentForm.control}
-                    name="enrollment_type"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Tipo de Matrícula *</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {ENROLLMENT_TYPES.map((type) => (
-                              <SelectItem key={type.id} value={type.id}>
-                                <div className="flex items-center gap-2">
-                                  <div className={`w-2 h-2 rounded-full ${type.color}`} />
-                                  {type.label}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                 </div>
+
+                <FormField
+                  control={newStudentForm.control}
+                  name="enrollment_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipo de Matrícula *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {ENROLLMENT_TYPES.map((type) => (
+                            <SelectItem key={type.id} value={type.id}>
+                              <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${type.color}`} />
+                                {type.label}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 {/* Campo condicional: Influenciador */}
                 {selectedEnrollmentTypeNew === 'indicacao_influencia' && (
@@ -478,7 +517,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                   )}
                 />
 
-                {selectedCourseIdNew && classesNew && classesNew.length > 0 && (
+                {classesNew && classesNew.length > 0 && (
                   <FormField
                     control={newStudentForm.control}
                     name="class_id"
@@ -488,13 +527,13 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Selecione uma turma" />
+                              <SelectValue placeholder="Selecione a turma (opcional)" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {classesNew.map((classItem) => (
-                              <SelectItem key={classItem.id} value={classItem.id}>
-                                {classItem.name} - {classItem.room} • {formatSchedule(classItem.schedule as Record<string, string>)}
+                            {classesNew.map((c) => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.name} - {c.room} ({formatSchedule(c.schedule as Record<string, string>)})
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -512,45 +551,51 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                     <FormItem>
                       <FormLabel>Observações</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Observações sobre o aluno..." {...field} />
+                        <Textarea 
+                          placeholder="Observações sobre o aluno..." 
+                          className="resize-none"
+                          {...field} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? 'Salvando...' : 'Cadastrar Aluno'}
-                  </Button>
-                </div>
+                <Button type="submit" disabled={isSubmitting} className="w-full">
+                  {isSubmitting ? 'Cadastrando...' : 'Cadastrar Aluno'}
+                </Button>
               </form>
             </Form>
           </TabsContent>
 
-          {/* TAB: Aluno Existente */}
+          {/* TAB: Lead Existente */}
           <TabsContent value="existing" className="mt-4">
-            <Form {...existingStudentForm}>
-              <form onSubmit={existingStudentForm.handleSubmit(onSubmitExistingStudent)} className="space-y-4">
+            <Form {...existingLeadForm}>
+              <form onSubmit={existingLeadForm.handleSubmit(onSubmitExistingLead)} className="space-y-4">
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    Selecione um lead existente para matricular. O status será atualizado automaticamente.
+                  </AlertDescription>
+                </Alert>
+
                 <FormField
-                  control={existingStudentForm.control}
-                  name="student_id"
+                  control={existingLeadForm.control}
+                  name="lead_id"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Aluno *</FormLabel>
+                      <FormLabel>Lead *</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecione um aluno" />
+                            <SelectValue placeholder="Selecione o lead" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {students?.map((student) => (
-                            <SelectItem key={student.user_id} value={student.user_id}>
-                              {student.full_name} {student.phone && `- ${student.phone}`}
+                          {leads?.map((lead) => (
+                            <SelectItem key={lead.id} value={lead.id}>
+                              {lead.full_name} - {lead.phone} ({lead.status})
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -562,7 +607,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
 
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
-                    control={existingStudentForm.control}
+                    control={existingLeadForm.control}
                     name="student_age"
                     render={({ field }) => (
                       <FormItem>
@@ -581,7 +626,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                   />
 
                   <FormField
-                    control={existingStudentForm.control}
+                    control={existingLeadForm.control}
                     name="enrollment_type"
                     render={({ field }) => (
                       <FormItem>
@@ -609,9 +654,10 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                   />
                 </div>
 
+                {/* Campo condicional: Influenciador */}
                 {selectedEnrollmentTypeExisting === 'indicacao_influencia' && (
                   <FormField
-                    control={existingStudentForm.control}
+                    control={existingLeadForm.control}
                     name="influencer_name"
                     render={({ field }) => (
                       <FormItem>
@@ -636,9 +682,10 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                   />
                 )}
 
+                {/* Campo condicional: Código do Agenciado */}
                 {selectedEnrollmentTypeExisting === 'indicacao_aluno' && (
                   <FormField
-                    control={existingStudentForm.control}
+                    control={existingLeadForm.control}
                     name="referral_agent_code"
                     render={({ field }) => (
                       <FormItem>
@@ -653,7 +700,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                 )}
 
                 <FormField
-                  control={existingStudentForm.control}
+                  control={existingLeadForm.control}
                   name="course_id"
                   render={({ field }) => (
                     <FormItem>
@@ -661,13 +708,13 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecione um curso" />
+                            <SelectValue placeholder="Selecione o curso" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           {courses?.map((course) => (
                             <SelectItem key={course.id} value={course.id}>
-                              {course.name} ({course.duration_hours || 1}h/aula)
+                              {course.name} ({course.duration_hours || 1}h/aula) - R$ {course.price || 0}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -680,9 +727,9 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                   )}
                 />
 
-                {selectedCourseIdExisting && classesExisting && classesExisting.length > 0 && (
+                {classesExisting && classesExisting.length > 0 && (
                   <FormField
-                    control={existingStudentForm.control}
+                    control={existingLeadForm.control}
                     name="class_id"
                     render={({ field }) => (
                       <FormItem>
@@ -690,13 +737,13 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Selecione uma turma" />
+                              <SelectValue placeholder="Selecione a turma (opcional)" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {classesExisting.map((classItem) => (
-                              <SelectItem key={classItem.id} value={classItem.id}>
-                                {classItem.name} - {classItem.room} • {formatSchedule(classItem.schedule as Record<string, string>)}
+                            {classesExisting.map((c) => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.name} - {c.room} ({formatSchedule(c.schedule as Record<string, string>)})
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -708,27 +755,26 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                 )}
 
                 <FormField
-                  control={existingStudentForm.control}
+                  control={existingLeadForm.control}
                   name="notes"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Observações</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Observações sobre a matrícula..." {...field} />
+                        <Textarea 
+                          placeholder="Observações sobre a matrícula..." 
+                          className="resize-none"
+                          {...field} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? 'Salvando...' : 'Matricular'}
-                  </Button>
-                </div>
+                <Button type="submit" disabled={isSubmitting} className="w-full">
+                  {isSubmitting ? 'Matriculando...' : 'Matricular Lead'}
+                </Button>
               </form>
             </Form>
           </TabsContent>

@@ -28,7 +28,6 @@ import {
   AlertTriangle,
   Loader2,
   Calendar,
-  Clock,
 } from 'lucide-react';
 import { COURSE_WEEKS, calculateClassDates } from '@/lib/course-schedule-config';
 import { ACADEMIC_STATUS_CONFIG, type AcademicStatus } from '@/types/database';
@@ -47,7 +46,7 @@ interface ClassInfo {
 interface StudentEnrollment {
   id: string;
   enrollment_id: string;
-  student_id: string;
+  lead_id: string;
   student_name: string;
   phone: string | null;
   enrollment_status: AcademicStatus;
@@ -89,20 +88,17 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
     
     setIsLoading(true);
     try {
-      // Fetch students enrolled in this class
+      // Fetch enrollments for this class - students are leads now
       const { data: enrollmentData, error: enrollmentError } = await supabase
-        .from('class_enrollments')
+        .from('enrollments')
         .select(`
           id,
-          enrollment_id,
-          enrollment:enrollments(
-            id,
-            student_id,
-            status,
-            student:profiles!enrollments_student_id_fkey(user_id, full_name, phone)
-          )
+          lead_id,
+          status,
+          lead:leads!enrollments_lead_id_fkey(id, full_name, phone)
         `)
-        .eq('class_id', classInfo.id);
+        .eq('class_id', classInfo.id)
+        .not('lead_id', 'is', null);
 
       if (enrollmentError) throw enrollmentError;
 
@@ -114,31 +110,31 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
 
       if (attendanceError) throw attendanceError;
 
-      // Build attendance maps per student
+      // Build attendance maps per student (lead_id)
       const attendanceByStudent = new Map<string, Map<string, 'presente' | 'falta' | 'justificado'>>();
-      (attendanceData || []).forEach((a: any) => {
+      (attendanceData || []).forEach((a: { student_id: string; attendance_date: string; status: string }) => {
         if (!attendanceByStudent.has(a.student_id)) {
           attendanceByStudent.set(a.student_id, new Map());
         }
-        attendanceByStudent.get(a.student_id)?.set(a.attendance_date, a.status);
+        attendanceByStudent.get(a.student_id)?.set(a.attendance_date, a.status as 'presente' | 'falta' | 'justificado');
       });
 
       // Map students with their attendance data
       const studentList: StudentEnrollment[] = (enrollmentData || [])
-        .filter((e: any) => e.enrollment?.student?.user_id)
-        .map((e: any) => {
-          const studentId = e.enrollment.student.user_id;
-          const records = attendanceByStudent.get(studentId) || new Map();
+        .filter((e: { lead?: { id: string } | null }) => e.lead?.id)
+        .map((e: { id: string; lead_id: string; status: string; lead: { id: string; full_name: string; phone: string } | null }) => {
+          const leadId = e.lead!.id;
+          const records = attendanceByStudent.get(leadId) || new Map();
           const absenceCount = Array.from(records.values()).filter(s => s === 'falta').length;
           const presenceCount = Array.from(records.values()).filter(s => s === 'presente').length;
           
           return {
             id: e.id,
-            enrollment_id: e.enrollment.id,
-            student_id: studentId,
-            student_name: e.enrollment.student.full_name,
-            phone: e.enrollment.student.phone,
-            enrollment_status: e.enrollment.status as AcademicStatus,
+            enrollment_id: e.id,
+            lead_id: leadId,
+            student_name: e.lead!.full_name,
+            phone: e.lead!.phone,
+            enrollment_status: e.status as AcademicStatus,
             attendance_records: records,
             absence_count: absenceCount,
             presence_count: presenceCount,
@@ -155,7 +151,7 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
   };
 
   const markAttendance = async (
-    studentId: string, 
+    leadId: string, 
     enrollmentId: string,
     date: Date, 
     status: 'presente' | 'falta' | 'justificado'
@@ -166,12 +162,12 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
     try {
       const dateStr = format(date, 'yyyy-MM-dd');
       
-      // Upsert attendance
+      // Upsert attendance - student_id is actually lead_id
       const { error: attendanceError } = await supabase
         .from('attendance')
         .upsert({
           class_id: classInfo.id,
-          student_id: studentId,
+          student_id: leadId,
           attendance_date: dateStr,
           status,
         }, {
@@ -182,13 +178,13 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
 
       // Update local state
       setStudents(prev => prev.map(s => {
-        if (s.student_id !== studentId) return s;
+        if (s.lead_id !== leadId) return s;
         
         const newRecords = new Map(s.attendance_records);
         newRecords.set(dateStr, status);
         
-        const absenceCount = Array.from(newRecords.values()).filter(s => s === 'falta').length;
-        const presenceCount = Array.from(newRecords.values()).filter(s => s === 'presente').length;
+        const absenceCount = Array.from(newRecords.values()).filter(st => st === 'falta').length;
+        const presenceCount = Array.from(newRecords.values()).filter(st => st === 'presente').length;
         
         return {
           ...s,
@@ -199,7 +195,7 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
       }));
 
       // Check for automatic status changes
-      await checkAndUpdateEnrollmentStatus(studentId, enrollmentId, status);
+      await checkAndUpdateEnrollmentStatus(leadId, enrollmentId, status);
 
       toast.success('Presença registrada!');
     } catch (error) {
@@ -211,11 +207,11 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
   };
 
   const checkAndUpdateEnrollmentStatus = async (
-    studentId: string, 
+    leadId: string, 
     enrollmentId: string, 
     newStatus: 'presente' | 'falta' | 'justificado'
   ) => {
-    const student = students.find(s => s.student_id === studentId);
+    const student = students.find(s => s.lead_id === leadId);
     if (!student) return;
 
     // Calculate new counts including the just-marked attendance
@@ -245,7 +241,7 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
       } else {
         // Update local state
         setStudents(prev => prev.map(s => 
-          s.student_id === studentId 
+          s.lead_id === leadId 
             ? { ...s, enrollment_status: newEnrollmentStatus! }
             : s
         ));
@@ -276,13 +272,6 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
 
   const getInitials = (name: string) =>
     name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-
-  const getSessionNumber = (date: Date) => {
-    const index = classDates.findIndex(d => 
-      format(d, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
-    );
-    return index + 1;
-  };
 
   const getStatusBadge = (status: AcademicStatus) => {
     const config = ACADEMIC_STATUS_CONFIG[status];
@@ -420,7 +409,7 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
                                           !status ? 'presente' :
                                           status === 'presente' ? 'falta' :
                                           status === 'falta' ? 'justificado' : 'presente';
-                                        markAttendance(student.student_id, student.enrollment_id, date, nextStatus);
+                                        markAttendance(student.lead_id, student.enrollment_id, date, nextStatus);
                                       }}
                                       className={cn(
                                         "h-8 w-8 rounded-md flex items-center justify-center text-xs font-medium transition-all",
@@ -454,22 +443,6 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
                             })}
                           </div>
                         </TooltipProvider>
-                      </div>
-
-                      {/* Progress summary */}
-                      <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Check className="h-3 w-3 text-success" />
-                          {student.presence_count} presenças
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <X className="h-3 w-3 text-destructive" />
-                          {student.absence_count} faltas
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {COURSE_WEEKS - student.presence_count - student.absence_count} pendentes
-                        </span>
                       </div>
                     </CardContent>
                   </Card>

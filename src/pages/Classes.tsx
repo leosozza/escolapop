@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Plus,
   Search,
@@ -9,17 +9,18 @@ import {
   GraduationCap,
   Loader2,
   MoreHorizontal,
-  Eye,
   Edit,
   Trash2,
   Timer,
-  ClipboardList,
+  CheckCircle,
+  Archive,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,7 +49,7 @@ interface Class {
   created_at: string;
   course?: { name: string; duration_hours: number | null };
   teacher?: { full_name: string };
-  _count?: { students: number };
+  student_count?: number;
 }
 
 export default function Classes() {
@@ -76,7 +77,21 @@ export default function Classes() {
         .order('start_date', { ascending: false });
 
       if (error) throw error;
-      setClasses((data || []) as Class[]);
+
+      // Fetch student counts for each class
+      const classesWithCounts = await Promise.all(
+        (data || []).map(async (c) => {
+          const { count } = await supabase
+            .from('enrollments')
+            .select('*', { count: 'exact', head: true })
+            .eq('class_id', c.id)
+            .not('lead_id', 'is', null);
+          
+          return { ...c, student_count: count || 0 };
+        })
+      );
+
+      setClasses(classesWithCounts as Class[]);
     } catch (error) {
       console.error('Error fetching classes:', error);
       toast({
@@ -93,6 +108,27 @@ export default function Classes() {
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.course?.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Separate active and completed classes
+  const { activeClasses, completedClasses } = useMemo(() => {
+    const now = new Date();
+    const active: Class[] = [];
+    const completed: Class[] = [];
+
+    filteredClasses.forEach(c => {
+      const endDate = c.end_date 
+        ? new Date(c.end_date) 
+        : new Date(new Date(c.start_date).getTime() + COURSE_WEEKS * 7 * 24 * 60 * 60 * 1000);
+      
+      if (now > endDate || !c.is_active) {
+        completed.push(c);
+      } else {
+        active.push(c);
+      }
+    });
+
+    return { activeClasses: active, completedClasses: completed };
+  }, [filteredClasses]);
 
   const formatSchedule = (schedule: Record<string, string> | null) => {
     if (!schedule) return 'Não definido';
@@ -116,11 +152,102 @@ export default function Classes() {
     
     const totalDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
     const passedDays = (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
-    const progress = Math.round((passedDays / totalDays) * 100);
     const weeksLeft = Math.ceil((end.getTime() - now.getTime()) / (7 * 24 * 60 * 60 * 1000));
     
-    return { label: `${weeksLeft} semanas restantes`, variant: 'outline' as const, progress };
+    return { label: `${weeksLeft} semanas restantes`, variant: 'outline' as const };
   };
+
+  const handleClassClick = (classItem: Class) => {
+    setSelectedClass(classItem);
+    setIsStudentsListOpen(true);
+  };
+
+  const renderClassCard = (classItem: Class, isCompleted = false) => (
+    <Card 
+      key={classItem.id} 
+      className={`border-0 shadow-md hover:shadow-lg transition-all cursor-pointer ${isCompleted ? 'opacity-75' : ''}`}
+      onClick={() => handleClassClick(classItem)}
+    >
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle className="text-lg">{classItem.name}</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {classItem.course?.name || 'Curso não definido'}
+            </p>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-popover">
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); }}>
+                <Edit className="h-4 w-4 mr-2" />
+                Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); }}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Excluir
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex items-center gap-2 text-sm">
+          <Users className="h-4 w-4 text-primary" />
+          <span className="font-medium">{classItem.student_count || 0} alunos</span>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span>
+            {format(new Date(classItem.start_date), 'dd/MM/yyyy', { locale: ptBR })}
+            {classItem.end_date && ` → ${format(new Date(classItem.end_date), 'dd/MM/yyyy', { locale: ptBR })}`}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <Clock className="h-4 w-4 text-muted-foreground" />
+          <span className="truncate">{formatSchedule(classItem.schedule)}</span>
+        </div>
+        {classItem.course?.duration_hours && (
+          <div className="flex items-center gap-2 text-sm">
+            <Timer className="h-4 w-4 text-muted-foreground" />
+            <span>{classItem.course.duration_hours}h por aula • {COURSE_WEEKS} semanas</span>
+          </div>
+        )}
+        {classItem.room && (
+          <div className="flex items-center gap-2 text-sm">
+            <MapPin className="h-4 w-4 text-muted-foreground" />
+            <span>{classItem.room}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center gap-2">
+            <Avatar className="h-6 w-6">
+              <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                {classItem.teacher?.full_name?.charAt(0) || 'P'}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-sm text-muted-foreground">
+              {classItem.teacher?.full_name || 'Sem professor'}
+            </span>
+          </div>
+          {isCompleted ? (
+            <Badge variant="secondary" className="gap-1">
+              <CheckCircle className="h-3 w-3" />
+              Concluída
+            </Badge>
+          ) : (
+            <Badge variant={classItem.is_active ? 'default' : 'secondary'}>
+              {classItem.is_active ? 'Ativa' : 'Inativa'}
+            </Badge>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   if (isLoading) {
     return (
@@ -137,7 +264,7 @@ export default function Classes() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Turmas</h1>
           <p className="text-muted-foreground">
-            Gestão de turmas e alunos matriculados
+            Clique em uma turma para ver a lista de alunos
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -182,104 +309,81 @@ export default function Classes() {
                 <GraduationCap className="h-5 w-5 text-success" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{classes.filter(c => c.is_active).length}</p>
+                <p className="text-2xl font-bold">{activeClasses.length}</p>
                 <p className="text-sm text-muted-foreground">Turmas Ativas</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-info/10">
+                <Archive className="h-5 w-5 text-info" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{completedClasses.length}</p>
+                <p className="text-sm text-muted-foreground">Turmas Concluídas</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-warning/10">
+                <Users className="h-5 w-5 text-warning" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">
+                  {classes.reduce((acc, c) => acc + (c.student_count || 0), 0)}
+                </p>
+                <p className="text-sm text-muted-foreground">Total de Alunos</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Classes Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredClasses.length === 0 ? (
-          <div className="col-span-full text-center py-12 text-muted-foreground">
-            <Users className="mx-auto h-12 w-12 opacity-50 mb-2" />
-            <p>Nenhuma turma cadastrada</p>
+      {/* Tabs for Active and Completed */}
+      <Tabs defaultValue="active" className="w-full">
+        <TabsList>
+          <TabsTrigger value="active" className="gap-2">
+            <GraduationCap className="h-4 w-4" />
+            Turmas Ativas ({activeClasses.length})
+          </TabsTrigger>
+          <TabsTrigger value="completed" className="gap-2">
+            <Archive className="h-4 w-4" />
+            Turmas Concluídas ({completedClasses.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="active" className="mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {activeClasses.length === 0 ? (
+              <div className="col-span-full text-center py-12 text-muted-foreground">
+                <Users className="mx-auto h-12 w-12 opacity-50 mb-2" />
+                <p>Nenhuma turma ativa</p>
+              </div>
+            ) : (
+              activeClasses.map((classItem) => renderClassCard(classItem))
+            )}
           </div>
-        ) : (
-          filteredClasses.map((classItem) => (
-            <Card key={classItem.id} className="border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-lg">{classItem.name}</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {classItem.course?.name || 'Curso não definido'}
-                    </p>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-popover">
-                      <DropdownMenuItem 
-                        onClick={() => {
-                          setSelectedClass(classItem);
-                          setIsStudentsListOpen(true);
-                        }}
-                      >
-                        <ClipboardList className="h-4 w-4 mr-2" />
-                        Lista de Presença
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Editar
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive">
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Excluir
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span>
-                    {format(new Date(classItem.start_date), 'dd/MM/yyyy', { locale: ptBR })}
-                    {classItem.end_date && ` → ${format(new Date(classItem.end_date), 'dd/MM/yyyy', { locale: ptBR })}`}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span className="truncate">{formatSchedule(classItem.schedule)}</span>
-                </div>
-                {classItem.course?.duration_hours && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Timer className="h-4 w-4 text-muted-foreground" />
-                    <span>{classItem.course.duration_hours}h por aula • {COURSE_WEEKS} semanas</span>
-                  </div>
-                )}
-                {classItem.room && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <span>{classItem.room}</span>
-                  </div>
-                )}
-                <div className="flex items-center justify-between pt-2">
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-6 w-6">
-                      <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                        {classItem.teacher?.full_name?.charAt(0) || 'P'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm text-muted-foreground">
-                      {classItem.teacher?.full_name || 'Sem professor'}
-                    </span>
-                  </div>
-                  <Badge variant={classItem.is_active ? 'default' : 'secondary'}>
-                    {classItem.is_active ? 'Ativa' : 'Inativa'}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+        </TabsContent>
+
+        <TabsContent value="completed" className="mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {completedClasses.length === 0 ? (
+              <div className="col-span-full text-center py-12 text-muted-foreground">
+                <Archive className="mx-auto h-12 w-12 opacity-50 mb-2" />
+                <p>Nenhuma turma concluída</p>
+              </div>
+            ) : (
+              completedClasses.map((classItem) => renderClassCard(classItem, true))
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
 
       <AddClassDialog
         open={isAddDialogOpen}

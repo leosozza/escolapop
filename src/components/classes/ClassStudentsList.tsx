@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
 import {
   Tooltip,
   TooltipContent,
@@ -28,9 +29,10 @@ import {
   AlertTriangle,
   Loader2,
   Calendar,
+  Search,
 } from 'lucide-react';
 import { COURSE_WEEKS, calculateClassDates } from '@/lib/course-schedule-config';
-import { ACADEMIC_STATUS_CONFIG, type AcademicStatus } from '@/types/database';
+import { ACADEMIC_STATUS_CONFIG, type AcademicStatus, type EnrollmentType } from '@/types/database';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -50,6 +52,8 @@ interface StudentEnrollment {
   student_name: string;
   phone: string | null;
   enrollment_status: AcademicStatus;
+  enrollment_type: EnrollmentType | null;
+  referral_agent_code: string | null;
   attendance_records: Map<string, 'presente' | 'falta' | 'justificado'>;
   absence_count: number;
   presence_count: number;
@@ -67,6 +71,7 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [classDates, setClassDates] = useState<Date[]>([]);
+  const [searchCode, setSearchCode] = useState('');
 
   useEffect(() => {
     if (open && classInfo) {
@@ -95,6 +100,8 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
           id,
           lead_id,
           status,
+          enrollment_type,
+          referral_agent_code,
           lead:leads!enrollments_lead_id_fkey(id, full_name, phone)
         `)
         .eq('class_id', classInfo.id)
@@ -122,7 +129,7 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
       // Map students with their attendance data
       const studentList: StudentEnrollment[] = (enrollmentData || [])
         .filter((e: { lead?: { id: string } | null }) => e.lead?.id)
-        .map((e: { id: string; lead_id: string; status: string; lead: { id: string; full_name: string; phone: string } | null }) => {
+        .map((e: { id: string; lead_id: string; status: string; enrollment_type: string | null; referral_agent_code: string | null; lead: { id: string; full_name: string; phone: string } | null }) => {
           const leadId = e.lead!.id;
           const records = attendanceByStudent.get(leadId) || new Map();
           const absenceCount = Array.from(records.values()).filter(s => s === 'falta').length;
@@ -135,6 +142,8 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
             student_name: e.lead!.full_name,
             phone: e.lead!.phone,
             enrollment_status: e.status as AcademicStatus,
+            enrollment_type: e.enrollment_type as EnrollmentType | null,
+            referral_agent_code: e.referral_agent_code,
             attendance_records: records,
             absence_count: absenceCount,
             presence_count: presenceCount,
@@ -282,6 +291,32 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
     );
   };
 
+  // Check if any student is agenciado (MaxFama or PopSchool)
+  const hasAgenciadoStudents = useMemo(() => 
+    students.some(s => 
+      s.enrollment_type === 'modelo_agenciado_maxfama' || 
+      s.enrollment_type === 'modelo_agenciado_popschool'
+    ), [students]);
+
+  // Filter students by code search (only for agenciado students)
+  const filteredStudents = useMemo(() => {
+    if (!searchCode.trim()) return students;
+    
+    const search = searchCode.toLowerCase().trim();
+    return students.filter(s => {
+      // Non-agenciado students always show
+      if (s.enrollment_type !== 'modelo_agenciado_maxfama' && 
+          s.enrollment_type !== 'modelo_agenciado_popschool') {
+        return true;
+      }
+      // Agenciado students filter by code or name
+      return (
+        s.referral_agent_code?.toLowerCase().includes(search) ||
+        s.student_name.toLowerCase().includes(search)
+      );
+    });
+  }, [students, searchCode]);
+
   if (!classInfo) return null;
 
   return (
@@ -298,6 +333,19 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
         </SheetHeader>
 
         <Separator className="my-4" />
+
+        {/* Search by code - only shows if there are agenciado students */}
+        {hasAgenciadoStudents && !isLoading && students.length > 0 && (
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por código do agenciado ou nome..."
+              value={searchCode}
+              onChange={(e) => setSearchCode(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
@@ -332,7 +380,7 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
               </div>
 
               {/* Students with absence warning first */}
-              {students
+              {filteredStudents
                 .sort((a, b) => {
                   // Students with 1-2 absences come first (warning zone)
                   const aWarning = a.absence_count >= 1 && a.absence_count < 3;
@@ -341,9 +389,13 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
                   if (!aWarning && bWarning) return 1;
                   return a.student_name.localeCompare(b.student_name);
                 })
-                .map((student) => (
+                .map((student) => {
+                  const isAgenciado = student.enrollment_type === 'modelo_agenciado_maxfama' || 
+                                      student.enrollment_type === 'modelo_agenciado_popschool';
+                  
+                  return (
                   <Card 
-                    key={student.id} 
+                    key={student.id}
                     className={cn(
                       "border shadow-sm",
                       student.absence_count >= 1 && student.absence_count < 3 && "border-warning/50 bg-warning/5",
@@ -361,8 +413,13 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
                           </Avatar>
                           <div className="min-w-0">
                             <p className="font-medium truncate">{student.student_name}</p>
-                            <div className="flex items-center gap-2 mt-1">
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
                               {getStatusBadge(student.enrollment_status)}
+                              {isAgenciado && student.referral_agent_code && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Cód: {student.referral_agent_code}
+                                </Badge>
+                              )}
                               {student.absence_count >= 1 && student.absence_count < 3 && (
                                 <Badge variant="outline" className="bg-warning/10 text-warning border-0 text-xs">
                                   <AlertTriangle className="h-3 w-3 mr-1" />
@@ -446,7 +503,8 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
                       </div>
                     </CardContent>
                   </Card>
-                ))}
+                  );
+                })}
             </div>
           </ScrollArea>
         )}

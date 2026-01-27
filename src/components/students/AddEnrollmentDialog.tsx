@@ -44,11 +44,10 @@ const ENROLLMENT_TYPES = [
   { id: 'indicacao_aluno', label: 'Indicação de Aluno', color: 'bg-green-500' },
 ] as const;
 
-// Schema para novo aluno (agora é lead direto)
+// Schema para novo aluno (agora é lead direto) - sem email
 const newStudentSchema = z.object({
   full_name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   phone: z.string().min(10, 'Telefone deve ter pelo menos 10 dígitos'),
-  email: z.string().email('Email inválido').optional().or(z.literal('')),
   course_id: z.string().min(1, 'Selecione um curso'),
   class_id: z.string().min(1, 'Selecione uma turma'),
   enrollment_type: z.string().min(1, 'Selecione o tipo de matrícula'),
@@ -89,7 +88,6 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
     defaultValues: {
       full_name: '',
       phone: '',
-      email: '',
       course_id: '',
       class_id: '',
       enrollment_type: '',
@@ -200,13 +198,12 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
   const onSubmitNewStudent = async (values: NewStudentFormValues) => {
     setIsSubmitting(true);
     try {
-      // 1. Criar o lead
+      // 1. Criar o lead (sem email)
       const { data: leadData, error: leadError } = await supabase
         .from('leads')
         .insert({
           full_name: values.full_name,
           phone: values.phone,
-          email: values.email || null,
           course_interest_id: values.course_id,
           source: 'indicacao' as const,
           status: 'matriculado' as const,
@@ -378,40 +375,24 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={newStudentForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="email@exemplo.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={newStudentForm.control}
-                    name="student_age"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Idade *</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            placeholder="18" 
-                            {...field}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                <FormField
+                  control={newStudentForm.control}
+                  name="student_age"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Idade *</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="18" 
+                          {...field}
+                          onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <FormField
                   control={newStudentForm.control}

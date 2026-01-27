@@ -283,11 +283,15 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
       if (leadError) throw leadError;
 
       // 2. Criar a matrícula usando o lead_id - class_id é obrigatório
+      // Get current user for student_id (required by FK)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
       const enrollmentData: Record<string, unknown> = {
         lead_id: leadData.id,
-        student_id: leadData.id, // Using lead_id as student_id for compatibility
+        student_id: user.id, // Use current authenticated user as placeholder
         course_id: values.course_id,
-        class_id: values.class_id, // Obrigatório - aluno sempre entra em uma turma
+        class_id: values.class_id,
         notes: values.notes || null,
         status: 'ativo' as const,
         progress_percentage: 0,
@@ -343,11 +347,15 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
         .update({ status: 'matriculado' as const })
         .eq('id', values.lead_id);
 
+      // Get current user for student_id (required by FK)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
       const enrollmentData: Record<string, unknown> = {
         lead_id: values.lead_id,
-        student_id: values.lead_id, // Using lead_id as student_id for compatibility
+        student_id: user.id, // Use current authenticated user as placeholder
         course_id: values.course_id,
-        class_id: values.class_id, // Obrigatório - aluno sempre entra em uma turma
+        class_id: values.class_id,
         notes: values.notes || null,
         status: 'ativo' as const,
         progress_percentage: 0,

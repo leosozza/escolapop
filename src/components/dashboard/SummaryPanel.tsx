@@ -47,30 +47,28 @@ export function SummaryPanel({ totals, className }: SummaryPanelProps) {
   return (
     <Card
       className={cn(
-        'bg-slate-800 dark:bg-slate-900 text-white p-4 rounded-xl border-0',
+        'bg-slate-800 dark:bg-slate-900 text-white p-3 rounded-xl border-0',
         className
       )}
     >
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-lg">Resumo do Período</h3>
-        <span className="text-sm text-slate-400">Visão Geral</span>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="font-medium text-sm">Resumo da Carteira Comercial</h3>
+        <span className="text-xs text-slate-400">Leads em Atendimento</span>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+      <div className="flex flex-wrap gap-2">
         {items.map((item) => {
           const Icon = item.icon;
           return (
             <div
               key={item.label}
-              className="flex items-center gap-2 bg-slate-700/50 rounded-lg p-3"
+              className="flex items-center gap-1.5 bg-slate-700/50 rounded-md px-2.5 py-1.5"
             >
-              <Icon className={cn('h-5 w-5 flex-shrink-0', item.colorClass)} />
-              <div className="flex flex-col">
-                <span className="text-xl font-bold">{item.value}</span>
-                <span className="text-xs text-slate-400 uppercase tracking-wide">
-                  {item.label}
-                </span>
-              </div>
+              <Icon className={cn('h-3.5 w-3.5 flex-shrink-0', item.colorClass)} />
+              <span className="text-base font-bold">{item.value}</span>
+              <span className="text-[10px] text-slate-400 uppercase tracking-wide">
+                {item.label}
+              </span>
             </div>
           );
         })}

@@ -31,36 +31,39 @@ export function AgentCard({ name, avatarUrl, counters, onClick, className }: Age
   return (
     <Card
       className={cn(
-        'flex flex-col items-center p-4 min-w-[160px] w-[160px] cursor-pointer transition-all duration-200',
+        'flex flex-col items-center p-3 min-w-[140px] w-[140px] cursor-pointer transition-all duration-200',
         'hover:shadow-lg hover:border-primary/50 hover:-translate-y-1',
         'bg-card border-border/50',
         className
       )}
       onClick={onClick}
     >
-      <Avatar className="h-24 w-24 mb-3 ring-2 ring-primary/20">
+      {/* Foto maior - ocupa ~50% do card */}
+      <Avatar className="h-20 w-20 mb-2 ring-2 ring-primary/20">
         <AvatarImage src={avatarUrl || undefined} alt={name} className="object-cover" />
-        <AvatarFallback className="text-xl font-semibold bg-primary/10 text-primary">
+        <AvatarFallback className="text-lg font-semibold bg-primary/10 text-primary">
           {getInitials(name)}
         </AvatarFallback>
       </Avatar>
 
-      <h3 className="font-semibold text-sm text-center mb-3 line-clamp-2">{name}</h3>
+      <h3 className="font-semibold text-xs text-center line-clamp-2 mb-1">{name}</h3>
 
-      <div className="w-full space-y-1.5">
-        {counters.map((counter, index) => (
-          <div
-            key={index}
-            className={cn(
-              'flex items-center justify-between px-2 py-1 rounded text-xs font-medium',
-              counter.colorClass
-            )}
-          >
-            <span className="uppercase tracking-wide">{counter.label}</span>
-            <span className="font-bold">{counter.value}</span>
-          </div>
-        ))}
-      </div>
+      {counters.length > 0 && (
+        <div className="w-full space-y-1">
+          {counters.map((counter, index) => (
+            <div
+              key={index}
+              className={cn(
+                'flex items-center justify-between px-1.5 py-0.5 rounded text-[10px] font-medium',
+                counter.colorClass
+              )}
+            >
+              <span className="uppercase tracking-wide">{counter.label}</span>
+              <span className="font-bold">{counter.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }
@@ -74,17 +77,17 @@ export function AddAgentCard({ onClick, className }: AddAgentCardProps) {
   return (
     <Card
       className={cn(
-        'flex flex-col items-center justify-center p-4 min-w-[160px] w-[160px] cursor-pointer',
+        'flex flex-col items-center justify-center p-3 min-w-[140px] w-[140px] cursor-pointer',
         'transition-all duration-200 hover:shadow-lg hover:border-primary/50',
         'bg-muted/30 border-dashed border-2 border-muted-foreground/30',
         className
       )}
       onClick={onClick}
     >
-      <div className="h-24 w-24 rounded-full bg-muted/50 flex items-center justify-center mb-3">
-        <Plus className="h-10 w-10 text-muted-foreground" />
+      <div className="h-20 w-20 rounded-full bg-muted/50 flex items-center justify-center mb-2">
+        <Plus className="h-8 w-8 text-muted-foreground" />
       </div>
-      <span className="text-sm text-muted-foreground font-medium">Adicionar</span>
+      <span className="text-xs text-muted-foreground font-medium">Adicionar</span>
     </Card>
   );
 }

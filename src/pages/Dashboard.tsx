@@ -187,15 +187,47 @@ export default function Dashboard() {
     return filteredLeadsByDate.filter((lead) => lead.status === statusFilter);
   }, [filteredLeadsByDate, statusFilter]);
 
-  // Calculate agent stats
-  const getAgentCounters = (agentUserId: string) => {
-    const agentLeads = leads.filter((l) => l.assigned_agent_id === agentUserId);
-    return [
-      { label: 'Confirmado', value: agentLeads.filter((l) => l.status === 'confirmado').length, colorClass: 'bg-success/10 text-success' },
-      { label: 'Comparecido', value: agentLeads.filter((l) => l.status === 'compareceu').length, colorClass: 'bg-info/10 text-info' },
-      { label: 'Fechado', value: agentLeads.filter((l) => l.status === 'matriculado').length, colorClass: 'bg-violet-500/10 text-violet-600' },
-      { label: 'Em Espera', value: agentLeads.filter((l) => ['agendado', 'em_atendimento', 'lead'].includes(l.status)).length, colorClass: 'bg-warning/10 text-warning' },
-    ];
+  // Calculate agent-specific metrics filtered by date
+  const getAgentMetrics = (agentId: string) => {
+    const targetDate = selectedDate || new Date();
+    
+    // Filter leads by agent and date
+    const agentLeads = leads.filter((l) => l.assigned_agent_id === agentId);
+    
+    // For agendados: filter by scheduled_at date
+    const agendadosForDate = agentLeads.filter((l) => {
+      if (l.status !== 'agendado' || !l.scheduled_at) return false;
+      return isSameDay(new Date(l.scheduled_at), targetDate);
+    });
+
+    // For confirmados: filter by scheduled_at date
+    const confirmadosForDate = agentLeads.filter((l) => {
+      if (l.status !== 'confirmado' || !l.scheduled_at) return false;
+      return isSameDay(new Date(l.scheduled_at), targetDate);
+    });
+
+    // Sem resposta: em_atendimento leads (no response yet)
+    const semResposta = agentLeads.filter((l) => l.status === 'em_atendimento').length;
+
+    // Reagendar status
+    const reagendar = agentLeads.filter((l) => l.status === 'reagendar').length;
+
+    // Fechados: compareceu or proposta (converted)
+    const fechados = agentLeads.filter((l) => 
+      l.status === 'compareceu' || l.status === 'proposta'
+    ).length;
+
+    // Não fechados: perdido
+    const naoFechados = agentLeads.filter((l) => l.status === 'perdido').length;
+
+    return {
+      agendados: agendadosForDate.length,
+      confirmados: confirmadosForDate.length,
+      semResposta,
+      reagendar,
+      fechados,
+      naoFechados,
+    };
   };
 
   // Summary panel totals
@@ -298,7 +330,7 @@ export default function Dashboard() {
                 id={agent.id}
                 name={agent.full_name}
                 avatarUrl={agent.avatar_url}
-                counters={[]}
+                metrics={getAgentMetrics(agent.id)}
               />
             ))}
             <AddAgentCard onClick={() => setShowAddAgentDialog(true)} />
@@ -323,10 +355,6 @@ export default function Dashboard() {
                   id={producer.id}
                   name={producer.full_name}
                   avatarUrl={producer.avatar_url}
-                  counters={[
-                    { label: 'Atendidos', value: 0, colorClass: 'bg-warning/10 text-warning' },
-                    { label: 'Finalizados', value: 0, colorClass: 'bg-success/10 text-success' },
-                  ]}
                 />
               ))}
             </div>
@@ -351,7 +379,6 @@ export default function Dashboard() {
                   id={scouter.id}
                   name={scouter.full_name}
                   avatarUrl={scouter.avatar_url}
-                  counters={[]}
                 />
               ))}
             </div>

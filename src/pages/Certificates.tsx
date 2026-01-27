@@ -33,7 +33,7 @@ interface Enrollment {
   completed_at: string | null;
   certificate_issued: boolean;
   certificate_issued_at: string | null;
-  student?: { full_name: string };
+  lead?: { full_name: string };
   course?: { name: string };
 }
 
@@ -57,10 +57,11 @@ export default function Certificates() {
           completed_at,
           certificate_issued,
           certificate_issued_at,
-          student:profiles!enrollments_student_id_fkey(full_name),
+          lead:leads!enrollments_lead_id_fkey(full_name),
           course:courses(name)
         `)
         .eq('status', 'concluido')
+        .not('lead_id', 'is', null)
         .order('completed_at', { ascending: false });
 
       if (error) throw error;
@@ -106,7 +107,7 @@ export default function Certificates() {
   };
 
   const filteredEnrollments = enrollments.filter(e =>
-    e.student?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    e.lead?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     e.course?.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -222,11 +223,11 @@ export default function Certificates() {
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
                           <AvatarFallback className="bg-gradient-primary text-white text-xs">
-                            {getInitials(enrollment.student?.full_name || 'A')}
+                            {getInitials(enrollment.lead?.full_name || 'A')}
                           </AvatarFallback>
                         </Avatar>
                         <span className="font-medium">
-                          {enrollment.student?.full_name || 'Aluno'}
+                          {enrollment.lead?.full_name || 'Aluno'}
                         </span>
                       </div>
                     </TableCell>

@@ -54,7 +54,7 @@ interface Payment {
   status: 'pendente' | 'pago' | 'atrasado' | 'cancelado';
   contract?: {
     enrollment?: {
-      student?: { full_name: string };
+      lead?: { full_name: string };
       course?: { name: string };
     };
   };
@@ -86,7 +86,7 @@ export default function Payments() {
           *,
           contract:contracts(
             enrollment:enrollments(
-              student:profiles!enrollments_student_id_fkey(full_name),
+              lead:leads!enrollments_lead_id_fkey(full_name),
               course:courses(name)
             )
           )
@@ -147,7 +147,7 @@ export default function Payments() {
 
   const filteredPayments = payments.filter(p => {
     const matchesSearch = 
-      p.contract?.enrollment?.student?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.contract?.enrollment?.lead?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.contract?.enrollment?.course?.name?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -304,7 +304,7 @@ export default function Payments() {
                   return (
                     <TableRow key={payment.id} className={cn(isOverdue && 'bg-destructive/5')}>
                       <TableCell className="font-medium">
-                        {payment.contract?.enrollment?.student?.full_name || 'N/A'}
+                        {payment.contract?.enrollment?.lead?.full_name || 'N/A'}
                       </TableCell>
                       <TableCell>
                         {payment.contract?.enrollment?.course?.name || 'N/A'}

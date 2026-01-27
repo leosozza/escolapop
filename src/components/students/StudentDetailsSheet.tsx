@@ -7,7 +7,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,17 +25,17 @@ import {
   Phone,
   Mail,
   Calendar,
-  BookOpen,
   Award,
   Clock,
-  User,
+  MessageCircle,
 } from 'lucide-react';
 import { ACADEMIC_STATUS_CONFIG, type AcademicStatus } from '@/types/database';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { COURSE_WEEKS } from '@/lib/course-schedule-config';
 
 interface StudentDetailsSheetProps {
-  studentId: string | null;
+  studentId: string | null; // This is now the lead_id
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate: () => void;
@@ -44,15 +44,15 @@ interface StudentDetailsSheetProps {
 export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }: StudentDetailsSheetProps) {
   const queryClient = useQueryClient();
 
-  // Fetch student profile
+  // Fetch lead data (student is a lead now)
   const { data: student } = useQuery({
-    queryKey: ['student-profile', studentId],
+    queryKey: ['student-lead', studentId],
     queryFn: async () => {
       if (!studentId) return null;
       const { data, error } = await supabase
-        .from('profiles')
+        .from('leads')
         .select('*')
-        .eq('user_id', studentId)
+        .eq('id', studentId)
         .maybeSingle();
       if (error) throw error;
       return data;
@@ -60,9 +60,9 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
     enabled: !!studentId && open,
   });
 
-  // Fetch student's enrollments
+  // Fetch student's enrollments using lead_id
   const { data: enrollments } = useQuery({
-    queryKey: ['student-enrollments', studentId],
+    queryKey: ['student-enrollments-lead', studentId],
     queryFn: async () => {
       if (!studentId) return [];
       const { data, error } = await supabase
@@ -71,7 +71,7 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
           *,
           course:courses(*)
         `)
-        .eq('student_id', studentId)
+        .eq('lead_id', studentId)
         .order('enrolled_at', { ascending: false });
       if (error) throw error;
       return data;
@@ -81,7 +81,7 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
 
   // Fetch enrollment history
   const { data: history } = useQuery({
-    queryKey: ['enrollment-history', studentId],
+    queryKey: ['enrollment-history-lead', studentId],
     queryFn: async () => {
       if (!studentId || !enrollments?.length) return [];
       const enrollmentIds = enrollments.map(e => e.id);
@@ -97,6 +97,31 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
     enabled: !!studentId && !!enrollments?.length && open,
   });
 
+  // Fetch attendance counts
+  const { data: attendanceCounts } = useQuery({
+    queryKey: ['attendance-counts-lead', studentId, enrollments],
+    queryFn: async () => {
+      if (!studentId || !enrollments?.length) return {};
+      const counts: Record<string, number> = {};
+      
+      for (const enrollment of enrollments) {
+        if (enrollment.class_id) {
+          const { count } = await supabase
+            .from('attendance')
+            .select('*', { count: 'exact', head: true })
+            .eq('student_id', studentId)
+            .eq('class_id', enrollment.class_id)
+            .eq('status', 'presente');
+          
+          counts[enrollment.id] = count || 0;
+        }
+      }
+      
+      return counts;
+    },
+    enabled: !!studentId && !!enrollments?.length && open,
+  });
+
   // Update enrollment status mutation
   const updateStatusMutation = useMutation({
     mutationFn: async ({ enrollmentId, status }: { enrollmentId: string; status: AcademicStatus }) => {
@@ -108,8 +133,8 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
     },
     onSuccess: () => {
       toast.success('Status atualizado!');
-      queryClient.invalidateQueries({ queryKey: ['student-enrollments', studentId] });
-      queryClient.invalidateQueries({ queryKey: ['enrollment-history', studentId] });
+      queryClient.invalidateQueries({ queryKey: ['student-enrollments-lead', studentId] });
+      queryClient.invalidateQueries({ queryKey: ['enrollment-history-lead', studentId] });
       onUpdate();
     },
     onError: () => {
@@ -135,6 +160,12 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
     );
   };
 
+  const openWhatsApp = (phone: string, name: string) => {
+    const cleanPhone = phone.replace(/\D/g, '');
+    const message = encodeURIComponent(`Olá ${name}! Entramos em contato sobre suas aulas na escola.`);
+    window.open(`https://wa.me/55${cleanPhone}?text=${message}`, '_blank');
+  };
+
   if (!student) return null;
 
   return (
@@ -143,22 +174,37 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
         <SheetHeader className="space-y-4">
           <div className="flex items-center gap-4">
             <Avatar className="h-16 w-16">
-              <AvatarImage src={student.avatar_url ?? undefined} />
-              <AvatarFallback className="text-lg">
+              <AvatarFallback className="text-lg bg-gradient-primary text-white">
                 {getInitials(student.full_name)}
               </AvatarFallback>
             </Avatar>
-            <div>
+            <div className="flex-1">
               <SheetTitle className="text-xl">{student.full_name}</SheetTitle>
-              <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+              <div className="flex flex-col gap-1 mt-1 text-sm text-muted-foreground">
                 {student.phone && (
                   <span className="flex items-center gap-1">
                     <Phone className="h-3 w-3" />
                     {student.phone}
                   </span>
                 )}
+                {student.email && (
+                  <span className="flex items-center gap-1">
+                    <Mail className="h-3 w-3" />
+                    {student.email}
+                  </span>
+                )}
               </div>
             </div>
+            {student.phone && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => openWhatsApp(student.phone, student.full_name)}
+              >
+                <MessageCircle className="h-4 w-4 mr-1" />
+                WhatsApp
+              </Button>
+            )}
           </div>
         </SheetHeader>
 
@@ -175,59 +221,76 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
             <p className="text-sm text-muted-foreground">Nenhuma matrícula encontrada</p>
           ) : (
             <div className="space-y-3">
-              {enrollments?.map((enrollment) => (
-                <Card key={enrollment.id}>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">{enrollment.course?.name}</CardTitle>
-                      {getStatusBadge(enrollment.status as AcademicStatus)}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Progresso</span>
-                      <span className="font-medium">{enrollment.progress_percentage || 0}%</span>
-                    </div>
-                    <Progress value={enrollment.progress_percentage || 0} className="h-2" />
-                    
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        Matrícula: {format(new Date(enrollment.enrolled_at), 'dd/MM/yyyy', { locale: ptBR })}
+              {enrollments?.map((enrollment) => {
+                const attendanceCount = attendanceCounts?.[enrollment.id] || 0;
+                const progressPercent = Math.round((attendanceCount / COURSE_WEEKS) * 100);
+                
+                return (
+                  <Card key={enrollment.id}>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-base">{enrollment.course?.name}</CardTitle>
+                        {getStatusBadge(enrollment.status as AcademicStatus)}
                       </div>
-                      {enrollment.grade && (
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Aulas Concluídas</span>
+                        <span className="font-medium">{attendanceCount}/{COURSE_WEEKS}</span>
+                      </div>
+                      
+                      {/* Visual progress blocks */}
+                      <div className="flex gap-1">
+                        {Array.from({ length: COURSE_WEEKS }).map((_, i) => (
+                          <div
+                            key={i}
+                            className={`h-4 flex-1 rounded-sm transition-all ${
+                              i < attendanceCount ? 'bg-primary' : 'bg-muted'
+                            }`}
+                            title={`Aula ${i + 1}`}
+                          />
+                        ))}
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 text-sm">
                         <div className="flex items-center gap-1 text-muted-foreground">
-                          <Award className="h-3 w-3" />
-                          Nota: {enrollment.grade}
+                          <Calendar className="h-3 w-3" />
+                          Matrícula: {format(new Date(enrollment.enrolled_at), 'dd/MM/yyyy', { locale: ptBR })}
                         </div>
-                      )}
-                    </div>
+                        {enrollment.grade && (
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <Award className="h-3 w-3" />
+                            Nota: {enrollment.grade}
+                          </div>
+                        )}
+                      </div>
 
-                    <div className="pt-2">
-                      <Select
-                        value={enrollment.status}
-                        onValueChange={(value) => 
-                          updateStatusMutation.mutate({ 
-                            enrollmentId: enrollment.id, 
-                            status: value as AcademicStatus 
-                          })
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Alterar status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(ACADEMIC_STATUS_CONFIG).map(([key, config]) => (
-                            <SelectItem key={key} value={key}>
-                              {config.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      <div className="pt-2">
+                        <Select
+                          value={enrollment.status}
+                          onValueChange={(value) => 
+                            updateStatusMutation.mutate({ 
+                              enrollmentId: enrollment.id, 
+                              status: value as AcademicStatus 
+                            })
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Alterar status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(ACADEMIC_STATUS_CONFIG).map(([key, config]) => (
+                              <SelectItem key={key} value={key}>
+                                {config.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>

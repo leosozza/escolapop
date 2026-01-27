@@ -1,84 +1,101 @@
 import { useState, useEffect } from 'react';
 import {
   Award,
-  Search,
-  Download,
-  Eye,
-  Loader2,
-  Calendar,
-  GraduationCap,
-  CheckCircle2,
   Plus,
+  Loader2,
+  FileText,
+  Settings,
+  Trash2,
+  Edit,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { CertificateGenerator } from '@/components/certificates/CertificateGenerator';
+import { TemplateEditor, type TextElement } from '@/components/certificates/TemplateEditor';
+import { QuickCertificateIssuer } from '@/components/certificates/QuickCertificateIssuer';
 
-interface Enrollment {
+interface Course {
   id: string;
-  status: string;
-  completed_at: string | null;
-  certificate_issued: boolean;
-  certificate_issued_at: string | null;
-  lead?: { full_name: string };
+  name: string;
+}
+
+interface Template {
+  id: string;
+  name: string;
+  course_id: string;
+  background_url: string | null;
+  text_elements: TextElement[];
   course?: { name: string };
 }
 
 export default function Certificates() {
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedEnrollment, setSelectedEnrollment] = useState<Enrollment | null>(null);
-  const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
-  const [isNewCertificateOpen, setIsNewCertificateOpen] = useState(false);
+  const [selectedCourseId, setSelectedCourseId] = useState<string>('');
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
+  const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchEnrollments();
+    fetchData();
   }, []);
 
-  const fetchEnrollments = async () => {
+  const fetchData = async () => {
     try {
-      const { data, error } = await supabase
-        .from('enrollments')
-        .select(`
-          id,
-          status,
-          completed_at,
-          certificate_issued,
-          certificate_issued_at,
-          lead:leads!enrollments_lead_id_fkey(full_name),
-          course:courses(name)
-        `)
-        .eq('status', 'concluido')
-        .not('lead_id', 'is', null)
-        .order('completed_at', { ascending: false });
+      const [coursesRes, templatesRes] = await Promise.all([
+        supabase
+          .from('courses')
+          .select('id, name')
+          .eq('is_active', true)
+          .order('name'),
+        supabase
+          .from('certificate_templates')
+          .select('*, course:courses(name)')
+          .eq('is_active', true)
+          .order('name'),
+      ]);
 
-      if (error) throw error;
-      setEnrollments(data || []);
+      if (coursesRes.error) throw coursesRes.error;
+      if (templatesRes.error) throw templatesRes.error;
+
+      setCourses(coursesRes.data || []);
+      
+      const parsedTemplates = (templatesRes.data || []).map((t) => ({
+        ...t,
+        text_elements: (Array.isArray(t.text_elements) ? t.text_elements : []) as unknown as TextElement[],
+      }));
+      
+      setTemplates(parsedTemplates);
     } catch (error) {
-      console.error('Error fetching enrollments:', error);
+      console.error('Error fetching data:', error);
       toast({
         variant: 'destructive',
         title: 'Erro ao carregar dados',
@@ -89,52 +106,50 @@ export default function Certificates() {
     }
   };
 
-  const issueCertificate = async (enrollmentId: string) => {
+  const handleCreateTemplate = () => {
+    if (!selectedCourseId) {
+      toast({
+        variant: 'destructive',
+        title: 'Selecione um curso',
+        description: 'Escolha o curso para criar o template.',
+      });
+      return;
+    }
+    setEditingTemplate(null);
+    setIsEditorOpen(true);
+  };
+
+  const handleEditTemplate = (template: Template) => {
+    setSelectedCourseId(template.course_id);
+    setEditingTemplate(template);
+    setIsEditorOpen(true);
+  };
+
+  const handleDeleteTemplate = async () => {
+    if (!deleteTemplateId) return;
+
     try {
       const { error } = await supabase
-        .from('enrollments')
-        .update({
-          certificate_issued: true,
-          certificate_issued_at: new Date().toISOString(),
-        })
-        .eq('id', enrollmentId);
+        .from('certificate_templates')
+        .update({ is_active: false })
+        .eq('id', deleteTemplateId);
 
       if (error) throw error;
 
-      toast({
-        title: 'Certificado emitido!',
-        description: 'O certificado foi gerado com sucesso.',
-      });
-
-      fetchEnrollments();
+      toast({ title: 'Template removido!' });
+      setDeleteTemplateId(null);
+      fetchData();
     } catch (error) {
-      console.error('Error issuing certificate:', error);
+      console.error('Error deleting template:', error);
       toast({
         variant: 'destructive',
-        title: 'Erro ao emitir',
+        title: 'Erro ao remover',
         description: 'Tente novamente.',
       });
     }
   };
 
-  const handleViewCertificate = (enrollment: Enrollment) => {
-    setSelectedEnrollment(enrollment);
-    setIsGeneratorOpen(true);
-  };
-
-  const filteredEnrollments = enrollments.filter(e =>
-    e.lead?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    e.course?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const getInitials = (name: string) =>
-    name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-
-  const stats = {
-    concluidos: enrollments.length,
-    emitidos: enrollments.filter(e => e.certificate_issued).length,
-    pendentes: enrollments.filter(e => !e.certificate_issued).length,
-  };
+  const selectedCourse = courses.find((c) => c.id === selectedCourseId);
 
   if (isLoading) {
     return (
@@ -151,201 +166,181 @@ export default function Certificates() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Certificados</h1>
           <p className="text-muted-foreground">
-            Emissão e gestão de certificados de conclusão
+            Crie templates e emita certificados rapidamente
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar..."
-              className="pl-10 w-64"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <Button onClick={() => setIsNewCertificateOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Novo Certificado
-          </Button>
-        </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <GraduationCap className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.concluidos}</p>
-                <p className="text-sm text-muted-foreground">Cursos Concluídos</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-success/10">
-                <Award className="h-5 w-5 text-success" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.emitidos}</p>
-                <p className="text-sm text-muted-foreground">Certificados Emitidos</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-warning/10">
-                <Award className="h-5 w-5 text-warning" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.pendentes}</p>
-                <p className="text-sm text-muted-foreground">Aguardando Emissão</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Tabs */}
+      <Tabs defaultValue="issue" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="issue" className="gap-2">
+            <Award className="h-4 w-4" />
+            Emitir Certificado
+          </TabsTrigger>
+          <TabsTrigger value="templates" className="gap-2">
+            <Settings className="h-4 w-4" />
+            Gerenciar Templates
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Table */}
-      <Card className="border-0 shadow-md">
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Aluno</TableHead>
-                <TableHead>Curso</TableHead>
-                <TableHead>Conclusão</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Emissão</TableHead>
-                <TableHead className="w-32">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredEnrollments.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12">
-                    <Award className="mx-auto h-12 w-12 opacity-50 mb-2 text-muted-foreground" />
-                    <p className="text-muted-foreground">Nenhum certificado encontrado</p>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredEnrollments.map((enrollment) => (
-                  <TableRow key={enrollment.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback className="bg-gradient-primary text-white text-xs">
-                            {getInitials(enrollment.lead?.full_name || 'A')}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium">
-                          {enrollment.lead?.full_name || 'Aluno'}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{enrollment.course?.name || 'N/A'}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        {enrollment.completed_at
-                          ? format(new Date(enrollment.completed_at), 'dd/MM/yyyy', { locale: ptBR })
-                          : 'N/A'}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {enrollment.certificate_issued ? (
-                        <Badge className="bg-success/10 text-success">
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                          Emitido
+        {/* Issue Tab */}
+        <TabsContent value="issue">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Award className="h-5 w-5" />
+                Emissão Rápida
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <QuickCertificateIssuer />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Templates Tab */}
+        <TabsContent value="templates" className="space-y-6">
+          {/* Create Template */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Criar Novo Template</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-end gap-4">
+                <div className="flex-1">
+                  <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o curso" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {courses.map((course) => (
+                        <SelectItem key={course.id} value={course.id}>
+                          {course.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={handleCreateTemplate} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Criar Template
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Templates List */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {templates.length === 0 ? (
+              <Card className="col-span-full">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <FileText className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                  <p className="text-muted-foreground text-center">
+                    Nenhum template criado ainda.
+                    <br />
+                    Selecione um curso e clique em "Criar Template".
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              templates.map((template) => (
+                <Card key={template.id} className="overflow-hidden">
+                  {template.background_url ? (
+                    <div className="relative aspect-video bg-muted">
+                      <img
+                        src={template.background_url}
+                        alt={template.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="aspect-video bg-muted flex items-center justify-center">
+                      <FileText className="h-12 w-12 text-muted-foreground/30" />
+                    </div>
+                  )}
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-semibold">{template.name}</h3>
+                        <Badge variant="secondary" className="mt-1">
+                          {template.course?.name}
                         </Badge>
-                      ) : (
-                        <Badge variant="outline">Pendente</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {enrollment.certificate_issued_at
-                        ? format(new Date(enrollment.certificate_issued_at), 'dd/MM/yyyy', { locale: ptBR })
-                        : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {enrollment.certificate_issued ? (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleViewCertificate(enrollment)}
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              Ver
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleViewCertificate(enrollment)}
-                            >
-                              <Download className="h-4 w-4" />
-                            </Button>
-                          </>
-                        ) : (
-                          <Button
-                            size="sm"
-                            className="bg-gradient-primary hover:opacity-90"
-                            onClick={() => issueCertificate(enrollment.id)}
-                          >
-                            <Award className="h-4 w-4 mr-1" />
-                            Emitir
-                          </Button>
-                        )}
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditTemplate(template)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeleteTemplateId(template.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
 
-      {/* Certificate Generator Dialog */}
-      <Dialog open={isGeneratorOpen} onOpenChange={setIsGeneratorOpen}>
-        <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
+      {/* Template Editor Dialog */}
+      <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Certificado de Conclusão</DialogTitle>
+            <DialogTitle>
+              {editingTemplate ? 'Editar Template' : 'Criar Template'}
+            </DialogTitle>
           </DialogHeader>
-          {selectedEnrollment && (
-            <CertificateGenerator
-              initialData={{
-                studentName: selectedEnrollment.lead?.full_name || '',
-                courseName: selectedEnrollment.course?.name || '',
-                completionDate: selectedEnrollment.completed_at
-                  ? format(new Date(selectedEnrollment.completed_at), 'yyyy-MM-dd')
-                  : format(new Date(), 'yyyy-MM-dd'),
-                backgroundImage: null,
-                textElements: [],
+          {selectedCourse && (
+            <TemplateEditor
+              courseId={selectedCourseId}
+              courseName={selectedCourse.name}
+              initialData={
+                editingTemplate
+                  ? {
+                      id: editingTemplate.id,
+                      name: editingTemplate.name,
+                      backgroundUrl: editingTemplate.background_url,
+                      textElements: editingTemplate.text_elements,
+                    }
+                  : undefined
+              }
+              onSave={() => {
+                setIsEditorOpen(false);
+                fetchData();
               }}
+              onCancel={() => setIsEditorOpen(false)}
             />
           )}
         </DialogContent>
       </Dialog>
 
-      {/* New Certificate Dialog */}
-      <Dialog open={isNewCertificateOpen} onOpenChange={setIsNewCertificateOpen}>
-        <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Criar Novo Certificado</DialogTitle>
-          </DialogHeader>
-          <CertificateGenerator />
-        </DialogContent>
-      </Dialog>
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteTemplateId} onOpenChange={() => setDeleteTemplateId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover Template?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O template será desativado e não aparecerá mais na lista de opções.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTemplate}>
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

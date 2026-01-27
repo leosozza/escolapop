@@ -13,6 +13,7 @@ import {
   Edit,
   Trash2,
   Timer,
+  ClipboardList,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AddClassDialog } from '@/components/classes/AddClassDialog';
+import { ClassStudentsList } from '@/components/classes/ClassStudentsList';
 import { WEEKDAYS, COURSE_WEEKS } from '@/lib/course-schedule-config';
 
 interface Class {
@@ -54,6 +56,8 @@ export default function Classes() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [selectedClass, setSelectedClass] = useState<Class | null>(null);
+  const [isStudentsListOpen, setIsStudentsListOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -210,10 +214,15 @@ export default function Classes() {
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
-                        <Eye className="h-4 w-4 mr-2" />
-                        Ver detalhes
+                    <DropdownMenuContent align="end" className="bg-popover">
+                      <DropdownMenuItem 
+                        onClick={() => {
+                          setSelectedClass(classItem);
+                          setIsStudentsListOpen(true);
+                        }}
+                      >
+                        <ClipboardList className="h-4 w-4 mr-2" />
+                        Lista de Presença
                       </DropdownMenuItem>
                       <DropdownMenuItem>
                         <Edit className="h-4 w-4 mr-2" />
@@ -279,6 +288,13 @@ export default function Classes() {
           fetchClasses();
           setIsAddDialogOpen(false);
         }}
+      />
+
+      <ClassStudentsList
+        classInfo={selectedClass}
+        open={isStudentsListOpen}
+        onOpenChange={setIsStudentsListOpen}
+        onUpdate={fetchClasses}
       />
     </div>
   );

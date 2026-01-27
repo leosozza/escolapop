@@ -577,7 +577,7 @@ export type Database = {
           started_at: string | null
           status: Database["public"]["Enums"]["academic_status"]
           student_age: number | null
-          student_id: string
+          student_id: string | null
           updated_at: string
         }
         Insert: {
@@ -603,7 +603,7 @@ export type Database = {
           started_at?: string | null
           status?: Database["public"]["Enums"]["academic_status"]
           student_age?: number | null
-          student_id: string
+          student_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -629,7 +629,7 @@ export type Database = {
           started_at?: string | null
           status?: Database["public"]["Enums"]["academic_status"]
           student_age?: number | null
-          student_id?: string
+          student_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -653,13 +653,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "enrollments_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
           },
         ]
       }

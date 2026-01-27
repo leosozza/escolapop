@@ -46,7 +46,7 @@ interface Contract {
   signed_at: string | null;
   created_at: string;
   enrollment?: {
-    student?: { full_name: string };
+    lead?: { full_name: string };
     course?: { name: string };
   };
 }
@@ -74,7 +74,7 @@ export default function Contracts() {
         .select(`
           *,
           enrollment:enrollments(
-            student:profiles!enrollments_student_id_fkey(full_name),
+            lead:leads!enrollments_lead_id_fkey(full_name),
             course:courses(name)
           )
         `)
@@ -95,7 +95,7 @@ export default function Contracts() {
   };
 
   const filteredContracts = contracts.filter(c =>
-    c.enrollment?.student?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.enrollment?.lead?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.enrollment?.course?.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -235,7 +235,7 @@ export default function Contracts() {
                   return (
                     <TableRow key={contract.id}>
                       <TableCell className="font-medium">
-                        {contract.enrollment?.student?.full_name || 'N/A'}
+                        {contract.enrollment?.lead?.full_name || 'N/A'}
                       </TableCell>
                       <TableCell>
                         {contract.enrollment?.course?.name || 'N/A'}

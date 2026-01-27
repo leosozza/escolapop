@@ -29,15 +29,18 @@ import {
   BookOpen,
   TrendingUp,
   Eye,
+  CheckCircle2,
 } from 'lucide-react';
 import { ACADEMIC_STATUS_CONFIG, type AcademicStatus } from '@/types/database';
 import { AddEnrollmentDialog } from '@/components/students/AddEnrollmentDialog';
 import { StudentDetailsSheet } from '@/components/students/StudentDetailsSheet';
+import { COURSE_WEEKS } from '@/lib/course-schedule-config';
 
 interface EnrollmentWithRelations {
   id: string;
   student_id: string;
   course_id: string;
+  class_id: string | null;
   status: string;
   enrolled_at: string;
   progress_percentage: number | null;
@@ -45,7 +48,6 @@ interface EnrollmentWithRelations {
   influencer_name?: string | null;
   referral_agent_code?: string | null;
   student_age?: number | null;
-  class_id?: string | null;
   course: {
     id: string;
     name: string;
@@ -57,6 +59,7 @@ interface EnrollmentWithRelations {
     phone: string | null;
     avatar_url: string | null;
   } | null;
+  attendance_count?: number;
 }
 
 // Tipos de matrícula com cores
@@ -84,6 +87,7 @@ export default function Students() {
           id,
           student_id,
           course_id,
+          class_id,
           status,
           enrolled_at,
           progress_percentage,
@@ -91,7 +95,6 @@ export default function Students() {
           influencer_name,
           referral_agent_code,
           student_age,
-          class_id,
           course:courses(id, name),
           student:profiles!enrollments_student_id_fkey(id, user_id, full_name, phone, avatar_url)
         `)
@@ -110,15 +113,32 @@ export default function Students() {
 
       const typedData = data as unknown as EnrollmentWithRelations[];
 
+      // Fetch attendance counts for each enrollment with a class
+      const enrollmentsWithAttendance = await Promise.all(
+        typedData.map(async (enrollment) => {
+          if (enrollment.class_id) {
+            const { count } = await supabase
+              .from('attendance')
+              .select('*', { count: 'exact', head: true })
+              .eq('student_id', enrollment.student_id)
+              .eq('class_id', enrollment.class_id)
+              .eq('status', 'presente');
+            
+            return { ...enrollment, attendance_count: count || 0 };
+          }
+          return { ...enrollment, attendance_count: 0 };
+        })
+      );
+
       // Filter by search term on client side
       if (searchTerm) {
-        return typedData?.filter(e => 
+        return enrollmentsWithAttendance?.filter(e => 
           e.student?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           e.course?.name?.toLowerCase().includes(searchTerm.toLowerCase())
         );
       }
 
-      return typedData;
+      return enrollmentsWithAttendance;
     },
   });
 
@@ -293,7 +313,7 @@ export default function Students() {
                   <TableHead>Tipo Matrícula</TableHead>
                   <TableHead>Curso</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Progresso</TableHead>
+                  <TableHead>Aulas</TableHead>
                   <TableHead>Data Matrícula</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
@@ -356,15 +376,25 @@ export default function Students() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <div className="h-2 w-24 rounded-full bg-muted">
-                            <div 
-                              className="h-full rounded-full bg-primary transition-all"
-                              style={{ width: `${enrollment.progress_percentage || 0}%` }}
-                            />
+                          <div className="flex gap-0.5">
+                            {Array.from({ length: COURSE_WEEKS }).map((_, i) => (
+                              <div
+                                key={i}
+                                className={`h-6 w-2 rounded-sm transition-all ${
+                                  i < (enrollment.attendance_count || 0)
+                                    ? 'bg-primary'
+                                    : 'bg-muted'
+                                }`}
+                                title={`Aula ${i + 1}`}
+                              />
+                            ))}
                           </div>
-                          <span className="text-sm text-muted-foreground">
-                            {enrollment.progress_percentage || 0}%
+                          <span className="text-sm font-medium">
+                            {enrollment.attendance_count || 0}/{COURSE_WEEKS}
                           </span>
+                          {(enrollment.attendance_count || 0) >= COURSE_WEEKS && (
+                            <CheckCircle2 className="h-4 w-4 text-success" />
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>

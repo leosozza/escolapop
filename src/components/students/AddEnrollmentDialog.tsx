@@ -50,7 +50,7 @@ const newStudentSchema = z.object({
   phone: z.string().min(10, 'Telefone deve ter pelo menos 10 dígitos'),
   email: z.string().email('Email inválido').optional().or(z.literal('')),
   course_id: z.string().min(1, 'Selecione um curso'),
-  class_id: z.string().optional(),
+  class_id: z.string().min(1, 'Selecione uma turma'),
   enrollment_type: z.string().min(1, 'Selecione o tipo de matrícula'),
   influencer_name: z.string().optional(),
   referral_agent_code: z.string().optional(),
@@ -62,7 +62,7 @@ const newStudentSchema = z.object({
 const existingLeadSchema = z.object({
   lead_id: z.string().min(1, 'Selecione um lead'),
   course_id: z.string().min(1, 'Selecione um curso'),
-  class_id: z.string().optional(),
+  class_id: z.string().min(1, 'Selecione uma turma'),
   enrollment_type: z.string().optional(),
   influencer_name: z.string().optional(),
   referral_agent_code: z.string().optional(),
@@ -217,11 +217,12 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
 
       if (leadError) throw leadError;
 
-      // 2. Criar a matrícula usando o lead_id
+      // 2. Criar a matrícula usando o lead_id - class_id é obrigatório
       const enrollmentData: Record<string, unknown> = {
         lead_id: leadData.id,
         student_id: leadData.id, // Using lead_id as student_id for compatibility
         course_id: values.course_id,
+        class_id: values.class_id, // Obrigatório - aluno sempre entra em uma turma
         notes: values.notes || null,
         status: 'ativo' as const,
         progress_percentage: 0,
@@ -229,7 +230,6 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
         student_age: values.student_age,
       };
 
-      if (values.class_id) enrollmentData.class_id = values.class_id;
       if (values.influencer_name) enrollmentData.influencer_name = values.influencer_name;
       if (values.referral_agent_code) enrollmentData.referral_agent_code = values.referral_agent_code;
 
@@ -267,12 +267,12 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
         lead_id: values.lead_id,
         student_id: values.lead_id, // Using lead_id as student_id for compatibility
         course_id: values.course_id,
+        class_id: values.class_id, // Obrigatório - aluno sempre entra em uma turma
         notes: values.notes || null,
         status: 'ativo' as const,
         progress_percentage: 0,
       };
 
-      if (values.class_id) enrollmentData.class_id = values.class_id;
       if (values.enrollment_type) enrollmentData.enrollment_type = values.enrollment_type;
       if (values.influencer_name) enrollmentData.influencer_name = values.influencer_name;
       if (values.referral_agent_code) enrollmentData.referral_agent_code = values.referral_agent_code;
@@ -517,32 +517,33 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                   )}
                 />
 
-                {classesNew && classesNew.length > 0 && (
-                  <FormField
-                    control={newStudentForm.control}
-                    name="class_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Turma</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione a turma (opcional)" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {classesNew.map((c) => (
-                              <SelectItem key={c.id} value={c.id}>
-                                {c.name} - {c.room} ({formatSchedule(c.schedule as Record<string, string>)})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
+                <FormField
+                  control={newStudentForm.control}
+                  name="class_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Turma *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCourseIdNew}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={selectedCourseIdNew ? "Selecione a turma" : "Selecione o curso primeiro"} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {classesNew?.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name} - {c.room} ({formatSchedule(c.schedule as Record<string, string>)})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {classesNew?.length === 0 && selectedCourseIdNew && (
+                        <p className="text-xs text-destructive">Nenhuma turma ativa para este curso</p>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <FormField
                   control={newStudentForm.control}
@@ -727,32 +728,33 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                   )}
                 />
 
-                {classesExisting && classesExisting.length > 0 && (
-                  <FormField
-                    control={existingLeadForm.control}
-                    name="class_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Turma</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione a turma (opcional)" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {classesExisting.map((c) => (
-                              <SelectItem key={c.id} value={c.id}>
-                                {c.name} - {c.room} ({formatSchedule(c.schedule as Record<string, string>)})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
+                <FormField
+                  control={existingLeadForm.control}
+                  name="class_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Turma *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCourseIdExisting}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={selectedCourseIdExisting ? "Selecione a turma" : "Selecione o curso primeiro"} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {classesExisting?.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name} - {c.room} ({formatSchedule(c.schedule as Record<string, string>)})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {classesExisting?.length === 0 && selectedCourseIdExisting && (
+                        <p className="text-xs text-destructive">Nenhuma turma ativa para este curso</p>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <FormField
                   control={existingLeadForm.control}

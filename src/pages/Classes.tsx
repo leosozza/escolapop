@@ -35,6 +35,14 @@ import { AddClassDialog } from '@/components/classes/AddClassDialog';
 import { ClassStudentsList } from '@/components/classes/ClassStudentsList';
 import { WEEKDAYS, COURSE_WEEKS } from '@/lib/course-schedule-config';
 
+interface ClassStatusCounts {
+  em_curso: number;
+  inadimplente: number;
+  evasao: number;
+  trancado: number;
+  total: number;
+}
+
 interface Class {
   id: string;
   name: string;
@@ -50,6 +58,7 @@ interface Class {
   course?: { name: string; duration_hours: number | null };
   teacher?: { full_name: string };
   student_count?: number;
+  status_counts?: ClassStatusCounts;
 }
 
 export default function Classes() {
@@ -78,16 +87,35 @@ export default function Classes() {
 
       if (error) throw error;
 
-      // Fetch student counts for each class
+      // Fetch student counts and status breakdown for each class
       const classesWithCounts = await Promise.all(
         (data || []).map(async (c) => {
-          const { count } = await supabase
+          const { data: enrollments } = await supabase
             .from('enrollments')
-            .select('*', { count: 'exact', head: true })
+            .select('status')
             .eq('class_id', c.id)
             .not('lead_id', 'is', null);
           
-          return { ...c, student_count: count || 0 };
+          const statusCounts: ClassStatusCounts = {
+            em_curso: 0,
+            inadimplente: 0,
+            evasao: 0,
+            trancado: 0,
+            total: enrollments?.length || 0,
+          };
+
+          enrollments?.forEach((e) => {
+            if (e.status === 'em_curso') statusCounts.em_curso++;
+            else if (e.status === 'inadimplente') statusCounts.inadimplente++;
+            else if (e.status === 'evasao') statusCounts.evasao++;
+            else if (e.status === 'trancado') statusCounts.trancado++;
+          });
+          
+          return { 
+            ...c, 
+            student_count: statusCounts.total,
+            status_counts: statusCounts,
+          };
         })
       );
 
@@ -196,9 +224,33 @@ export default function Classes() {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        {/* Status counts grid */}
+        <div className="grid grid-cols-2 gap-2 p-2 rounded-lg bg-muted/50">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-primary" />
+            <span className="text-xs text-muted-foreground">Em Curso:</span>
+            <span className="text-xs font-semibold">{classItem.status_counts?.em_curso || 0}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-warning" />
+            <span className="text-xs text-muted-foreground">Inadimplentes:</span>
+            <span className="text-xs font-semibold">{classItem.status_counts?.inadimplente || 0}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-destructive" />
+            <span className="text-xs text-muted-foreground">Evasão:</span>
+            <span className="text-xs font-semibold">{classItem.status_counts?.evasao || 0}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Trancados:</span>
+            <span className="text-xs font-semibold">{classItem.status_counts?.trancado || 0}</span>
+          </div>
+        </div>
+        
         <div className="flex items-center gap-2 text-sm">
           <Users className="h-4 w-4 text-primary" />
-          <span className="font-medium">{classItem.student_count || 0} alunos</span>
+          <span className="font-medium">{classItem.student_count || 0} alunos no total</span>
         </div>
         <div className="flex items-center gap-2 text-sm">
           <Calendar className="h-4 w-4 text-muted-foreground" />

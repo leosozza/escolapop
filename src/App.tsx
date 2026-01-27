@@ -17,7 +17,6 @@ import Students from "./pages/Students";
 import LMS from "./pages/LMS";
 import Reception from "./pages/Reception";
 import AgentPortfolio from "./pages/AgentPortfolio";
-import Telemarketing from "./pages/Telemarketing";
 import ProducerQueue from "./pages/ProducerQueue";
 import Classes from "./pages/Classes";
 import Attendance from "./pages/Attendance";
@@ -104,14 +103,6 @@ const App = () => (
               element={
                 <AppLayout>
                   <AgentPortfolio />
-                </AppLayout>
-              }
-            />
-            <Route
-              path="/telemarketing"
-              element={
-                <AppLayout>
-                  <Telemarketing />
                 </AppLayout>
               }
             />

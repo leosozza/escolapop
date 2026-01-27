@@ -70,7 +70,6 @@ const sidebarGroups = [
     items: [
       { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
       { name: 'CRM', href: '/crm', icon: UserPlus },
-      { name: 'Telemarketing', href: '/telemarketing', icon: Headphones },
       { name: 'Agendamentos', href: '/appointments', icon: Calendar },
       { name: 'Recepção', href: '/reception', icon: DoorOpen },
       { name: 'Atendimento', href: '/producer-queue', icon: MessageSquare },

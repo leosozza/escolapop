@@ -41,6 +41,11 @@ interface EnrollmentWithRelations {
   status: string;
   enrolled_at: string;
   progress_percentage: number | null;
+  enrollment_type?: string | null;
+  influencer_name?: string | null;
+  referral_agent_code?: string | null;
+  student_age?: number | null;
+  class_id?: string | null;
   course: {
     id: string;
     name: string;
@@ -53,6 +58,14 @@ interface EnrollmentWithRelations {
     avatar_url: string | null;
   } | null;
 }
+
+// Tipos de matrícula com cores
+const ENROLLMENT_TYPE_CONFIG: Record<string, { label: string; color: string }> = {
+  modelo_agenciado_maxfama: { label: 'MaxFama', color: 'bg-purple-500 text-white' },
+  modelo_agenciado_popschool: { label: 'Pop School', color: 'bg-blue-500 text-white' },
+  indicacao_influencia: { label: 'Indicação Influência', color: 'bg-pink-500 text-white' },
+  indicacao_aluno: { label: 'Indicação Aluno', color: 'bg-green-500 text-white' },
+};
 
 export default function Students() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -74,6 +87,11 @@ export default function Students() {
           status,
           enrolled_at,
           progress_percentage,
+          enrollment_type,
+          influencer_name,
+          referral_agent_code,
+          student_age,
+          class_id,
           course:courses(id, name),
           student:profiles!enrollments_student_id_fkey(id, user_id, full_name, phone, avatar_url)
         `)
@@ -151,6 +169,17 @@ export default function Students() {
     if (!config) return <Badge variant="outline">{status}</Badge>;
     return (
       <Badge variant="outline" className={`${config.bgColor} ${config.color} border-0`}>
+        {config.label}
+      </Badge>
+    );
+  };
+
+  const getEnrollmentTypeBadge = (enrollmentType: string | null | undefined) => {
+    if (!enrollmentType) return null;
+    const config = ENROLLMENT_TYPE_CONFIG[enrollmentType];
+    if (!config) return null;
+    return (
+      <Badge className={`${config.color} border-0 text-xs`}>
         {config.label}
       </Badge>
     );
@@ -261,6 +290,7 @@ export default function Students() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Aluno</TableHead>
+                  <TableHead>Tipo Matrícula</TableHead>
                   <TableHead>Curso</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Progresso</TableHead>
@@ -271,13 +301,13 @@ export default function Students() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       Carregando...
                     </TableCell>
                   </TableRow>
                 ) : enrollments?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       Nenhuma matrícula encontrada
                     </TableCell>
                   </TableRow>
@@ -294,8 +324,28 @@ export default function Students() {
                           </Avatar>
                           <div>
                             <p className="font-medium">{enrollment.student?.full_name || 'Aluno'}</p>
-                            <p className="text-xs text-muted-foreground">{enrollment.student?.phone}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs text-muted-foreground">{enrollment.student?.phone}</p>
+                              {enrollment.student_age && (
+                                <span className="text-xs text-muted-foreground">• {enrollment.student_age} anos</span>
+                              )}
+                            </div>
                           </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          {getEnrollmentTypeBadge(enrollment.enrollment_type)}
+                          {enrollment.influencer_name && (
+                            <span className="text-xs text-muted-foreground">
+                              por {enrollment.influencer_name}
+                            </span>
+                          )}
+                          {enrollment.referral_agent_code && (
+                            <span className="text-xs text-muted-foreground">
+                              código: {enrollment.referral_agent_code}
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>

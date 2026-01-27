@@ -317,7 +317,7 @@ export default function Certificates() {
 
       {/* Certificate Generator Dialog */}
       <Dialog open={isGeneratorOpen} onOpenChange={setIsGeneratorOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Certificado de Conclusão</DialogTitle>
           </DialogHeader>
@@ -329,6 +329,8 @@ export default function Certificates() {
                 completionDate: selectedEnrollment.completed_at
                   ? format(new Date(selectedEnrollment.completed_at), 'yyyy-MM-dd')
                   : format(new Date(), 'yyyy-MM-dd'),
+                backgroundImage: null,
+                textElements: [],
               }}
             />
           )}
@@ -337,7 +339,7 @@ export default function Certificates() {
 
       {/* New Certificate Dialog */}
       <Dialog open={isNewCertificateOpen} onOpenChange={setIsNewCertificateOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Criar Novo Certificado</DialogTitle>
           </DialogHeader>

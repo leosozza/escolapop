@@ -42,6 +42,12 @@ export type AcademicStatus =
   | 'concluido'
   | 'trancado';
 
+export type EnrollmentType = 
+  | 'modelo_agenciado_maxfama'
+  | 'modelo_agenciado_popschool'
+  | 'indicacao_influencia'
+  | 'indicacao_aluno';
+
 export type ContentType = 
   | 'video'
   | 'text'

@@ -35,6 +35,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { UserPlus, Users, Info } from 'lucide-react';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
+import { DuplicateWarningDialog } from './DuplicateWarningDialog';
+
+interface DuplicateInfo {
+  type: 'phone' | 'code';
+  existingName: string;
+  value: string;
+}
 
 // Tipos de matrícula
 const ENROLLMENT_TYPES = [
@@ -81,6 +88,8 @@ interface AddEnrollmentDialogProps {
 export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnrollmentDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [enrollmentSource, setEnrollmentSource] = useState<'new' | 'existing'>('new');
+  const [duplicateWarning, setDuplicateWarning] = useState<DuplicateInfo | null>(null);
+  const [pendingSubmit, setPendingSubmit] = useState<NewStudentFormValues | null>(null);
 
   // Form para novo aluno
   const newStudentForm = useForm<NewStudentFormValues>({
@@ -194,10 +203,69 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
     },
   });
 
+  // Helper to normalize phone number for comparison
+  const normalizePhone = (phone: string) => phone.replace(/\D/g, '');
+
+  // Check for duplicates before submitting
+  const checkDuplicates = async (values: NewStudentFormValues): Promise<DuplicateInfo | null> => {
+    const normalizedPhone = normalizePhone(values.phone);
+    
+    // Check for duplicate phone
+    const { data: phoneMatch } = await supabase
+      .from('leads')
+      .select('id, full_name, phone')
+      .or(`phone.eq.${normalizedPhone},phone.ilike.%${normalizedPhone}%`)
+      .limit(1);
+    
+    if (phoneMatch && phoneMatch.length > 0) {
+      return {
+        type: 'phone',
+        existingName: phoneMatch[0].full_name,
+        value: phoneMatch[0].phone,
+      };
+    }
+
+    // Check for duplicate agenciado code (only for MaxFama and PopSchool)
+    if (values.referral_agent_code && 
+        (values.enrollment_type === 'modelo_agenciado_maxfama' || 
+         values.enrollment_type === 'modelo_agenciado_popschool')) {
+      const { data: codeMatch } = await supabase
+        .from('enrollments')
+        .select('id, referral_agent_code, lead:leads!enrollments_lead_id_fkey(full_name)')
+        .eq('referral_agent_code', values.referral_agent_code)
+        .limit(1);
+      
+      if (codeMatch && codeMatch.length > 0) {
+        const leadData = codeMatch[0].lead as { full_name: string } | null;
+        return {
+          type: 'code',
+          existingName: leadData?.full_name || 'Aluno existente',
+          value: codeMatch[0].referral_agent_code || '',
+        };
+      }
+    }
+
+    return null;
+  };
+
   // Submit para novo aluno - cria lead E matrícula
   const onSubmitNewStudent = async (values: NewStudentFormValues) => {
     setIsSubmitting(true);
     try {
+      // Check for duplicates first (unless we're forcing after confirmation)
+      if (!pendingSubmit) {
+        const duplicate = await checkDuplicates(values);
+        if (duplicate) {
+          setDuplicateWarning(duplicate);
+          setPendingSubmit(values);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // Clear pending state
+      setPendingSubmit(null);
+
       // 1. Criar o lead (sem email)
       const { data: leadData, error: leadError } = await supabase
         .from('leads')
@@ -248,6 +316,21 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Handle confirm duplicate - proceed with creation
+  const handleConfirmDuplicate = () => {
+    if (pendingSubmit) {
+      setDuplicateWarning(null);
+      // Force submit by calling with pendingSubmit as values
+      onSubmitNewStudent(pendingSubmit);
+    }
+  };
+
+  // Handle cancel duplicate
+  const handleCancelDuplicate = () => {
+    setDuplicateWarning(null);
+    setPendingSubmit(null);
   };
 
   // Submit para lead existente
@@ -763,6 +846,15 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
           </TabsContent>
         </Tabs>
       </DialogContent>
+
+      <DuplicateWarningDialog
+        open={!!duplicateWarning}
+        onOpenChange={(open) => {
+          if (!open) handleCancelDuplicate();
+        }}
+        duplicateInfo={duplicateWarning}
+        onConfirm={handleConfirmDuplicate}
+      />
     </Dialog>
   );
 }

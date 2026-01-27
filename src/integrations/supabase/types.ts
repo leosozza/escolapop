@@ -200,6 +200,47 @@ export type Database = {
           },
         ]
       }
+      certificate_templates: {
+        Row: {
+          background_url: string | null
+          course_id: string | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          name: string
+          text_elements: Json
+          updated_at: string
+        }
+        Insert: {
+          background_url?: string | null
+          course_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          text_elements?: Json
+          updated_at?: string
+        }
+        Update: {
+          background_url?: string | null
+          course_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          text_elements?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certificate_templates_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_enrollments: {
         Row: {
           class_id: string

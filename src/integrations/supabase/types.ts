@@ -144,8 +144,8 @@ export type Database = {
             foreignKeyName: "attendance_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
           },
         ]
       }

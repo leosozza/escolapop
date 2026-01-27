@@ -311,7 +311,7 @@ export const ROLE_CONFIG: Record<AppRole, { label: string; description: string; 
 export const ACADEMIC_STATUS_CONFIG: Record<AcademicStatus, { label: string; color: string; bgColor: string }> = {
   ativo: { label: 'Ativo', color: 'text-success', bgColor: 'bg-success/10' },
   em_curso: { label: 'Em Curso', color: 'text-primary', bgColor: 'bg-primary/10' },
-  inadimplente: { label: 'Inadimplente', color: 'text-warning', bgColor: 'bg-warning/10' },
+  inadimplente: { label: 'Status em Aberto', color: 'text-warning', bgColor: 'bg-warning/10' },
   evasao: { label: 'Evasão', color: 'text-destructive', bgColor: 'bg-destructive/10' },
   concluido: { label: 'Concluído', color: 'text-info', bgColor: 'bg-info/10' },
   trancado: { label: 'Trancado', color: 'text-muted-foreground', bgColor: 'bg-muted/50' },

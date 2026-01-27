@@ -14,12 +14,14 @@ import {
   Timer,
   CheckCircle,
   Archive,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
+import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   DropdownMenu,
@@ -37,7 +39,7 @@ import { WEEKDAYS, COURSE_WEEKS } from '@/lib/course-schedule-config';
 
 interface ClassStatusCounts {
   em_curso: number;
-  inadimplente: number;
+  status_aberto: number; // Previously inadimplente
   evasao: number;
   trancado: number;
   total: number;
@@ -61,6 +63,8 @@ interface Class {
   status_counts?: ClassStatusCounts;
 }
 
+type ViewMode = 'cards' | 'list';
+
 export default function Classes() {
   const [classes, setClasses] = useState<Class[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -68,6 +72,7 @@ export default function Classes() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [isStudentsListOpen, setIsStudentsListOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -98,15 +103,16 @@ export default function Classes() {
           
           const statusCounts: ClassStatusCounts = {
             em_curso: 0,
-            inadimplente: 0,
+            status_aberto: 0, // Previously inadimplente
             evasao: 0,
             trancado: 0,
             total: enrollments?.length || 0,
           };
 
           enrollments?.forEach((e) => {
-            if (e.status === 'em_curso') statusCounts.em_curso++;
-            else if (e.status === 'inadimplente') statusCounts.inadimplente++;
+            // Both 'ativo' and 'em_curso' count as em_curso (students attending)
+            if (e.status === 'em_curso' || e.status === 'ativo') statusCounts.em_curso++;
+            else if (e.status === 'inadimplente') statusCounts.status_aberto++;
             else if (e.status === 'evasao') statusCounts.evasao++;
             else if (e.status === 'trancado') statusCounts.trancado++;
           });
@@ -204,23 +210,35 @@ export default function Classes() {
               {classItem.course?.name || 'Curso não definido'}
             </p>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-popover">
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); }}>
-                <Edit className="h-4 w-4 mr-2" />
-                Editar
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); }}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                Excluir
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-2">
+            {isCompleted ? (
+              <Badge variant="secondary" className="gap-1">
+                <CheckCircle className="h-3 w-3" />
+                Concluída
+              </Badge>
+            ) : (
+              <Badge variant={classItem.is_active ? 'default' : 'secondary'}>
+                {classItem.is_active ? 'Ativa' : 'Inativa'}
+              </Badge>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-popover">
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); }}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Editar
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); }}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Excluir
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -233,8 +251,8 @@ export default function Classes() {
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-warning" />
-            <span className="text-xs text-muted-foreground">Inadimplentes:</span>
-            <span className="text-xs font-semibold">{classItem.status_counts?.inadimplente || 0}</span>
+            <span className="text-xs text-muted-foreground">Status Aberto:</span>
+            <span className="text-xs font-semibold">{classItem.status_counts?.status_aberto || 0}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-destructive" />
@@ -250,7 +268,7 @@ export default function Classes() {
         
         <div className="flex items-center gap-2 text-sm">
           <Users className="h-4 w-4 text-primary" />
-          <span className="font-medium">{classItem.student_count || 0} alunos no total</span>
+          <span className="font-medium">{classItem.student_count || 0} alunos</span>
         </div>
         <div className="flex items-center gap-2 text-sm">
           <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -275,30 +293,70 @@ export default function Classes() {
             <span>{classItem.room}</span>
           </div>
         )}
-        <div className="flex items-center justify-between pt-2">
-          <div className="flex items-center gap-2">
-            <Avatar className="h-6 w-6">
-              <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                {classItem.teacher?.full_name?.charAt(0) || 'P'}
-              </AvatarFallback>
-            </Avatar>
-            <span className="text-sm text-muted-foreground">
-              {classItem.teacher?.full_name || 'Sem professor'}
-            </span>
-          </div>
-          {isCompleted ? (
-            <Badge variant="secondary" className="gap-1">
-              <CheckCircle className="h-3 w-3" />
-              Concluída
-            </Badge>
-          ) : (
-            <Badge variant={classItem.is_active ? 'default' : 'secondary'}>
-              {classItem.is_active ? 'Ativa' : 'Inativa'}
-            </Badge>
-          )}
-        </div>
       </CardContent>
     </Card>
+  );
+
+  const renderClassListRow = (classItem: Class, isCompleted = false) => (
+    <tr
+      key={classItem.id}
+      className={`border-b hover:bg-muted/50 cursor-pointer transition-colors ${isCompleted ? 'opacity-75' : ''}`}
+      onClick={() => handleClassClick(classItem)}
+    >
+      <td className="p-4">
+        <div>
+          <p className="font-medium">{classItem.name}</p>
+          <p className="text-sm text-muted-foreground">{classItem.course?.name}</p>
+        </div>
+      </td>
+      <td className="p-4">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm">{format(new Date(classItem.start_date), 'dd/MM/yyyy', { locale: ptBR })}</span>
+        </div>
+      </td>
+      <td className="p-4">
+        <span className="text-sm">{formatSchedule(classItem.schedule)}</span>
+      </td>
+      <td className="p-4">
+        <span className="text-sm">{classItem.room || '-'}</span>
+      </td>
+      <td className="p-4 text-center">
+        <span className="font-medium">{classItem.student_count || 0}</span>
+      </td>
+      <td className="p-4">
+        <div className="flex items-center gap-3 text-xs">
+          <span className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-primary" />
+            {classItem.status_counts?.em_curso || 0}
+          </span>
+          <span className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-warning" />
+            {classItem.status_counts?.status_aberto || 0}
+          </span>
+          <span className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-destructive" />
+            {classItem.status_counts?.evasao || 0}
+          </span>
+          <span className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-muted-foreground" />
+            {classItem.status_counts?.trancado || 0}
+          </span>
+        </div>
+      </td>
+      <td className="p-4">
+        {isCompleted ? (
+          <Badge variant="secondary" className="gap-1">
+            <CheckCircle className="h-3 w-3" />
+            Concluída
+          </Badge>
+        ) : (
+          <Badge variant={classItem.is_active ? 'default' : 'secondary'}>
+            {classItem.is_active ? 'Ativa' : 'Inativa'}
+          </Badge>
+        )}
+      </td>
+    </tr>
   );
 
   if (isLoading) {
@@ -399,41 +457,123 @@ export default function Classes() {
 
       {/* Tabs for Active and Completed */}
       <Tabs defaultValue="active" className="w-full">
-        <TabsList>
-          <TabsTrigger value="active" className="gap-2">
-            <GraduationCap className="h-4 w-4" />
-            Turmas Ativas ({activeClasses.length})
-          </TabsTrigger>
-          <TabsTrigger value="completed" className="gap-2">
-            <Archive className="h-4 w-4" />
-            Turmas Concluídas ({completedClasses.length})
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="active" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {activeClasses.length === 0 ? (
-              <div className="col-span-full text-center py-12 text-muted-foreground">
-                <Users className="mx-auto h-12 w-12 opacity-50 mb-2" />
-                <p>Nenhuma turma ativa</p>
-              </div>
-            ) : (
-              activeClasses.map((classItem) => renderClassCard(classItem))
-            )}
+        <div className="flex items-center justify-between mb-4">
+          <TabsList>
+            <TabsTrigger value="active" className="gap-2">
+              <GraduationCap className="h-4 w-4" />
+              Turmas Ativas ({activeClasses.length})
+            </TabsTrigger>
+            <TabsTrigger value="completed" className="gap-2">
+              <Archive className="h-4 w-4" />
+              Turmas Concluídas ({completedClasses.length})
+            </TabsTrigger>
+          </TabsList>
+          
+          {/* View toggle */}
+          <div className="flex items-center gap-1 p-1 rounded-lg bg-muted">
+            <Button
+              variant={viewMode === 'cards' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('cards')}
+              className="h-8 px-3"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+              className="h-8 px-3"
+            >
+              <List className="h-4 w-4" />
+            </Button>
           </div>
+        </div>
+
+        <TabsContent value="active" className="mt-2">
+          {viewMode === 'cards' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {activeClasses.length === 0 ? (
+                <div className="col-span-full text-center py-12 text-muted-foreground">
+                  <Users className="mx-auto h-12 w-12 opacity-50 mb-2" />
+                  <p>Nenhuma turma ativa</p>
+                </div>
+              ) : (
+                activeClasses.map((classItem) => renderClassCard(classItem))
+              )}
+            </div>
+          ) : (
+            <Card className="border-0 shadow-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Turma</TableHead>
+                    <TableHead>Início</TableHead>
+                    <TableHead>Horário</TableHead>
+                    <TableHead>Sala</TableHead>
+                    <TableHead className="text-center">Alunos</TableHead>
+                    <TableHead>Status Alunos</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {activeClasses.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-12 text-muted-foreground">
+                        <Users className="mx-auto h-12 w-12 opacity-50 mb-2" />
+                        <p>Nenhuma turma ativa</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    activeClasses.map((classItem) => renderClassListRow(classItem))
+                  )}
+                </TableBody>
+              </Table>
+            </Card>
+          )}
         </TabsContent>
 
-        <TabsContent value="completed" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {completedClasses.length === 0 ? (
-              <div className="col-span-full text-center py-12 text-muted-foreground">
-                <Archive className="mx-auto h-12 w-12 opacity-50 mb-2" />
-                <p>Nenhuma turma concluída</p>
-              </div>
-            ) : (
-              completedClasses.map((classItem) => renderClassCard(classItem, true))
-            )}
-          </div>
+        <TabsContent value="completed" className="mt-2">
+          {viewMode === 'cards' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {completedClasses.length === 0 ? (
+                <div className="col-span-full text-center py-12 text-muted-foreground">
+                  <Archive className="mx-auto h-12 w-12 opacity-50 mb-2" />
+                  <p>Nenhuma turma concluída</p>
+                </div>
+              ) : (
+                completedClasses.map((classItem) => renderClassCard(classItem, true))
+              )}
+            </div>
+          ) : (
+            <Card className="border-0 shadow-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Turma</TableHead>
+                    <TableHead>Início</TableHead>
+                    <TableHead>Horário</TableHead>
+                    <TableHead>Sala</TableHead>
+                    <TableHead className="text-center">Alunos</TableHead>
+                    <TableHead>Status Alunos</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {completedClasses.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-12 text-muted-foreground">
+                        <Archive className="mx-auto h-12 w-12 opacity-50 mb-2" />
+                        <p>Nenhuma turma concluída</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    completedClasses.map((classItem) => renderClassListRow(classItem, true))
+                  )}
+                </TableBody>
+              </Table>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
 

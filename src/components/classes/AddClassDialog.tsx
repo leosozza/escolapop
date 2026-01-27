@@ -1,18 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
-import { CalendarIcon } from 'lucide-react';
+import { format, addWeeks } from 'date-fns';
+import { CalendarIcon, Clock, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import {
   Form,
@@ -21,6 +22,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import {
   Select,
@@ -37,34 +39,25 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-
-// Salas disponíveis com suas capacidades
-const ROOMS = [
-  { id: 'sala_1', name: 'Sala 1', capacity: 50 },
-  { id: 'sala_2', name: 'Sala 2', capacity: 50 },
-  { id: 'sala_5', name: 'Sala 5', capacity: 30 },
-  { id: 'sala_6', name: 'Sala 6', capacity: 20 },
-] as const;
-
-// Dias da semana
-const WEEKDAYS = [
-  { id: 'monday', name: 'Segunda' },
-  { id: 'tuesday', name: 'Terça' },
-  { id: 'wednesday', name: 'Quarta' },
-  { id: 'thursday', name: 'Quinta' },
-  { id: 'friday', name: 'Sexta' },
-  { id: 'saturday', name: 'Sábado' },
-] as const;
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  ROOMS,
+  WEEKDAYS,
+  COURSE_DURATIONS,
+  COURSE_WEEKS,
+  getAvailableHours,
+  formatTimeRange,
+} from '@/lib/course-schedule-config';
 
 const classSchema = z.object({
   name: z.string().min(1, 'Nome da turma é obrigatório'),
   course_id: z.string().min(1, 'Selecione um curso'),
   room: z.string().min(1, 'Selecione uma sala'),
   start_date: z.date({ required_error: 'Data de início é obrigatória' }),
-  end_date: z.date().optional(),
   teacher_id: z.string().optional(),
-  schedule_day: z.string().optional(),
-  schedule_time: z.string().optional(),
+  schedule_day: z.string().min(1, 'Selecione o dia da semana'),
+  schedule_time: z.string().min(1, 'Selecione o horário'),
 });
 
 type ClassFormValues = z.infer<typeof classSchema>;
@@ -90,6 +83,11 @@ export function AddClassDialog({ open, onOpenChange, onSuccess }: AddClassDialog
   });
 
   const selectedRoom = form.watch('room');
+  const selectedCourseId = form.watch('course_id');
+  const selectedTime = form.watch('schedule_time');
+  const selectedDay = form.watch('schedule_day');
+  const startDate = form.watch('start_date');
+  
   const roomCapacity = ROOMS.find(r => r.id === selectedRoom)?.capacity || 30;
 
   // Fetch courses
@@ -98,7 +96,7 @@ export function AddClassDialog({ open, onOpenChange, onSuccess }: AddClassDialog
     queryFn: async () => {
       const { data, error } = await supabase
         .from('courses')
-        .select('id, name')
+        .select('id, name, duration_hours')
         .eq('is_active', true)
         .order('name');
       if (error) throw error;
@@ -119,13 +117,28 @@ export function AddClassDialog({ open, onOpenChange, onSuccess }: AddClassDialog
     },
   });
 
+  // Get selected course info
+  const selectedCourse = courses?.find(c => c.id === selectedCourseId);
+  const courseDuration = selectedCourse?.duration_hours || COURSE_DURATIONS[selectedCourse?.name || ''] || 1;
+  const availableHours = getAvailableHours(courseDuration);
+
+  // Reset time when course changes and time is not available
+  useEffect(() => {
+    if (selectedTime && !availableHours.includes(selectedTime)) {
+      form.setValue('schedule_time', '');
+    }
+  }, [selectedCourseId, selectedTime, availableHours, form]);
+
+  // Calculate end date (8 weeks from start)
+  const endDate = startDate ? addWeeks(startDate, COURSE_WEEKS) : null;
+
   const onSubmit = async (values: ClassFormValues) => {
     setIsSubmitting(true);
     try {
-      // Build schedule object
+      // Build schedule object with time range
       const schedule: Record<string, string> = {};
       if (values.schedule_day && values.schedule_time) {
-        schedule[values.schedule_day] = values.schedule_time;
+        schedule[values.schedule_day] = formatTimeRange(values.schedule_time, courseDuration);
       }
 
       const { error } = await supabase
@@ -135,7 +148,7 @@ export function AddClassDialog({ open, onOpenChange, onSuccess }: AddClassDialog
           course_id: values.course_id,
           room: ROOMS.find(r => r.id === values.room)?.name || values.room,
           start_date: format(values.start_date, 'yyyy-MM-dd'),
-          end_date: values.end_date ? format(values.end_date, 'yyyy-MM-dd') : null,
+          end_date: endDate ? format(endDate, 'yyyy-MM-dd') : null,
           teacher_id: values.teacher_id || null,
           max_students: roomCapacity,
           schedule: Object.keys(schedule).length > 0 ? schedule : null,
@@ -144,7 +157,9 @@ export function AddClassDialog({ open, onOpenChange, onSuccess }: AddClassDialog
 
       if (error) throw error;
 
-      toast.success('Turma criada com sucesso!');
+      toast.success('Turma criada com sucesso!', {
+        description: `${COURSE_WEEKS} aulas agendadas semanalmente`,
+      });
       form.reset();
       onSuccess();
     } catch (error) {
@@ -155,11 +170,16 @@ export function AddClassDialog({ open, onOpenChange, onSuccess }: AddClassDialog
     }
   };
 
+  const selectedDayName = WEEKDAYS.find(d => d.id === selectedDay)?.name;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[550px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nova Turma</DialogTitle>
+          <DialogDescription>
+            Configure a turma com dia e horário fixo semanal
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -193,11 +213,22 @@ export function AddClassDialog({ open, onOpenChange, onSuccess }: AddClassDialog
                     <SelectContent>
                       {courses?.map((course) => (
                         <SelectItem key={course.id} value={course.id}>
-                          {course.name}
+                          <div className="flex items-center gap-2">
+                            {course.name}
+                            <Badge variant="secondary" className="text-xs">
+                              {course.duration_hours || COURSE_DURATIONS[course.name] || 1}h
+                            </Badge>
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {selectedCourse && (
+                    <FormDescription className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      Duração: {courseDuration} hora{courseDuration > 1 ? 's' : ''} por aula
+                    </FormDescription>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -231,92 +262,10 @@ export function AddClassDialog({ open, onOpenChange, onSuccess }: AddClassDialog
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="start_date"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Data de Início *</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              'pl-3 text-left font-normal',
-                              !field.value && 'text-muted-foreground'
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, 'dd/MM/yyyy')
-                            ) : (
-                              <span>Selecione</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          initialFocus
-                          className="pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="end_date"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Data de Término</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              'pl-3 text-left font-normal',
-                              !field.value && 'text-muted-foreground'
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, 'dd/MM/yyyy')
-                            ) : (
-                              <span>Selecione</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          initialFocus
-                          className="pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
                 name="schedule_day"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Dia da Semana</FormLabel>
+                    <FormLabel>Dia da Semana *</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
@@ -341,15 +290,92 @@ export function AddClassDialog({ open, onOpenChange, onSuccess }: AddClassDialog
                 name="schedule_time"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Horário</FormLabel>
-                    <FormControl>
-                      <Input type="time" {...field} />
-                    </FormControl>
+                    <FormLabel>Horário de Início *</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value}
+                      disabled={!selectedCourseId}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o horário" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {availableHours.map((hour) => (
+                          <SelectItem key={hour} value={hour}>
+                            {formatTimeRange(hour, courseDuration)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="start_date"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Primeira Aula *</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            'pl-3 text-left font-normal',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          {field.value ? (
+                            format(field.value, 'dd/MM/yyyy')
+                          ) : (
+                            <span>Selecione a data da primeira aula</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormDescription>
+                    O aluno frequentará 1x por semana durante 2 meses ({COURSE_WEEKS} aulas)
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {startDate && selectedDay && selectedTime && (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Resumo do cronograma:</strong>
+                  <br />
+                  • Primeira aula: {format(startDate, 'dd/MM/yyyy')}
+                  <br />
+                  • Dia fixo: Toda {selectedDayName}
+                  <br />
+                  • Horário: {formatTimeRange(selectedTime, courseDuration)}
+                  <br />
+                  • Última aula: {endDate ? format(endDate, 'dd/MM/yyyy') : '-'}
+                  <br />
+                  • Total: {COURSE_WEEKS} aulas
+                </AlertDescription>
+              </Alert>
+            )}
 
             <FormField
               control={form.control}

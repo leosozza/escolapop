@@ -12,6 +12,7 @@ import {
   Eye,
   Edit,
   Trash2,
+  Timer,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AddClassDialog } from '@/components/classes/AddClassDialog';
+import { WEEKDAYS, COURSE_WEEKS } from '@/lib/course-schedule-config';
 
 interface Class {
   id: string;
@@ -42,7 +44,7 @@ interface Class {
   max_students: number;
   is_active: boolean;
   created_at: string;
-  course?: { name: string };
+  course?: { name: string; duration_hours: number | null };
   teacher?: { full_name: string };
   _count?: { students: number };
 }
@@ -64,7 +66,7 @@ export default function Classes() {
         .from('classes')
         .select(`
           *,
-          course:courses(name),
+          course:courses(name, duration_hours),
           teacher:profiles!classes_teacher_id_fkey(full_name)
         `)
         .order('start_date', { ascending: false });
@@ -90,18 +92,30 @@ export default function Classes() {
 
   const formatSchedule = (schedule: Record<string, string> | null) => {
     if (!schedule) return 'Não definido';
-    const days: Record<string, string> = {
-      monday: 'Seg',
-      tuesday: 'Ter',
-      wednesday: 'Qua',
-      thursday: 'Qui',
-      friday: 'Sex',
-      saturday: 'Sáb',
-      sunday: 'Dom',
-    };
+    const dayLabels = WEEKDAYS.reduce((acc, day) => {
+      acc[day.id] = day.name;
+      return acc;
+    }, {} as Record<string, string>);
+    
     return Object.entries(schedule)
-      .map(([day, time]) => `${days[day] || day}: ${time}`)
+      .map(([day, time]) => `${dayLabels[day] || day} ${time}`)
       .join(' | ');
+  };
+
+  const getClassProgress = (startDate: string, endDate: string | null) => {
+    const start = new Date(startDate);
+    const end = endDate ? new Date(endDate) : new Date(start.getTime() + COURSE_WEEKS * 7 * 24 * 60 * 60 * 1000);
+    const now = new Date();
+    
+    if (now < start) return { label: 'Não iniciada', variant: 'secondary' as const };
+    if (now > end) return { label: 'Concluída', variant: 'default' as const };
+    
+    const totalDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+    const passedDays = (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+    const progress = Math.round((passedDays / totalDays) * 100);
+    const weeksLeft = Math.ceil((end.getTime() - now.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    
+    return { label: `${weeksLeft} semanas restantes`, variant: 'outline' as const, progress };
   };
 
   if (isLoading) {
@@ -218,13 +232,19 @@ export default function Classes() {
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                   <span>
                     {format(new Date(classItem.start_date), 'dd/MM/yyyy', { locale: ptBR })}
-                    {classItem.end_date && ` - ${format(new Date(classItem.end_date), 'dd/MM/yyyy', { locale: ptBR })}`}
+                    {classItem.end_date && ` → ${format(new Date(classItem.end_date), 'dd/MM/yyyy', { locale: ptBR })}`}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className="h-4 w-4 text-muted-foreground" />
                   <span className="truncate">{formatSchedule(classItem.schedule)}</span>
                 </div>
+                {classItem.course?.duration_hours && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Timer className="h-4 w-4 text-muted-foreground" />
+                    <span>{classItem.course.duration_hours}h por aula • {COURSE_WEEKS} semanas</span>
+                  </div>
+                )}
                 {classItem.room && (
                   <div className="flex items-center gap-2 text-sm">
                     <MapPin className="h-4 w-4 text-muted-foreground" />

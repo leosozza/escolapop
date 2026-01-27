@@ -81,22 +81,15 @@ export function ScheduleLeadDialog({ open, onOpenChange, onSuccess }: ScheduleLe
 
   useEffect(() => {
     const fetchAgents = async () => {
-      // Fetch profiles with agente_comercial role
-      const { data: rolesData } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'agente_comercial');
+      // Fetch agents from the dedicated agents table
+      const { data: agentsData, error } = await supabase
+        .from('agents')
+        .select('id, full_name')
+        .eq('is_active', true)
+        .order('full_name');
 
-      if (rolesData && rolesData.length > 0) {
-        const userIds = rolesData.map(r => r.user_id);
-        const { data: profilesData } = await supabase
-          .from('profiles')
-          .select('user_id, full_name')
-          .in('user_id', userIds);
-
-        if (profilesData) {
-          setAgents(profilesData.map(p => ({ id: p.user_id, full_name: p.full_name })));
-        }
+      if (!error && agentsData) {
+        setAgents(agentsData.map(a => ({ id: a.id, full_name: a.full_name })));
       }
     };
 

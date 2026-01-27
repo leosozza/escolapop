@@ -61,6 +61,7 @@ const newStudentSchema = z.object({
   influencer_name: z.string().optional(),
   referral_agent_code: z.string().optional(),
   student_age: z.coerce.number().min(1, 'Informe a idade'),
+  agent_id: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -73,6 +74,7 @@ const existingLeadSchema = z.object({
   influencer_name: z.string().optional(),
   referral_agent_code: z.string().optional(),
   student_age: z.coerce.number().optional(),
+  agent_id: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -103,6 +105,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
       influencer_name: '',
       referral_agent_code: '',
       student_age: undefined,
+      agent_id: '',
       notes: '',
     },
   });
@@ -118,6 +121,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
       influencer_name: '',
       referral_agent_code: '',
       student_age: undefined,
+      agent_id: '',
       notes: '',
     },
   });
@@ -203,6 +207,20 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
     },
   });
 
+  // Fetch agents
+  const { data: agents } = useQuery({
+    queryKey: ['agents-for-enrollment'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('agents')
+        .select('id, full_name')
+        .eq('is_active', true)
+        .order('full_name');
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Helper to normalize phone number for comparison
   const normalizePhone = (phone: string) => phone.replace(/\D/g, '');
 
@@ -276,6 +294,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
           source: 'indicacao' as const,
           status: 'matriculado' as const,
           notes: values.notes || null,
+          assigned_agent_id: values.agent_id || null,
         })
         .select('id')
         .single();
@@ -336,10 +355,13 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
   const onSubmitExistingLead = async (values: ExistingLeadFormValues) => {
     setIsSubmitting(true);
     try {
-      // Update lead status to matriculado
+      // Update lead status to matriculado and set agent if provided
+      const leadUpdate: Record<string, unknown> = { status: 'matriculado' as const };
+      if (values.agent_id) leadUpdate.assigned_agent_id = values.agent_id;
+      
       await supabase
         .from('leads')
-        .update({ status: 'matriculado' as const })
+        .update(leadUpdate)
         .eq('id', values.lead_id);
 
       const enrollmentData: Record<string, unknown> = {
@@ -609,6 +631,31 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
 
                 <FormField
                   control={newStudentForm.control}
+                  name="agent_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Agente que Agendou</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ''}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o agente (opcional)" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {agents?.map((agent) => (
+                            <SelectItem key={agent.id} value={agent.id}>
+                              {agent.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={newStudentForm.control}
                   name="notes"
                   render={({ field }) => (
                     <FormItem>
@@ -813,6 +860,31 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                       {classesExisting?.length === 0 && selectedCourseIdExisting && (
                         <p className="text-xs text-destructive">Nenhuma turma ativa para este curso</p>
                       )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={existingLeadForm.control}
+                  name="agent_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Agente que Agendou</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ''}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o agente (opcional)" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {agents?.map((agent) => (
+                            <SelectItem key={agent.id} value={agent.id}>
+                              {agent.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}

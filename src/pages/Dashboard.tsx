@@ -122,10 +122,11 @@ export default function Dashboard() {
 
       setRelationshipAgents(agentsData || []);
 
-      // Fetch leads or use mock data for testing
+      // Fetch leads - exclude matriculados (they belong to academic, not commercial)
       const { data: leadsData } = await supabase
         .from('leads')
         .select('id, full_name, status, updated_at, assigned_agent_id, scheduled_at')
+        .neq('status', 'matriculado')
         .order('updated_at', { ascending: false });
 
       // Use mock data if no real leads exist

@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, User, Phone } from 'lucide-react';
+import { Plus, Search, Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, UserPlus } from 'lucide-react';
 import { format, startOfWeek, addDays, isSameDay, parseISO, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Calendar } from '@/components/ui/calendar';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { AddAppointmentDialog } from '@/components/appointments/AddAppointmentDialog';
+import { ScheduleLeadDialog } from '@/components/appointments/ScheduleLeadDialog';
 import { AppointmentCard } from '@/components/appointments/AppointmentCard';
 
 interface AppointmentWithDetails {
@@ -41,6 +41,7 @@ export default function Appointments() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isScheduleLeadOpen, setIsScheduleLeadOpen] = useState(false);
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const { toast } = useToast();
 
@@ -164,10 +165,17 @@ export default function Appointments() {
           </div>
           <Button 
             className="bg-gradient-primary hover:opacity-90"
+            onClick={() => setIsScheduleLeadOpen(true)}
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Agendar Lead
+          </Button>
+          <Button 
+            variant="outline"
             onClick={() => setIsAddDialogOpen(true)}
           >
             <Plus className="h-4 w-4 mr-2" />
-            Novo Agendamento
+            Lead Existente
           </Button>
         </div>
       </div>
@@ -310,6 +318,12 @@ export default function Appointments() {
       <AddAppointmentDialog
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
+        onSuccess={fetchAppointments}
+      />
+
+      <ScheduleLeadDialog
+        open={isScheduleLeadOpen}
+        onOpenChange={setIsScheduleLeadOpen}
         onSuccess={fetchAppointments}
       />
     </div>

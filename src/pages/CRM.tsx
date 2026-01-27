@@ -64,6 +64,7 @@ export default function CRM() {
           course:courses(name),
           lead_source:lead_sources(*)
         `)
+        .neq('status', 'matriculado') // Exclude enrolled students from commercial portfolio
         .order('created_at', { ascending: false });
 
       if (error) throw error;

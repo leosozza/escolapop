@@ -12,7 +12,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Progress } from '@/components/ui/progress';
 import {
   Select,
   SelectContent,
@@ -28,6 +27,9 @@ import {
   Award,
   Clock,
   MessageCircle,
+  Check,
+  X,
+  AlertCircle,
 } from 'lucide-react';
 import { ACADEMIC_STATUS_CONFIG, type AcademicStatus } from '@/types/database';
 import { format } from 'date-fns';
@@ -120,6 +122,39 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
       return counts;
     },
     enabled: !!studentId && !!enrollments?.length && open,
+  });
+
+  // Mark attendance mutation
+  const markAttendanceMutation = useMutation({
+    mutationFn: async ({
+      classId,
+      status,
+    }: {
+      classId: string;
+      status: 'presente' | 'falta' | 'justificado';
+    }) => {
+      const { error } = await supabase.from('attendance').upsert(
+        {
+          class_id: classId,
+          student_id: studentId,
+          attendance_date: format(new Date(), 'yyyy-MM-dd'),
+          status,
+        },
+        {
+          onConflict: 'class_id,student_id,attendance_date',
+        }
+      );
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Presença marcada!');
+      queryClient.invalidateQueries({ queryKey: ['attendance-counts-lead', studentId] });
+      onUpdate();
+    },
+    onError: () => {
+      toast.error('Erro ao marcar presença');
+    },
   });
 
   // Update enrollment status mutation
@@ -251,6 +286,60 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
                           />
                         ))}
                       </div>
+
+                      {/* Quick Attendance Buttons */}
+                      {enrollment.class_id && (
+                        <div className="pt-2 space-y-2">
+                          <p className="text-sm font-medium">Marcar Presença de Hoje:</p>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 hover:bg-success/10 hover:border-success hover:text-success"
+                              onClick={() =>
+                                markAttendanceMutation.mutate({
+                                  classId: enrollment.class_id!,
+                                  status: 'presente',
+                                })
+                              }
+                              disabled={markAttendanceMutation.isPending}
+                            >
+                              <Check className="h-4 w-4 mr-1" />
+                              Presente
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 hover:bg-destructive/10 hover:border-destructive hover:text-destructive"
+                              onClick={() =>
+                                markAttendanceMutation.mutate({
+                                  classId: enrollment.class_id!,
+                                  status: 'falta',
+                                })
+                              }
+                              disabled={markAttendanceMutation.isPending}
+                            >
+                              <X className="h-4 w-4 mr-1" />
+                              Falta
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 hover:bg-warning/10 hover:border-warning hover:text-warning"
+                              onClick={() =>
+                                markAttendanceMutation.mutate({
+                                  classId: enrollment.class_id!,
+                                  status: 'justificado',
+                                })
+                              }
+                              disabled={markAttendanceMutation.isPending}
+                            >
+                              <AlertCircle className="h-4 w-4 mr-1" />
+                              Justificado
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                       
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div className="flex items-center gap-1 text-muted-foreground">

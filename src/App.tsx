@@ -19,7 +19,6 @@ import Reception from "./pages/Reception";
 import AgentPortfolio from "./pages/AgentPortfolio";
 import ProducerQueue from "./pages/ProducerQueue";
 import Classes from "./pages/Classes";
-import Attendance from "./pages/Attendance";
 import Contracts from "./pages/Contracts";
 import Payments from "./pages/Payments";
 import Overdue from "./pages/Overdue";
@@ -122,14 +121,7 @@ const App = () => (
                 </AppLayout>
               }
             />
-            <Route
-              path="/attendance"
-              element={
-                <AppLayout>
-                  <Attendance />
-                </AppLayout>
-              }
-            />
+            {/* Attendance route removed - attendance is now managed within Students and Classes pages */}
             <Route
               path="/contracts"
               element={

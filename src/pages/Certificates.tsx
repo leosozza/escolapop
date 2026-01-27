@@ -8,6 +8,7 @@ import {
   Calendar,
   GraduationCap,
   CheckCircle2,
+  Plus,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,10 +23,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { CertificateGenerator } from '@/components/certificates/CertificateGenerator';
 
 interface Enrollment {
   id: string;
@@ -41,6 +49,9 @@ export default function Certificates() {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedEnrollment, setSelectedEnrollment] = useState<Enrollment | null>(null);
+  const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
+  const [isNewCertificateOpen, setIsNewCertificateOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -106,6 +117,11 @@ export default function Certificates() {
     }
   };
 
+  const handleViewCertificate = (enrollment: Enrollment) => {
+    setSelectedEnrollment(enrollment);
+    setIsGeneratorOpen(true);
+  };
+
   const filteredEnrollments = enrollments.filter(e =>
     e.lead?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     e.course?.name?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -148,6 +164,10 @@ export default function Certificates() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+          <Button onClick={() => setIsNewCertificateOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Novo Certificado
+          </Button>
         </div>
       </div>
 
@@ -259,11 +279,19 @@ export default function Certificates() {
                       <div className="flex items-center gap-2">
                         {enrollment.certificate_issued ? (
                           <>
-                            <Button variant="outline" size="sm">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleViewCertificate(enrollment)}
+                            >
                               <Eye className="h-4 w-4 mr-1" />
                               Ver
                             </Button>
-                            <Button variant="outline" size="sm">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleViewCertificate(enrollment)}
+                            >
                               <Download className="h-4 w-4" />
                             </Button>
                           </>
@@ -286,6 +314,36 @@ export default function Certificates() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Certificate Generator Dialog */}
+      <Dialog open={isGeneratorOpen} onOpenChange={setIsGeneratorOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Certificado de Conclusão</DialogTitle>
+          </DialogHeader>
+          {selectedEnrollment && (
+            <CertificateGenerator
+              initialData={{
+                studentName: selectedEnrollment.lead?.full_name || '',
+                courseName: selectedEnrollment.course?.name || '',
+                completionDate: selectedEnrollment.completed_at
+                  ? format(new Date(selectedEnrollment.completed_at), 'yyyy-MM-dd')
+                  : format(new Date(), 'yyyy-MM-dd'),
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* New Certificate Dialog */}
+      <Dialog open={isNewCertificateOpen} onOpenChange={setIsNewCertificateOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Criar Novo Certificado</DialogTitle>
+          </DialogHeader>
+          <CertificateGenerator />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -27,6 +27,7 @@ import Team from "./pages/Team";
 import Reports from "./pages/Reports";
 import Roadmap from "./pages/Roadmap";
 import Billing from "./pages/Billing";
+import AcademicSupport from "./pages/AcademicSupport";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -87,6 +88,14 @@ const App = () => (
               element={
                 <AppLayout>
                   <LMS />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/academic-support"
+              element={
+                <AppLayout>
+                  <AcademicSupport />
                 </AppLayout>
               }
             />

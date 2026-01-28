@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   ChevronRight,
   Rocket,
+  Receipt,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -88,6 +89,7 @@ const sidebarGroups = [
   {
     title: 'Financeiro',
     items: [
+      { name: 'Cobrança', href: '/billing', icon: Receipt },
       { name: 'Contratos', href: '/contracts', icon: FileText },
       { name: 'Pagamentos', href: '/payments', icon: CreditCard },
       { name: 'Inadimplência', href: '/overdue', icon: AlertTriangle },

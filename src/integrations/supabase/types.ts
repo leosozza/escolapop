@@ -149,6 +149,39 @@ export type Database = {
           },
         ]
       }
+      billing_products: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          default_price: number
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          default_price?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          default_price?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       call_logs: {
         Row: {
           agent_id: string
@@ -237,6 +270,90 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      charges: {
+        Row: {
+          amount: number
+          attachment_url: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          lead_id: string | null
+          name: string
+          notes: string | null
+          paid_amount: number | null
+          paid_at: string | null
+          payer_email: string | null
+          payer_name: string
+          payer_phone: string | null
+          payment_type: Database["public"]["Enums"]["payment_type"] | null
+          product_id: string | null
+          receipt_url: string | null
+          status: Database["public"]["Enums"]["charge_status"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          attachment_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          lead_id?: string | null
+          name: string
+          notes?: string | null
+          paid_amount?: number | null
+          paid_at?: string | null
+          payer_email?: string | null
+          payer_name: string
+          payer_phone?: string | null
+          payment_type?: Database["public"]["Enums"]["payment_type"] | null
+          product_id?: string | null
+          receipt_url?: string | null
+          status?: Database["public"]["Enums"]["charge_status"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          attachment_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          lead_id?: string | null
+          name?: string
+          notes?: string | null
+          paid_amount?: number | null
+          paid_at?: string | null
+          payer_email?: string | null
+          payer_name?: string
+          payer_phone?: string | null
+          payment_type?: Database["public"]["Enums"]["payment_type"] | null
+          product_id?: string | null
+          receipt_url?: string | null
+          status?: Database["public"]["Enums"]["charge_status"] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "charges_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "charges_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "billing_products"
             referencedColumns: ["id"]
           },
         ]
@@ -1330,6 +1447,7 @@ export type Database = {
         | "produtor"
         | "scouter"
         | "aluno"
+      charge_status: "pendente" | "pago" | "cancelado" | "vencido" | "parcial"
       content_type: "video" | "text" | "file" | "quiz"
       course_modality: "presencial" | "online" | "hibrido"
       enrollment_type:
@@ -1355,6 +1473,13 @@ export type Database = {
         | "proposta"
         | "matriculado"
         | "perdido"
+      payment_type:
+        | "pix"
+        | "cartao_credito"
+        | "cartao_debito"
+        | "boleto"
+        | "dinheiro"
+        | "transferencia"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1500,6 +1625,7 @@ export const Constants = {
         "scouter",
         "aluno",
       ],
+      charge_status: ["pendente", "pago", "cancelado", "vencido", "parcial"],
       content_type: ["video", "text", "file", "quiz"],
       course_modality: ["presencial", "online", "hibrido"],
       enrollment_type: [
@@ -1527,6 +1653,14 @@ export const Constants = {
         "proposta",
         "matriculado",
         "perdido",
+      ],
+      payment_type: [
+        "pix",
+        "cartao_credito",
+        "cartao_debito",
+        "boleto",
+        "dinheiro",
+        "transferencia",
       ],
     },
   },

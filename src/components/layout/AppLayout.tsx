@@ -30,6 +30,7 @@ const routeNames: Record<string, string> = {
   '/lms': 'Aulas (LMS)',
   '/attendance': 'Presença',
   '/certificates': 'Certificados',
+  '/billing': 'Cobrança',
   '/contracts': 'Contratos',
   '/payments': 'Pagamentos',
   '/overdue': 'Inadimplência',

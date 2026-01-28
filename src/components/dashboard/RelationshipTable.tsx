@@ -240,7 +240,7 @@ export function RelationshipTable({ leads, agents, onLeadClick, className }: Rel
             </ScrollArea>
           </div>
           <TabsContent value={activeTab} className="mt-0">
-            <ScrollArea className="h-[350px]">
+            <ScrollArea className="h-[500px]">
               {renderTable(filteredLeads)}
             </ScrollArea>
           </TabsContent>

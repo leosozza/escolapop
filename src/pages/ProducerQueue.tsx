@@ -9,6 +9,7 @@ import {
   DollarSign,
   FileText,
   Timer,
+  MessageCircle,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -40,6 +42,7 @@ import { type Lead } from '@/types/database';
 import { formatDistanceToNow, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { WhatsAppContactPanel } from '@/components/whatsapp/WhatsAppContactPanel';
 
 interface QueueLead extends Lead {
   checked_in_at?: string;
@@ -63,6 +66,7 @@ export default function ProducerQueue() {
   const [selectedLead, setSelectedLead] = useState<QueueLead | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [activeMainTab, setActiveMainTab] = useState('whatsapp');
   
   // Close dialog state
   const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false);
@@ -219,24 +223,42 @@ export default function ProducerQueue() {
   }
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col p-6 gap-6">
+    <div className="h-[calc(100vh-4rem)] flex flex-col p-6 gap-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Atendimento</h1>
           <p className="text-muted-foreground">
-            Fila de clientes para atendimento do produtor
+            Gestão de comunicação e fila de atendimento
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        {activeMainTab === 'queue' && (
           <Badge variant="outline" className="text-lg py-2 px-4">
             <Users className="h-5 w-5 mr-2" />
             {queue.length} na fila
           </Badge>
-        </div>
+        )}
       </div>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
+      {/* Main Tabs */}
+      <Tabs value={activeMainTab} onValueChange={setActiveMainTab} className="flex-1 flex flex-col min-h-0">
+        <TabsList className="w-fit">
+          <TabsTrigger value="whatsapp" className="gap-2">
+            <MessageCircle className="h-4 w-4" />
+            WhatsApp
+          </TabsTrigger>
+          <TabsTrigger value="queue" className="gap-2">
+            <Users className="h-4 w-4" />
+            Fila de Atendimento
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="whatsapp" className="flex-1 mt-4">
+          <WhatsAppContactPanel />
+        </TabsContent>
+
+        <TabsContent value="queue" className="flex-1 mt-4">
+          <div className="h-full grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Fila de Espera */}
         <Card className="border-0 shadow-md flex flex-col min-h-0">
           <CardHeader className="pb-3">
@@ -393,7 +415,9 @@ export default function ProducerQueue() {
             </div>
           )}
         </Card>
-      </div>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Dialog de Encerramento */}
       <Dialog open={isCloseDialogOpen} onOpenChange={setIsCloseDialogOpen}>

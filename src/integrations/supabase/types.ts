@@ -149,6 +149,47 @@ export type Database = {
           },
         ]
       }
+      billing_product_prices: {
+        Row: {
+          allowed_payment_types: Database["public"]["Enums"]["payment_type"][]
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          label: string
+          price: number
+          product_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          allowed_payment_types?: Database["public"]["Enums"]["payment_type"][]
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          label: string
+          price: number
+          product_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          allowed_payment_types?: Database["public"]["Enums"]["payment_type"][]
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          label?: string
+          price?: number
+          product_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_product_prices_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "billing_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       billing_products: {
         Row: {
           category: string | null

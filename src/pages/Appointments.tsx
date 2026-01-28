@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Plus, Search, Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, UserPlus } from 'lucide-react';
 import { format, startOfWeek, addDays, isSameDay, parseISO, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AddAppointmentDialog } from '@/components/appointments/AddAppointmentDialog';
 import { ScheduleLeadDialog } from '@/components/appointments/ScheduleLeadDialog';
 import { AppointmentCard } from '@/components/appointments/AppointmentCard';
+import { ScheduleByHour } from '@/components/dashboard/ScheduleByHour';
 
 interface AppointmentWithDetails {
   id: string;
@@ -33,6 +34,12 @@ interface AppointmentWithDetails {
     id: string;
     full_name: string;
   };
+}
+
+interface ScheduleSlot {
+  hour: string;
+  count: number;
+  leads: { id: string; name: string; status: 'agendado' | 'confirmado' }[];
 }
 
 export default function Appointments() {
@@ -122,6 +129,34 @@ export default function Appointments() {
     const matchesDate = isSameDay(parseISO(apt.scheduled_date), selectedDate);
     return matchesSearch && matchesDate;
   });
+
+  // Schedule by hour slots for selected date
+  const scheduleSlots: ScheduleSlot[] = useMemo(() => {
+    const dayAppointments = appointments.filter(apt => 
+      isSameDay(parseISO(apt.scheduled_date), selectedDate)
+    );
+
+    const slots: ScheduleSlot[] = [];
+    for (let hour = 8; hour <= 20; hour++) {
+      const hourStr = `${hour.toString().padStart(2, '0')}:00`;
+      const appointmentsInHour = dayAppointments.filter((apt) => {
+        const [aptHour] = apt.scheduled_time.split(':').map(Number);
+        return aptHour === hour;
+      });
+
+      slots.push({
+        hour: hourStr,
+        count: appointmentsInHour.length,
+        leads: appointmentsInHour.map((apt) => ({
+          id: apt.id,
+          name: apt.lead.full_name,
+          status: apt.confirmed ? 'confirmado' : 'agendado',
+        })),
+      });
+    }
+
+    return slots;
+  }, [appointments, selectedDate]);
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
 
@@ -226,6 +261,9 @@ export default function Appointments() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Schedule by Hour */}
+          <ScheduleByHour slots={scheduleSlots} />
         </div>
 
         {/* Main Content */}

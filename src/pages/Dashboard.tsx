@@ -12,9 +12,9 @@ import { StatusBar, StatusSegment } from '@/components/dashboard/StatusBar';
 import { SummaryPanel } from '@/components/dashboard/SummaryPanel';
 import { RelationshipTable } from '@/components/dashboard/RelationshipTable';
 import { DateFilter } from '@/components/dashboard/DateFilter';
-import { ScheduleByHour } from '@/components/dashboard/ScheduleByHour';
+import { EditAgentDialog } from '@/components/dashboard/EditAgentDialog';
 import AddAgentDialog from '@/components/team/AddAgentDialog';
-import { format, differenceInHours, isSameDay, setHours, setMinutes, addHours } from 'date-fns';
+import { format, differenceInHours, isSameDay, setHours, setMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
@@ -41,12 +41,6 @@ interface LeadData {
   updated_at: string;
   scheduled_at: string | null;
   assigned_agent_id: string | null;
-}
-
-interface ScheduleSlot {
-  hour: string;
-  count: number;
-  leads: { id: string; name: string; status: 'agendado' | 'confirmado' }[];
 }
 
 // Mock data for testing - will be removed when real data is available
@@ -89,9 +83,10 @@ export default function Dashboard() {
   const [scouters, setScouters] = useState<StaffMember[]>([]);
   const [leads, setLeads] = useState<LeadData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [showAddAgentDialog, setShowAddAgentDialog] = useState(false);
+  const [editingAgent, setEditingAgent] = useState<RelationshipAgent | null>(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -254,35 +249,6 @@ export default function Dashboard() {
     { key: 'perdido', label: 'Declinou', count: filteredLeadsByDate.filter((l) => l.status === 'perdido').length, colorClass: 'bg-destructive' },
   ], [filteredLeadsByDate]);
 
-  // Schedule by hour slots
-  const scheduleSlots: ScheduleSlot[] = useMemo(() => {
-    const scheduledLeads = filteredLeadsByDate.filter(
-      (l) => ['agendado', 'confirmado'].includes(l.status) && l.scheduled_at
-    );
-
-    const slots: ScheduleSlot[] = [];
-    for (let hour = 8; hour <= 20; hour++) {
-      const hourStr = `${hour.toString().padStart(2, '0')}:00`;
-      const leadsInHour = scheduledLeads.filter((lead) => {
-        if (!lead.scheduled_at) return false;
-        const scheduledHour = new Date(lead.scheduled_at).getHours();
-        return scheduledHour === hour;
-      });
-
-      slots.push({
-        hour: hourStr,
-        count: leadsInHour.length,
-        leads: leadsInHour.map((l) => ({
-          id: l.id,
-          name: l.full_name,
-          status: l.status as 'agendado' | 'confirmado',
-        })),
-      });
-    }
-
-    return slots;
-  }, [filteredLeadsByDate]);
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -325,13 +291,15 @@ export default function Dashboard() {
         <ScrollArea className="w-full whitespace-nowrap">
           <div className="flex gap-4 pb-4">
             {relationshipAgents.map((agent) => (
-              <AgentCard
-                key={agent.id}
-                id={agent.id}
-                name={agent.full_name}
-                avatarUrl={agent.avatar_url}
-                metrics={getAgentMetrics(agent.id)}
-              />
+              <div key={agent.id} className="group">
+                <AgentCard
+                  id={agent.id}
+                  name={agent.full_name}
+                  avatarUrl={agent.avatar_url}
+                  metrics={getAgentMetrics(agent.id)}
+                  onEdit={() => setEditingAgent(agent)}
+                />
+              </div>
             ))}
             <AddAgentCard onClick={() => setShowAddAgentDialog(true)} />
           </div>
@@ -394,20 +362,26 @@ export default function Dashboard() {
         onSegmentClick={setStatusFilter}
       />
 
-      {/* Bottom Grid: Table + Schedule by Hour */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <RelationshipTable
-          leads={filteredLeads}
-          agents={agents}
-          onLeadClick={(lead) => console.log('Lead clicked:', lead)}
-        />
-        <ScheduleByHour slots={scheduleSlots} />
-      </div>
+      {/* Full-width Carteira Table */}
+      <RelationshipTable
+        leads={filteredLeads}
+        agents={agents}
+        onLeadClick={(lead) => console.log('Lead clicked:', lead)}
+        className="min-h-[600px]"
+      />
 
       {/* Add Agent Dialog */}
       <AddAgentDialog
         open={showAddAgentDialog}
         onOpenChange={setShowAddAgentDialog}
+        onSuccess={fetchDashboardData}
+      />
+
+      {/* Edit Agent Dialog */}
+      <EditAgentDialog
+        open={!!editingAgent}
+        onOpenChange={(open) => !open && setEditingAgent(null)}
+        agent={editingAgent}
         onSuccess={fetchDashboardData}
       />
     </div>

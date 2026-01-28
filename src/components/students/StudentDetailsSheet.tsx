@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import {
   Sheet,
   SheetContent,
@@ -20,6 +22,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   GraduationCap,
   Phone,
   Mail,
@@ -30,23 +38,32 @@ import {
   Check,
   X,
   AlertCircle,
+  User,
+  FileText,
 } from 'lucide-react';
 import { ACADEMIC_STATUS_CONFIG, type AcademicStatus } from '@/types/database';
-import { format } from 'date-fns';
+import { format, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
 
 interface StudentDetailsSheetProps {
-  studentId: string | null; // This is now the lead_id
+  studentId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate: () => void;
 }
 
+interface AttendanceRecord {
+  lesson_number: number;
+  status: 'presente' | 'falta' | 'justificado' | null;
+  attendance_date: string | null;
+}
+
 export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }: StudentDetailsSheetProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
-  // Fetch lead data (student is a lead now)
+  // Fetch lead data
   const { data: student } = useQuery({
     queryKey: ['student-lead', studentId],
     queryFn: async () => {
@@ -62,7 +79,7 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
     enabled: !!studentId && open,
   });
 
-  // Fetch student's enrollments using lead_id
+  // Fetch student's enrollments with class info
   const { data: enrollments } = useQuery({
     queryKey: ['student-enrollments-lead', studentId],
     queryFn: async () => {
@@ -71,7 +88,8 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
         .from('enrollments')
         .select(`
           *,
-          course:courses(*)
+          course:courses(*),
+          class:classes(*, teacher:profiles!classes_teacher_id_fkey(full_name))
         `)
         .eq('lead_id', studentId)
         .order('enrolled_at', { ascending: false });
@@ -79,6 +97,48 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
       return data;
     },
     enabled: !!studentId && open,
+  });
+
+  // Fetch attendance records by enrollment
+  const { data: attendanceByEnrollment } = useQuery({
+    queryKey: ['attendance-by-enrollment', studentId, enrollments],
+    queryFn: async () => {
+      if (!studentId || !enrollments?.length) return {};
+      const result: Record<string, AttendanceRecord[]> = {};
+      
+      for (const enrollment of enrollments) {
+        if (enrollment.class_id) {
+          const { data: attendanceData } = await supabase
+            .from('attendance')
+            .select('attendance_date, status')
+            .eq('student_id', studentId)
+            .eq('class_id', enrollment.class_id)
+            .order('attendance_date', { ascending: true });
+
+          // Build array for 8 lessons based on class start date
+          const classStartDate = enrollment.class?.start_date ? new Date(enrollment.class.start_date) : null;
+          const records: AttendanceRecord[] = [];
+
+          for (let i = 0; i < COURSE_WEEKS; i++) {
+            const expectedDate = classStartDate ? addWeeks(classStartDate, i) : null;
+            const existingAttendance = attendanceData?.find(
+              a => expectedDate && format(new Date(a.attendance_date), 'yyyy-MM-dd') === format(expectedDate, 'yyyy-MM-dd')
+            );
+
+            records.push({
+              lesson_number: i + 1,
+              status: existingAttendance?.status as 'presente' | 'falta' | 'justificado' | null,
+              attendance_date: expectedDate ? format(expectedDate, 'yyyy-MM-dd') : null,
+            });
+          }
+
+          result[enrollment.id] = records;
+        }
+      }
+      
+      return result;
+    },
+    enabled: !!studentId && !!enrollments?.length && open,
   });
 
   // Fetch enrollment history
@@ -99,45 +159,22 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
     enabled: !!studentId && !!enrollments?.length && open,
   });
 
-  // Fetch attendance counts
-  const { data: attendanceCounts } = useQuery({
-    queryKey: ['attendance-counts-lead', studentId, enrollments],
-    queryFn: async () => {
-      if (!studentId || !enrollments?.length) return {};
-      const counts: Record<string, number> = {};
-      
-      for (const enrollment of enrollments) {
-        if (enrollment.class_id) {
-          const { count } = await supabase
-            .from('attendance')
-            .select('*', { count: 'exact', head: true })
-            .eq('student_id', studentId)
-            .eq('class_id', enrollment.class_id)
-            .eq('status', 'presente');
-          
-          counts[enrollment.id] = count || 0;
-        }
-      }
-      
-      return counts;
-    },
-    enabled: !!studentId && !!enrollments?.length && open,
-  });
-
   // Mark attendance mutation
   const markAttendanceMutation = useMutation({
     mutationFn: async ({
       classId,
+      attendanceDate,
       status,
     }: {
       classId: string;
+      attendanceDate: string;
       status: 'presente' | 'falta' | 'justificado';
     }) => {
       const { error } = await supabase.from('attendance').upsert(
         {
           class_id: classId,
           student_id: studentId,
-          attendance_date: format(new Date(), 'yyyy-MM-dd'),
+          attendance_date: attendanceDate,
           status,
         },
         {
@@ -149,7 +186,7 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
     },
     onSuccess: () => {
       toast.success('Presença marcada!');
-      queryClient.invalidateQueries({ queryKey: ['attendance-counts-lead', studentId] });
+      queryClient.invalidateQueries({ queryKey: ['attendance-by-enrollment', studentId] });
       onUpdate();
     },
     onError: () => {
@@ -177,6 +214,34 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
     },
   });
 
+  // Mark as completed and go to certificates
+  const handleCourseComplete = async (enrollment: any) => {
+    try {
+      await supabase
+        .from('enrollments')
+        .update({ 
+          status: 'concluido',
+          completed_at: new Date().toISOString(),
+          certificate_issued: false 
+        })
+        .eq('id', enrollment.id);
+
+      toast.success('Curso concluído! Redirecionando para certificados...');
+      onOpenChange(false);
+      
+      // Navigate to certificates with pre-filled data
+      navigate('/certificates', { 
+        state: { 
+          studentName: student?.full_name,
+          courseName: enrollment.course?.name,
+          completionDate: enrollment.class?.end_date || new Date().toISOString()
+        } 
+      });
+    } catch (error) {
+      toast.error('Erro ao marcar conclusão');
+    }
+  };
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -199,6 +264,33 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
     const cleanPhone = phone.replace(/\D/g, '');
     const message = encodeURIComponent(`Olá ${name}! Entramos em contato sobre suas aulas na escola.`);
     window.open(`https://wa.me/55${cleanPhone}?text=${message}`, '_blank');
+  };
+
+  const [selectedLesson, setSelectedLesson] = useState<{
+    enrollmentId: string;
+    classId: string;
+    lessonNumber: number;
+    attendanceDate: string;
+  } | null>(null);
+
+  const handleLessonClick = (enrollmentId: string, classId: string, lesson: AttendanceRecord) => {
+    if (!lesson.attendance_date) return;
+    setSelectedLesson({
+      enrollmentId,
+      classId,
+      lessonNumber: lesson.lesson_number,
+      attendanceDate: lesson.attendance_date,
+    });
+  };
+
+  const handleMarkAttendance = (status: 'presente' | 'falta' | 'justificado') => {
+    if (!selectedLesson) return;
+    markAttendanceMutation.mutate({
+      classId: selectedLesson.classId,
+      attendanceDate: selectedLesson.attendanceDate,
+      status,
+    });
+    setSelectedLesson(null);
   };
 
   if (!student) return null;
@@ -256,9 +348,10 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
             <p className="text-sm text-muted-foreground">Nenhuma matrícula encontrada</p>
           ) : (
             <div className="space-y-3">
-              {enrollments?.map((enrollment) => {
-                const attendanceCount = attendanceCounts?.[enrollment.id] || 0;
-                const progressPercent = Math.round((attendanceCount / COURSE_WEEKS) * 100);
+              {enrollments?.map((enrollment: any) => {
+                const attendanceRecords = attendanceByEnrollment?.[enrollment.id] || [];
+                const presentCount = attendanceRecords.filter(r => r.status === 'presente').length;
+                const isComplete = presentCount >= COURSE_WEEKS;
                 
                 return (
                   <Card key={enrollment.id}>
@@ -267,41 +360,88 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
                         <CardTitle className="text-base">{enrollment.course?.name}</CardTitle>
                         {getStatusBadge(enrollment.status as AcademicStatus)}
                       </div>
+                      {enrollment.referral_agent_code && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          Código: {enrollment.referral_agent_code}
+                        </p>
+                      )}
                     </CardHeader>
                     <CardContent className="space-y-3">
+                      {/* Class info */}
+                      {enrollment.class && (
+                        <div className="text-sm text-muted-foreground grid grid-cols-2 gap-2">
+                          <span>Turma: {enrollment.class.name}</span>
+                          {enrollment.class.teacher && (
+                            <span>Professor: {enrollment.class.teacher.full_name}</span>
+                          )}
+                          <span>Início: {format(new Date(enrollment.class.start_date), 'dd/MM/yyyy')}</span>
+                          {enrollment.class.end_date && (
+                            <span>Fim: {format(new Date(enrollment.class.end_date), 'dd/MM/yyyy')}</span>
+                          )}
+                        </div>
+                      )}
+
+                      <Separator className="my-2" />
+
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Aulas Concluídas</span>
-                        <span className="font-medium">{attendanceCount}/{COURSE_WEEKS}</span>
+                        <span className="font-medium">{presentCount}/{COURSE_WEEKS}</span>
                       </div>
                       
-                      {/* Visual progress blocks */}
-                      <div className="flex gap-1">
-                        {Array.from({ length: COURSE_WEEKS }).map((_, i) => (
-                          <div
-                            key={i}
-                            className={`h-4 flex-1 rounded-sm transition-all ${
-                              i < attendanceCount ? 'bg-primary' : 'bg-muted'
-                            }`}
-                            title={`Aula ${i + 1}`}
-                          />
-                        ))}
-                      </div>
+                      {/* Clickable attendance blocks */}
+                      <TooltipProvider>
+                        <div className="flex gap-1">
+                          {attendanceRecords.map((record, i) => (
+                            <Tooltip key={i}>
+                              <TooltipTrigger asChild>
+                                <button
+                                  className={`h-10 flex-1 rounded-sm transition-all flex items-center justify-center text-xs font-medium cursor-pointer
+                                    ${record.status === 'presente' 
+                                      ? 'bg-success text-success-foreground' 
+                                      : record.status === 'falta' 
+                                        ? 'bg-destructive text-destructive-foreground'
+                                        : record.status === 'justificado'
+                                          ? 'bg-warning text-warning-foreground'
+                                          : 'bg-muted hover:bg-muted/80'
+                                    }`}
+                                  onClick={() => enrollment.class_id && handleLessonClick(enrollment.id, enrollment.class_id, record)}
+                                  disabled={!record.attendance_date}
+                                >
+                                  {record.lesson_number}
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Aula {record.lesson_number}</p>
+                                {record.attendance_date && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {format(new Date(record.attendance_date), 'dd/MM/yyyy')}
+                                  </p>
+                                )}
+                                <p className="text-xs">
+                                  {record.status === 'presente' ? '✓ Presente' 
+                                    : record.status === 'falta' ? '✗ Falta'
+                                    : record.status === 'justificado' ? '! Justificado'
+                                    : 'Clique para marcar'}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          ))}
+                        </div>
+                      </TooltipProvider>
 
-                      {/* Quick Attendance Buttons */}
-                      {enrollment.class_id && (
-                        <div className="pt-2 space-y-2">
-                          <p className="text-sm font-medium">Marcar Presença de Hoje:</p>
+                      {/* Attendance marking dialog */}
+                      {selectedLesson && selectedLesson.enrollmentId === enrollment.id && (
+                        <div className="p-3 rounded-lg bg-muted/50 border space-y-2">
+                          <p className="text-sm font-medium">
+                            Marcar presença - Aula {selectedLesson.lessonNumber}
+                          </p>
                           <div className="flex gap-2">
                             <Button
                               variant="outline"
                               size="sm"
                               className="flex-1 hover:bg-success/10 hover:border-success hover:text-success"
-                              onClick={() =>
-                                markAttendanceMutation.mutate({
-                                  classId: enrollment.class_id!,
-                                  status: 'presente',
-                                })
-                              }
+                              onClick={() => handleMarkAttendance('presente')}
                               disabled={markAttendanceMutation.isPending}
                             >
                               <Check className="h-4 w-4 mr-1" />
@@ -311,12 +451,7 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
                               variant="outline"
                               size="sm"
                               className="flex-1 hover:bg-destructive/10 hover:border-destructive hover:text-destructive"
-                              onClick={() =>
-                                markAttendanceMutation.mutate({
-                                  classId: enrollment.class_id!,
-                                  status: 'falta',
-                                })
-                              }
+                              onClick={() => handleMarkAttendance('falta')}
                               disabled={markAttendanceMutation.isPending}
                             >
                               <X className="h-4 w-4 mr-1" />
@@ -326,19 +461,53 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
                               variant="outline"
                               size="sm"
                               className="flex-1 hover:bg-warning/10 hover:border-warning hover:text-warning"
-                              onClick={() =>
-                                markAttendanceMutation.mutate({
-                                  classId: enrollment.class_id!,
-                                  status: 'justificado',
-                                })
-                              }
+                              onClick={() => handleMarkAttendance('justificado')}
                               disabled={markAttendanceMutation.isPending}
                             >
                               <AlertCircle className="h-4 w-4 mr-1" />
-                              Justificado
+                              Just.
                             </Button>
                           </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => setSelectedLesson(null)}
+                          >
+                            Cancelar
+                          </Button>
                         </div>
+                      )}
+
+                      {/* Certificate button when all 8 lessons complete */}
+                      {isComplete && enrollment.status !== 'concluido' && (
+                        <Button
+                          className="w-full gap-2 bg-success hover:bg-success/90"
+                          onClick={() => handleCourseComplete(enrollment)}
+                        >
+                          <Award className="h-4 w-4" />
+                          Concluir Curso e Emitir Certificado
+                        </Button>
+                      )}
+
+                      {enrollment.status === 'concluido' && !enrollment.certificate_issued && (
+                        <Button
+                          variant="outline"
+                          className="w-full gap-2"
+                          onClick={() => {
+                            onOpenChange(false);
+                            navigate('/certificates', { 
+                              state: { 
+                                studentName: student?.full_name,
+                                courseName: enrollment.course?.name,
+                                completionDate: enrollment.completed_at || enrollment.class?.end_date
+                              } 
+                            });
+                          }}
+                        >
+                          <FileText className="h-4 w-4" />
+                          Ir para Emissão de Certificado
+                        </Button>
                       )}
                       
                       <div className="grid grid-cols-2 gap-2 text-sm">

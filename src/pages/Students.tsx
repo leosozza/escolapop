@@ -60,6 +60,15 @@ interface EnrollmentWithLead {
     phone: string;
     email: string | null;
   } | null;
+  class: {
+    id: string;
+    name: string;
+    start_date: string;
+    end_date: string | null;
+    teacher: {
+      full_name: string;
+    } | null;
+  } | null;
   attendance_count?: number;
 }
 
@@ -97,7 +106,8 @@ export default function Students() {
           referral_agent_code,
           student_age,
           course:courses(id, name),
-          lead:leads!enrollments_lead_id_fkey(id, full_name, phone, email)
+          lead:leads!enrollments_lead_id_fkey(id, full_name, phone, email),
+          class:classes(id, name, start_date, end_date, teacher:profiles!classes_teacher_id_fkey(full_name))
         `)
         .not('lead_id', 'is', null)
         .order('enrolled_at', { ascending: false });
@@ -231,8 +241,8 @@ export default function Students() {
           </Button>
         </div>
 
-        {/* Stats Cards - Updated with new metrics */}
-        <div className="grid gap-4 md:grid-cols-6">
+        {/* Stats Cards - Removed inadimplentes for financial team only */}
+        <div className="grid gap-4 md:grid-cols-5">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Matriculados</CardTitle>
@@ -255,16 +265,6 @@ export default function Students() {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Inadimplentes</CardTitle>
-              <AlertCircle className="h-4 w-4 text-warning" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-warning">{stats?.inadimplentes || 0}</div>
-              <p className="text-xs text-muted-foreground">Pagamento pendente</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Concluídos</CardTitle>
               <BookOpen className="h-4 w-4 text-info" />
             </CardHeader>
@@ -275,12 +275,12 @@ export default function Students() {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Evasão</CardTitle>
+              <CardTitle className="text-sm font-medium">Não Ativos</CardTitle>
               <TrendingDown className="h-4 w-4 text-destructive" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-destructive">{stats?.dropouts || 0}</div>
-              <p className="text-xs text-muted-foreground">Desistências</p>
+              <p className="text-xs text-muted-foreground">3+ faltas</p>
             </CardContent>
           </Card>
           <Card className="bg-muted/30">
@@ -345,11 +345,11 @@ export default function Students() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Aluno</TableHead>
-                  <TableHead>Tipo Matrícula</TableHead>
-                  <TableHead>Curso</TableHead>
+                  <TableHead>Código/Tipo</TableHead>
+                  <TableHead>Curso/Professor</TableHead>
+                  <TableHead>Período</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Aulas</TableHead>
-                  <TableHead>Data Matrícula</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -389,21 +389,42 @@ export default function Students() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
+                          {enrollment.referral_agent_code && (
+                            <Badge variant="secondary" className="w-fit text-xs">
+                              {enrollment.referral_agent_code}
+                            </Badge>
+                          )}
                           {getEnrollmentTypeBadge(enrollment.enrollment_type)}
                           {enrollment.influencer_name && (
                             <span className="text-xs text-muted-foreground">
                               por {enrollment.influencer_name}
                             </span>
                           )}
-                          {enrollment.referral_agent_code && (
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <p className="font-medium">{enrollment.course?.name}</p>
+                          {enrollment.class?.teacher && (
                             <span className="text-xs text-muted-foreground">
-                              código: {enrollment.referral_agent_code}
+                              Prof. {enrollment.class.teacher.full_name}
                             </span>
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <p className="font-medium">{enrollment.course?.name}</p>
+                        {enrollment.class ? (
+                          <div className="flex flex-col text-xs">
+                            <span>{new Date(enrollment.class.start_date).toLocaleDateString('pt-BR')}</span>
+                            {enrollment.class.end_date && (
+                              <span className="text-muted-foreground">
+                                até {new Date(enrollment.class.end_date).toLocaleDateString('pt-BR')}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Sem turma</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(enrollment.status)}
@@ -430,9 +451,6 @@ export default function Students() {
                             <CheckCircle2 className="h-4 w-4 text-success" />
                           )}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        {new Date(enrollment.enrolled_at).toLocaleDateString('pt-BR')}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">

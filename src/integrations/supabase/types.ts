@@ -1436,6 +1436,45 @@ export type Database = {
         }
         Relationships: []
       }
+      team_members: {
+        Row: {
+          areas: Database["public"]["Enums"]["team_area"][]
+          avatar_url: string | null
+          created_at: string | null
+          full_name: string
+          id: string
+          is_active: boolean | null
+          phone: string | null
+          sector: Database["public"]["Enums"]["team_sector"]
+          show_in_all: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          areas?: Database["public"]["Enums"]["team_area"][]
+          avatar_url?: string | null
+          created_at?: string | null
+          full_name: string
+          id?: string
+          is_active?: boolean | null
+          phone?: string | null
+          sector: Database["public"]["Enums"]["team_sector"]
+          show_in_all?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          areas?: Database["public"]["Enums"]["team_area"][]
+          avatar_url?: string | null
+          created_at?: string | null
+          full_name?: string
+          id?: string
+          is_active?: boolean | null
+          phone?: string | null
+          sector?: Database["public"]["Enums"]["team_sector"]
+          show_in_all?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1521,6 +1560,15 @@ export type Database = {
         | "boleto"
         | "dinheiro"
         | "transferencia"
+      team_area: "comercial" | "financeiro" | "academico" | "gestao"
+      team_sector:
+        | "recepcao"
+        | "departamento_matricula"
+        | "professor_teatro"
+        | "professor_passarela"
+        | "professor_influencia"
+        | "administrativo"
+        | "produtor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1702,6 +1750,16 @@ export const Constants = {
         "boleto",
         "dinheiro",
         "transferencia",
+      ],
+      team_area: ["comercial", "financeiro", "academico", "gestao"],
+      team_sector: [
+        "recepcao",
+        "departamento_matricula",
+        "professor_teatro",
+        "professor_passarela",
+        "professor_influencia",
+        "administrativo",
+        "produtor",
       ],
     },
   },

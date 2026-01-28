@@ -26,6 +26,7 @@ import Certificates from "./pages/Certificates";
 import Team from "./pages/Team";
 import Reports from "./pages/Reports";
 import Roadmap from "./pages/Roadmap";
+import Billing from "./pages/Billing";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -122,6 +123,14 @@ const App = () => (
               }
             />
             {/* Attendance route removed - attendance is now managed within Students and Classes pages */}
+            <Route
+              path="/billing"
+              element={
+                <AppLayout>
+                  <Billing />
+                </AppLayout>
+              }
+            />
             <Route
               path="/contracts"
               element={

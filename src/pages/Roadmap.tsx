@@ -142,11 +142,12 @@ const roadmapPhases: RoadmapPhase[] = [
   {
     id: 8,
     title: 'Integrações Avançadas',
-    description: 'WhatsApp, Meta Ads e Google Ads',
+    description: 'WhatsApp, Meta Ads, Google Ads e TheMembers',
     icon: MessageSquare,
     status: 'planned',
     progress: 0,
     features: [
+      { name: 'TheMembers (Alunos Online)', status: 'planned', priority: 'high' },
       { name: 'WhatsApp Business API', status: 'planned', priority: 'high' },
       { name: 'Meta Ads Integration', status: 'planned', priority: 'high' },
       { name: 'Google Ads Integration', status: 'planned', priority: 'medium' },

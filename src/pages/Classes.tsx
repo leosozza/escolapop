@@ -4,6 +4,7 @@ import {
   Search,
   Users,
   Calendar,
+  CalendarDays,
   Clock,
   MapPin,
   GraduationCap,
@@ -42,6 +43,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AddClassDialog } from '@/components/classes/AddClassDialog';
 import { ClassStudentsList } from '@/components/classes/ClassStudentsList';
+import { ClassCalendarDialog } from '@/components/classes/ClassCalendarDialog';
 import { WEEKDAYS, COURSE_WEEKS } from '@/lib/course-schedule-config';
 
 interface ClassStatusCounts {
@@ -79,6 +81,7 @@ export default function Classes() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [isStudentsListOpen, setIsStudentsListOpen] = useState(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [selectedRoom, setSelectedRoom] = useState<string>('all');
   const { toast } = useToast();
@@ -396,6 +399,14 @@ export default function Classes() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setIsCalendarOpen(true)}
+            className="gap-2"
+          >
+            <CalendarDays className="h-4 w-4" />
+            Calendário
+          </Button>
           <Select value={selectedRoom} onValueChange={setSelectedRoom}>
             <SelectTrigger className="w-40">
               <MapPin className="h-4 w-4 mr-2" />
@@ -623,6 +634,12 @@ export default function Classes() {
         open={isStudentsListOpen}
         onOpenChange={setIsStudentsListOpen}
         onUpdate={fetchClasses}
+      />
+
+      <ClassCalendarDialog
+        open={isCalendarOpen}
+        onOpenChange={setIsCalendarOpen}
+        classes={classes}
       />
     </div>
   );

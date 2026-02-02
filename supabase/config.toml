@@ -2,3 +2,6 @@ project_id = "yrotoothzhdagtiukxdx"
 
 [functions.webhook-leads]
 verify_jwt = false
+
+[functions.webhook-students]
+verify_jwt = false

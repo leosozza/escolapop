@@ -76,21 +76,17 @@ export function ClassCalendarDialog({ open, onOpenChange, classes, onClassSelect
       const startDate = new Date(classItem.start_date);
       const schedule = classItem.schedule as Record<string, string>;
       
-      // Para cada dia da semana no schedule
       Object.entries(schedule).forEach(([dayKey, time]) => {
         if (!time) return;
         
-        // Encontrar o próximo dia correspondente a partir da data de início
         const dayIndex = Object.entries(WEEKDAY_MAP).find(([, key]) => key === dayKey)?.[0];
         if (dayIndex === undefined) return;
         
         let currentDay = new Date(startDate);
-        // Ajustar para o primeiro dia da semana correto
         while (currentDay.getDay() !== parseInt(dayIndex)) {
           currentDay = addDays(currentDay, 1);
         }
         
-        // Gerar as 8 datas de aula
         for (let i = 0; i < COURSE_WEEKS; i++) {
           const classDate = addDays(currentDay, i * 7);
           const dateKey = format(classDate, 'yyyy-MM-dd');
@@ -101,7 +97,7 @@ export function ClassCalendarDialog({ open, onOpenChange, classes, onClassSelect
           
           map.get(dateKey)!.push({
             class: classItem,
-            time: time.split(':')[0] + 'H', // Apenas a hora
+            time: time,
             room: classItem.room || 'Sem Sala',
           });
         }
@@ -127,30 +123,27 @@ export function ClassCalendarDialog({ open, onOpenChange, classes, onClassSelect
     return days;
   }, [currentDate]);
 
-  // Agrupar turmas por dia, horário e sala
   const getClassesForDay = (date: Date) => {
     const dateKey = format(date, 'yyyy-MM-dd');
     return classScheduleMap.get(dateKey) || [];
   };
 
-  // Organizar por sala e horário para o grid
+  // Organizar por hora e sala
   const getDayGrid = (date: Date) => {
     const dayClasses = getClassesForDay(date);
-    const grid: Record<string, Record<string, { class: Class; studentCount: number }>> = {};
+    const grid: Record<string, Record<string, { class: Class; studentCount: number } | null>> = {};
     
-    // Inicializar grid com todas as salas e horários
-    ROOMS.forEach((room) => {
-      grid[room.name] = {};
-      SCHOOL_HOURS.forEach((hour) => {
-        grid[room.name][hour] = { class: null as any, studentCount: 0 };
+    SCHOOL_HOURS.forEach((hour) => {
+      grid[hour] = {};
+      ROOMS.forEach((room) => {
+        grid[hour][room.name] = null;
       });
     });
     
-    // Preencher com as turmas
     dayClasses.forEach(({ class: classItem, time, room }) => {
-      const hourKey = time.replace('H', ':00');
-      if (grid[room] && grid[room][hourKey]) {
-        grid[room][hourKey] = {
+      const hourKey = time.split(':')[0] + ':00';
+      if (grid[hourKey] && grid[hourKey][room] !== undefined) {
+        grid[hourKey][room] = {
           class: classItem,
           studentCount: classItem.student_count || 0,
         };
@@ -172,124 +165,144 @@ export function ClassCalendarDialog({ open, onOpenChange, classes, onClassSelect
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-hidden p-4">
-          <DialogHeader className="pb-2">
-            <DialogTitle className="flex items-center gap-2 text-lg">
-              <Calendar className="h-5 w-5" />
-              Calendário de Turmas - {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-w-[100vw] w-[100vw] max-h-[100vh] h-[100vh] p-0 rounded-none">
+          <div className="flex flex-col h-full">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b bg-background">
+              <DialogHeader className="p-0">
+                <DialogTitle className="flex items-center gap-2 text-xl">
+                  <Calendar className="h-6 w-6" />
+                  Calendário de Turmas - {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
+                </DialogTitle>
+              </DialogHeader>
 
-          <div className="space-y-3">
-            {/* Controls */}
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={navigatePrevious}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="sm" onClick={goToToday}>
-                  Hoje
-                </Button>
-                <Button variant="outline" size="sm" onClick={navigateNext}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+              <div className="flex items-center gap-4">
+                {/* Legenda de cores */}
+                <div className="flex items-center gap-3 text-xs">
+                  {Object.entries(COURSE_COLORS).map(([course, { bg, name }]) => (
+                    <div key={course} className="flex items-center gap-1">
+                      <div className={`w-3 h-3 rounded ${bg}`} />
+                      <span>{name}</span>
+                    </div>
+                  ))}
+                </div>
 
-              {/* Legenda de cores */}
-              <div className="flex items-center gap-3 flex-wrap text-xs">
-                {Object.entries(COURSE_COLORS).map(([course, { bg, name }]) => (
-                  <div key={course} className="flex items-center gap-1">
-                    <div className={`w-3 h-3 rounded ${bg}`} />
-                    <span>{name}</span>
-                  </div>
-                ))}
+                {/* Legenda de salas */}
+                <div className="flex items-center gap-2 text-xs text-muted-foreground border-l pl-4">
+                  <span className="font-medium">Salas:</span>
+                  {ROOMS.map((room, idx) => (
+                    <span key={room.id}>{idx + 1}={room.name}</span>
+                  ))}
+                </div>
+
+                {/* Navegação */}
+                <div className="flex items-center gap-2 border-l pl-4">
+                  <Button variant="outline" size="sm" onClick={navigatePrevious}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={goToToday}>
+                    Hoje
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={navigateNext}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
 
             {/* Calendar Grid */}
-            <ScrollArea className="h-[calc(95vh-140px)]">
-              {/* Weekday headers */}
-              <div className="grid grid-cols-7 gap-1 mb-1 sticky top-0 z-10 bg-background">
-                {['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'].map((dayName) => (
-                  <div
-                    key={dayName}
-                    className="text-center text-xs font-semibold text-muted-foreground py-1 bg-muted rounded"
-                  >
-                    {dayName}
+            <ScrollArea className="flex-1">
+              <div className="p-4">
+                {/* Weekday headers */}
+                <div className="grid grid-cols-[50px_repeat(7,1fr)] gap-1 mb-1 sticky top-0 z-10 bg-background">
+                  <div className="text-center text-xs font-semibold text-muted-foreground py-2 bg-muted rounded">
+                    Hora
                   </div>
-                ))}
-              </div>
-
-              {/* Calendar days grid */}
-              <div className="grid grid-cols-7 gap-1">
-                {calendarDays.map((day, idx) => {
-                  const isCurrentMonth = isSameMonth(day, currentDate);
-                  const isToday = isSameDay(day, new Date());
-                  const dayClasses = getClassesForDay(day);
-                  const dayGrid = getDayGrid(day);
-                  
-                  // Contar quantas turmas ativas por sala
-                  const roomSummary = ROOMS.map((room) => {
-                    const roomClasses = dayClasses.filter((c) => c.room === room.name);
-                    return {
-                      room: room.name,
-                      classes: roomClasses,
-                    };
-                  });
-
-                  return (
+                  {['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'].map((dayName) => (
                     <div
-                      key={idx}
-                      className={`min-h-[120px] border rounded p-1 ${
-                        !isCurrentMonth ? 'bg-muted/30 opacity-40' : 'bg-card'
-                      } ${isToday ? 'border-primary border-2' : 'border-border'}`}
+                      key={dayName}
+                      className="text-center text-sm font-semibold text-muted-foreground py-2 bg-muted rounded"
                     >
-                      {/* Day number */}
-                      <div className={`text-xs font-bold mb-1 ${isToday ? 'text-primary' : ''}`}>
-                        {format(day, 'd')}
+                      {dayName}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Calendar weeks */}
+                {Array.from({ length: Math.ceil(calendarDays.length / 7) }).map((_, weekIdx) => {
+                  const weekDays = calendarDays.slice(weekIdx * 7, (weekIdx + 1) * 7);
+                  
+                  return (
+                    <div key={weekIdx} className="mb-2">
+                      {/* Day numbers row */}
+                      <div className="grid grid-cols-[50px_repeat(7,1fr)] gap-1 mb-[2px]">
+                        <div />
+                        {weekDays.map((day, dayIdx) => {
+                          const isCurrentMonth = isSameMonth(day, currentDate);
+                          const isToday = isSameDay(day, new Date());
+                          return (
+                            <div
+                              key={dayIdx}
+                              className={`text-center py-1 text-sm font-bold rounded-t ${
+                                !isCurrentMonth ? 'text-muted-foreground/40' : ''
+                              } ${isToday ? 'bg-primary text-primary-foreground' : 'bg-muted/50'}`}
+                            >
+                              {format(day, 'd')}
+                            </div>
+                          );
+                        })}
                       </div>
 
-                      {/* Grid de salas */}
-                      {dayClasses.length > 0 && (
-                        <div className="grid grid-cols-4 gap-[2px]">
-                          {ROOMS.map((room, roomIdx) => {
-                            const roomClasses = dayClasses.filter((c) => c.room === room.name);
-                            
+                      {/* Hours rows */}
+                      {SCHOOL_HOURS.map((hour, hourIdx) => (
+                        <div key={hour} className="grid grid-cols-[50px_repeat(7,1fr)] gap-1 mb-[1px]">
+                          {/* Hour label */}
+                          <div className="text-xs font-medium text-muted-foreground flex items-center justify-center bg-muted/30 rounded-l">
+                            {hour.replace(':00', 'H')}
+                          </div>
+
+                          {/* Day cells for this hour */}
+                          {weekDays.map((day, dayIdx) => {
+                            const isCurrentMonth = isSameMonth(day, currentDate);
+                            const dayGrid = getDayGrid(day);
+                            const hourData = dayGrid[hour];
+
                             return (
-                              <div key={room.id} className="space-y-[1px]">
-                                {roomClasses.length > 0 ? (
-                                  roomClasses.slice(0, 4).map((item, i) => {
-                                    const color = getCourseColor(item.class.course?.name);
+                              <div
+                                key={dayIdx}
+                                className={`grid grid-cols-4 gap-[2px] p-[2px] min-h-[28px] rounded ${
+                                  !isCurrentMonth ? 'opacity-30' : ''
+                                } ${hourIdx === SCHOOL_HOURS.length - 1 ? 'rounded-b' : ''} bg-muted/20`}
+                              >
+                                {ROOMS.map((room) => {
+                                  const cellData = hourData?.[room.name];
+                                  
+                                  if (cellData) {
+                                    const color = getCourseColor(cellData.class.course?.name);
                                     return (
                                       <button
-                                        key={`${item.class.id}-${i}`}
-                                        onClick={() => handleClassClick(item.class)}
-                                        className={`w-full h-5 ${color.bg} ${color.text} rounded-sm text-[9px] font-bold flex items-center justify-center hover:opacity-80 transition-opacity`}
-                                        title={`${item.class.name} - ${room.name} - ${item.time}`}
+                                        key={room.id}
+                                        onClick={() => handleClassClick(cellData.class)}
+                                        className={`${color.bg} ${color.text} rounded text-[10px] font-bold flex items-center justify-center hover:opacity-80 transition-opacity min-h-[24px]`}
+                                        title={`${cellData.class.name}\n${room.name} - ${hour}\n${cellData.studentCount} alunos`}
                                       >
-                                        {item.class.student_count || 0}
+                                        {cellData.studentCount}
                                       </button>
                                     );
-                                  })
-                                ) : (
-                                  <div className="w-full h-5 bg-muted/50 rounded-sm" />
-                                )}
-                                {roomClasses.length > 4 && (
-                                  <div className="text-[8px] text-muted-foreground text-center">
-                                    +{roomClasses.length - 4}
-                                  </div>
-                                )}
+                                  }
+                                  
+                                  return (
+                                    <div
+                                      key={room.id}
+                                      className="bg-muted/40 rounded min-h-[24px]"
+                                    />
+                                  );
+                                })}
                               </div>
                             );
                           })}
                         </div>
-                      )}
-
-                      {dayClasses.length === 0 && isCurrentMonth && (
-                        <div className="text-[10px] text-muted-foreground text-center mt-4">
-                          —
-                        </div>
-                      )}
+                      ))}
                     </div>
                   );
                 })}
@@ -311,7 +324,6 @@ export function ClassCalendarDialog({ open, onOpenChange, classes, onClassSelect
           
           {selectedClassForSheet && (
             <div className="mt-6 space-y-6">
-              {/* Info básica */}
               <div className="space-y-4">
                 <div>
                   <h3 className="text-xl font-bold">{selectedClassForSheet.name}</h3>
@@ -339,7 +351,6 @@ export function ClassCalendarDialog({ open, onOpenChange, classes, onClassSelect
                   </div>
                 </div>
 
-                {/* Horários */}
                 {selectedClassForSheet.schedule && (
                   <div>
                     <h4 className="font-medium mb-2">Horários</h4>
@@ -366,7 +377,6 @@ export function ClassCalendarDialog({ open, onOpenChange, classes, onClassSelect
                 )}
               </div>
 
-              {/* Ações */}
               <div className="flex gap-2">
                 <Button
                   className="flex-1"
@@ -381,7 +391,6 @@ export function ClassCalendarDialog({ open, onOpenChange, classes, onClassSelect
                 </Button>
               </div>
 
-              {/* Placeholder para lista de alunos futura */}
               <div className="border-t pt-4">
                 <h4 className="font-medium mb-2">Próximas Aulas</h4>
                 <div className="space-y-2 text-sm text-muted-foreground">

@@ -53,15 +53,29 @@ export function ClassCalendarDialog({ open, onOpenChange, classes }: ClassCalend
   const [viewMode, setViewMode] = useState<ViewMode>('timeline');
   const [selectedRoom, setSelectedRoom] = useState<string>('all');
 
+  const uniqueRooms = useMemo(() => {
+    const rooms = classes.map(c => c.room).filter((r): r is string => !!r);
+    return [...new Set(rooms)].sort();
+  }, [classes]);
+
   const filteredClasses = useMemo(() => {
     if (selectedRoom === 'all') return classes;
     return classes.filter(c => c.room === selectedRoom);
   }, [classes, selectedRoom]);
 
-  const uniqueRooms = useMemo(() => {
-    const rooms = classes.map(c => c.room).filter((r): r is string => !!r);
-    return [...new Set(rooms)].sort();
-  }, [classes]);
+  // Group classes by room - moved from renderTimelineView to component level
+  const classesByRoom = useMemo(() => {
+    const grouped: Record<string, Class[]> = {};
+    uniqueRooms.forEach(room => {
+      grouped[room] = filteredClasses.filter(c => c.room === room);
+    });
+    // Add classes without room
+    const noRoom = filteredClasses.filter(c => !c.room);
+    if (noRoom.length > 0) {
+      grouped['Sem Sala'] = noRoom;
+    }
+    return grouped;
+  }, [filteredClasses, uniqueRooms]);
 
   const getClassEndDate = (classItem: Class) => {
     if (classItem.end_date) return new Date(classItem.end_date);
@@ -84,20 +98,6 @@ export function ClassCalendarDialog({ open, onOpenChange, classes }: ClassCalend
     const monthEnd = endOfMonth(currentDate);
     const daysInMonth = differenceInDays(monthEnd, monthStart) + 1;
     const days = Array.from({ length: daysInMonth }, (_, i) => addDays(monthStart, i));
-
-    // Group classes by room
-    const classesByRoom = useMemo(() => {
-      const grouped: Record<string, Class[]> = {};
-      uniqueRooms.forEach(room => {
-        grouped[room] = filteredClasses.filter(c => c.room === room);
-      });
-      // Add classes without room
-      const noRoom = filteredClasses.filter(c => !c.room);
-      if (noRoom.length > 0) {
-        grouped['Sem Sala'] = noRoom;
-      }
-      return grouped;
-    }, [filteredClasses, uniqueRooms]);
 
     return (
       <div className="space-y-4">

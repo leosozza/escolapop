@@ -30,12 +30,14 @@ import {
   TrendingDown,
   Eye,
   CheckCircle2,
-  AlertCircle,
   MessageCircle,
 } from 'lucide-react';
 import { ACADEMIC_STATUS_CONFIG, type AcademicStatus } from '@/types/database';
 import { AddEnrollmentDialog } from '@/components/students/AddEnrollmentDialog';
 import { StudentDetailsSheet } from '@/components/students/StudentDetailsSheet';
+import { StudentCSVExportButton } from '@/components/students/StudentCSVExportButton';
+import { StudentCSVImportDialog } from '@/components/students/StudentCSVImportDialog';
+import { StudentWebhookSheet } from '@/components/students/StudentWebhookSheet';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
 
 interface EnrollmentWithLead {
@@ -235,10 +237,15 @@ export default function Students() {
             <h1 className="text-3xl font-bold text-foreground">Alunos</h1>
             <p className="text-muted-foreground">Gestão de matrículas e acompanhamento acadêmico</p>
           </div>
-          <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Nova Matrícula
-          </Button>
+          <div className="flex gap-2">
+            <StudentCSVExportButton enrollments={enrollments} />
+            <StudentCSVImportDialog onSuccess={() => refetch()} />
+            <StudentWebhookSheet />
+            <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Nova Matrícula
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards - Removed inadimplentes for financial team only */}

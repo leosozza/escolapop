@@ -636,11 +636,13 @@ export default function Classes() {
         onUpdate={fetchClasses}
       />
 
-      <ClassCalendarDialog
-        open={isCalendarOpen}
-        onOpenChange={setIsCalendarOpen}
-        classes={classes}
-      />
+      {isCalendarOpen && (
+        <ClassCalendarDialog
+          open={isCalendarOpen}
+          onOpenChange={setIsCalendarOpen}
+          classes={classes}
+        />
+      )}
     </div>
   );
 }

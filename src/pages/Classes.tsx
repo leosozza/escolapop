@@ -641,6 +641,10 @@ export default function Classes() {
           open={isCalendarOpen}
           onOpenChange={setIsCalendarOpen}
           classes={classes}
+          onClassSelect={(classItem) => {
+            setSelectedClass(classItem);
+            setIsStudentsListOpen(true);
+          }}
         />
       )}
     </div>

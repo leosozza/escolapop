@@ -108,18 +108,22 @@ export default function Reception() {
         .from('appointments')
         .update({ 
           attended, 
-          confirmed: true 
+          confirmed: true,
+          checked_in_at: attended ? new Date().toISOString() : null,
         })
         .eq('id', appointment.id);
 
       if (appointmentError) throw appointmentError;
 
-      // Update lead status
-      if (appointment.lead) {
-        const newStatus = attended ? 'compareceu' : 'perdido';
+      // Update lead status - only update to 'compareceu' if attended
+      // If not attended, the system automation will handle 'atrasado' or 'reagendar'
+      if (appointment.lead && attended) {
         await supabase
           .from('leads')
-          .update({ status: newStatus })
+          .update({ 
+            status: 'compareceu',
+            attended_at: new Date().toISOString(),
+          })
           .eq('id', appointment.lead.id);
       }
 

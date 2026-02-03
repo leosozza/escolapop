@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { COMMERCIAL_HOURS } from '@/lib/commercial-schedule-config';
 
 interface ScheduleSlot {
   hour: string;

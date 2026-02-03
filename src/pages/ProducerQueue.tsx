@@ -70,7 +70,7 @@ export default function ProducerQueue() {
   
   // Close dialog state
   const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false);
-  const [closeResult, setCloseResult] = useState<'matriculado' | 'perdido' | null>(null);
+  const [closeResult, setCloseResult] = useState<'fechado' | 'nao_fechado' | null>(null);
   const [lossReason, setLossReason] = useState('');
   const [proposalNotes, setProposalNotes] = useState('');
   const [proposalValue, setProposalValue] = useState('');
@@ -140,7 +140,7 @@ export default function ProducerQueue() {
     setSelectedLead(lead);
   };
 
-  const openCloseDialog = (result: 'matriculado' | 'perdido') => {
+  const openCloseDialog = (result: 'fechado' | 'nao_fechado') => {
     setCloseResult(result);
     setIsCloseDialogOpen(true);
   };
@@ -156,7 +156,7 @@ export default function ProducerQueue() {
         notes: proposalNotes || selectedLead.notes,
       };
 
-      if (closeResult === 'perdido') {
+      if (closeResult === 'nao_fechado') {
         updateData.notes = `${selectedLead.notes || ''}\n\nMotivo da perda: ${lossReason}`.trim();
       }
 
@@ -175,14 +175,14 @@ export default function ProducerQueue() {
           from_status: 'compareceu',
           to_status: closeResult,
           changed_by: user.id,
-          notes: closeResult === 'matriculado' 
+          notes: closeResult === 'fechado' 
             ? `Proposta aceita. Valor: R$ ${proposalValue}` 
-            : `Perdido. Motivo: ${lossReason}`,
+            : `Não fechou. Motivo: ${lossReason}`,
         });
 
       toast({
-        title: closeResult === 'matriculado' ? 'Matrícula realizada!' : 'Lead encerrado',
-        description: `${selectedLead.full_name} - ${closeResult === 'matriculado' ? 'Novo aluno!' : 'Perdido'}`,
+        title: closeResult === 'fechado' ? 'Venda realizada!' : 'Lead encerrado',
+        description: `${selectedLead.full_name} - ${closeResult === 'fechado' ? 'Fechou proposta!' : 'Não fechou'}`,
       });
 
       // Reset state
@@ -386,20 +386,20 @@ export default function ProducerQueue() {
                   <div className="grid grid-cols-2 gap-4">
                     <Button
                       className="h-auto py-6 flex-col gap-2 bg-success hover:bg-success/90"
-                      onClick={() => openCloseDialog('matriculado')}
+                      onClick={() => openCloseDialog('fechado')}
                     >
                       <CheckCircle2 className="h-8 w-8" />
-                      <span className="text-lg font-semibold">Matricular</span>
-                      <span className="text-xs opacity-80">Fechou proposta</span>
+                      <span className="text-lg font-semibold">Fechou</span>
+                      <span className="text-xs opacity-80">Aceitou proposta</span>
                     </Button>
                     <Button
                       variant="outline"
                       className="h-auto py-6 flex-col gap-2 border-destructive text-destructive hover:bg-destructive hover:text-white"
-                      onClick={() => openCloseDialog('perdido')}
+                      onClick={() => openCloseDialog('nao_fechado')}
                     >
                       <XCircle className="h-8 w-8" />
-                      <span className="text-lg font-semibold">Perdido</span>
-                      <span className="text-xs opacity-80">Não fechou</span>
+                      <span className="text-lg font-semibold">Não Fechou</span>
+                      <span className="text-xs opacity-80">Recusou proposta</span>
                     </Button>
                   </div>
                 </div>
@@ -424,17 +424,17 @@ export default function ProducerQueue() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {closeResult === 'matriculado' ? 'Confirmar Matrícula' : 'Registrar Perda'}
+              {closeResult === 'fechado' ? 'Confirmar Venda' : 'Registrar Não Fechamento'}
             </DialogTitle>
             <DialogDescription>
-              {closeResult === 'matriculado' 
+              {closeResult === 'fechado' 
                 ? 'Informe os dados da proposta aceita'
-                : 'Informe o motivo da perda'}
+                : 'Informe o motivo pelo qual não fechou'}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {closeResult === 'matriculado' ? (
+            {closeResult === 'fechado' ? (
               <>
                 <div>
                   <label className="text-sm font-medium mb-2 block">Valor da Proposta</label>
@@ -495,11 +495,11 @@ export default function ProducerQueue() {
             </Button>
             <Button
               onClick={handleCloseAttendance}
-              disabled={isSaving || (closeResult === 'perdido' && !lossReason)}
-              className={closeResult === 'matriculado' ? 'bg-success hover:bg-success/90' : ''}
+              disabled={isSaving || (closeResult === 'nao_fechado' && !lossReason)}
+              className={closeResult === 'fechado' ? 'bg-success hover:bg-success/90' : ''}
             >
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              {closeResult === 'matriculado' ? 'Confirmar Matrícula' : 'Registrar Perda'}
+              {closeResult === 'fechado' ? 'Confirmar Venda' : 'Registrar Não Fechamento'}
             </Button>
           </DialogFooter>
         </DialogContent>

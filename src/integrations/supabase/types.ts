@@ -1367,6 +1367,36 @@ export type Database = {
         }
         Relationships: []
       }
+      service_days: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          max_per_hour: number | null
+          service_date: string
+          weekday_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_per_hour?: number | null
+          service_date: string
+          weekday_name: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_per_hour?: number | null
+          service_date?: string
+          weekday_name?: string
+        }
+        Relationships: []
+      }
       student_profiles: {
         Row: {
           available_for_casting: boolean | null

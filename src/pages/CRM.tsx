@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, Loader2, Maximize2, Minimize2, List, Kanban } from 'lucide-react';
+import { Search, Loader2, Maximize2, Minimize2, List, Kanban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,7 +8,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { LeadStatus } from '@/types/database';
 import { LEAD_STATUS_CONFIG } from '@/types/database';
 import { ExtendedLead, LeadSource } from '@/types/crm';
-import { AddLeadDialog } from '@/components/crm/AddLeadDialog';
 import { LeadHistorySheet } from '@/components/leads/LeadHistorySheet';
 import { EditLeadDialog } from '@/components/leads/EditLeadDialog';
 import { LeadSourceManager } from '@/components/crm/LeadSourceManager';
@@ -16,10 +15,11 @@ import { CustomFieldsManager } from '@/components/crm/CustomFieldsManager';
 import { CSVImportDialog } from '@/components/crm/CSVImportDialog';
 import { LeadListView } from '@/components/crm/LeadListView';
 import { LeadKanbanView } from '@/components/crm/LeadKanbanView';
+import { QuickLeadForm } from '@/components/crm/QuickLeadForm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -76,7 +76,6 @@ export default function CRM() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   
   // Dialog states
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<ExtendedLead | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -266,6 +265,9 @@ export default function CRM() {
         </div>
       </div>
 
+      {/* Quick Lead Form */}
+      <QuickLeadForm onSuccess={fetchLeads} />
+
       {/* Toolbar */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="relative">
@@ -281,13 +283,6 @@ export default function CRM() {
           <LeadSourceManager />
           <CustomFieldsManager />
           <CSVImportDialog onSuccess={fetchLeads} />
-          <Button 
-            className="bg-gradient-primary hover:opacity-90"
-            onClick={() => setIsAddDialogOpen(true)}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Lead
-          </Button>
         </div>
       </div>
 
@@ -369,12 +364,6 @@ export default function CRM() {
       )}
 
       {/* Dialogs */}
-      <AddLeadDialog
-        open={isAddDialogOpen}
-        onOpenChange={setIsAddDialogOpen}
-        onSuccess={fetchLeads}
-      />
-
       <LeadHistorySheet
         open={isDetailsOpen}
         onOpenChange={setIsDetailsOpen}

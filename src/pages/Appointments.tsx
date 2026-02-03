@@ -1,18 +1,26 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Plus, Search, Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, UserPlus } from 'lucide-react';
-import { format, startOfWeek, addDays, isSameDay, parseISO, isToday } from 'date-fns';
+import { format, addDays, isSameDay, parseISO, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calendar } from '@/components/ui/calendar';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { AddAppointmentDialog } from '@/components/appointments/AddAppointmentDialog';
 import { ScheduleLeadDialog } from '@/components/appointments/ScheduleLeadDialog';
 import { AppointmentCard } from '@/components/appointments/AppointmentCard';
 import { ScheduleByHour } from '@/components/dashboard/ScheduleByHour';
+import { useServiceDays } from '@/hooks/useServiceDays';
+import { COMMERCIAL_HOURS } from '@/lib/commercial-schedule-config';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface AppointmentWithDetails {
   id: string;
@@ -46,11 +54,11 @@ export default function Appointments() {
   const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedServiceDayId, setSelectedServiceDayId] = useState<string>('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isScheduleLeadOpen, setIsScheduleLeadOpen] = useState(false);
-  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const { toast } = useToast();
+  const { serviceDays, isLoading: loadingDays } = useServiceDays();
 
   const fetchAppointments = async () => {
     try {
@@ -58,14 +66,30 @@ export default function Appointments() {
         .from('appointments')
         .select(`
           *,
-          lead:leads(id, full_name, phone, email),
-          agent:profiles!appointments_agent_id_fkey(id, full_name)
+          lead:leads(id, full_name, phone, email)
         `)
         .order('scheduled_date', { ascending: true })
         .order('scheduled_time', { ascending: true });
 
       if (error) throw error;
-      setAppointments((data as unknown as AppointmentWithDetails[]) || []);
+      
+      // Fetch agent info separately since FK might not exist
+      const appointmentsWithAgent = await Promise.all(
+        (data || []).map(async (apt) => {
+          const { data: agent } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .eq('id', apt.agent_id)
+            .maybeSingle();
+          
+          return {
+            ...apt,
+            agent: agent || { id: apt.agent_id, full_name: 'Agente' }
+          };
+        })
+      );
+      
+      setAppointments((appointmentsWithAgent as unknown as AppointmentWithDetails[]) || []);
     } catch (error) {
       console.error('Error fetching appointments:', error);
       toast({
@@ -81,6 +105,26 @@ export default function Appointments() {
   useEffect(() => {
     fetchAppointments();
   }, []);
+
+  // Set default selected service day to first available or today
+  useEffect(() => {
+    if (serviceDays.length > 0 && !selectedServiceDayId) {
+      // Try to find today's service day
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const todayService = serviceDays.find(d => d.service_date === today);
+      if (todayService) {
+        setSelectedServiceDayId(todayService.id);
+      } else {
+        // Default to first available
+        setSelectedServiceDayId(serviceDays[0].id);
+      }
+    }
+  }, [serviceDays, selectedServiceDayId]);
+
+  const selectedServiceDay = serviceDays.find(d => d.id === selectedServiceDayId);
+  const selectedDate = selectedServiceDay 
+    ? new Date(selectedServiceDay.service_date + 'T12:00:00') 
+    : new Date();
 
   const handleConfirm = async (id: string) => {
     try {
@@ -126,51 +170,48 @@ export default function Appointments() {
   const filteredAppointments = appointments.filter(apt => {
     const matchesSearch = apt.lead.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       apt.lead.phone.includes(searchQuery);
-    const matchesDate = isSameDay(parseISO(apt.scheduled_date), selectedDate);
+    
+    // Filter by selected service day
+    const matchesDate = selectedServiceDay 
+      ? apt.scheduled_date === selectedServiceDay.service_date
+      : isSameDay(parseISO(apt.scheduled_date), new Date());
+    
     return matchesSearch && matchesDate;
   });
 
-  // Schedule by hour slots for selected date
+  // Schedule by hour slots for selected date using COMMERCIAL_HOURS
   const scheduleSlots: ScheduleSlot[] = useMemo(() => {
-    const dayAppointments = appointments.filter(apt => 
-      isSameDay(parseISO(apt.scheduled_date), selectedDate)
-    );
+    const dayAppointments = appointments.filter(apt => {
+      if (selectedServiceDay) {
+        return apt.scheduled_date === selectedServiceDay.service_date;
+      }
+      return isSameDay(parseISO(apt.scheduled_date), selectedDate);
+    });
 
-    const slots: ScheduleSlot[] = [];
-    for (let hour = 8; hour <= 20; hour++) {
-      const hourStr = `${hour.toString().padStart(2, '0')}:00`;
+    return COMMERCIAL_HOURS.map((hour) => {
       const appointmentsInHour = dayAppointments.filter((apt) => {
-        const [aptHour] = apt.scheduled_time.split(':').map(Number);
-        return aptHour === hour;
+        return apt.scheduled_time.startsWith(hour.slice(0, 2));
       });
 
-      slots.push({
-        hour: hourStr,
+      return {
+        hour,
         count: appointmentsInHour.length,
         leads: appointmentsInHour.map((apt) => ({
           id: apt.id,
           name: apt.lead.full_name,
           status: apt.confirmed ? 'confirmado' : 'agendado',
         })),
-      });
-    }
+      };
+    });
+  }, [appointments, selectedServiceDay, selectedDate]);
 
-    return slots;
-  }, [appointments, selectedDate]);
-
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
-
-  const getAppointmentsForDate = (date: Date) => 
-    appointments.filter(apt => isSameDay(parseISO(apt.scheduled_date), date));
-
-  const getInitials = (name: string) =>
-    name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-
-  const navigateWeek = (direction: 'prev' | 'next') => {
-    setCurrentWeekStart(prev => addDays(prev, direction === 'next' ? 7 : -7));
+  const getAppointmentsForServiceDay = (serviceDayId: string) => {
+    const day = serviceDays.find(d => d.id === serviceDayId);
+    if (!day) return [];
+    return appointments.filter(apt => apt.scheduled_date === day.service_date);
   };
 
-  if (isLoading) {
+  if (isLoading || loadingDays) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -216,45 +257,63 @@ export default function Appointments() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[350px_1fr]">
-        {/* Calendar Sidebar */}
+        {/* Service Day Selector */}
         <div className="space-y-4">
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-4">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={(date) => date && setSelectedDate(date)}
-                locale={ptBR}
-                className="w-full"
-              />
-            </CardContent>
-          </Card>
-
-          {/* Today's Stats */}
           <Card className="border-0 shadow-md">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <CalendarIcon className="h-4 w-4 text-primary" />
-                Hoje
+                Dia de Atendimento
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Select
+                value={selectedServiceDayId}
+                onValueChange={setSelectedServiceDayId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o dia" />
+                </SelectTrigger>
+                <SelectContent>
+                  {serviceDays.map((day) => (
+                    <SelectItem key={day.id} value={day.id}>
+                      <div className="flex items-center justify-between w-full gap-2">
+                        <span>{day.label}</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {getAppointmentsForServiceDay(day.id).length}
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-md">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4 text-primary" />
+                Resumo do Dia
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="p-2 rounded-lg bg-muted/50">
                   <p className="text-2xl font-bold text-primary">
-                    {getAppointmentsForDate(new Date()).length}
+                    {filteredAppointments.length}
                   </p>
                   <p className="text-xs text-muted-foreground">Agendados</p>
                 </div>
                 <div className="p-2 rounded-lg bg-success/10">
                   <p className="text-2xl font-bold text-success">
-                    {getAppointmentsForDate(new Date()).filter(a => a.confirmed).length}
+                    {filteredAppointments.filter(a => a.confirmed).length}
                   </p>
                   <p className="text-xs text-muted-foreground">Confirmados</p>
                 </div>
                 <div className="p-2 rounded-lg bg-info/10">
                   <p className="text-2xl font-bold text-info">
-                    {getAppointmentsForDate(new Date()).filter(a => a.attended === true).length}
+                    {filteredAppointments.filter(a => a.attended === true).length}
                   </p>
                   <p className="text-xs text-muted-foreground">Compareceram</p>
                 </div>
@@ -268,44 +327,29 @@ export default function Appointments() {
 
         {/* Main Content */}
         <div className="space-y-4">
-          {/* Week Navigation */}
+          {/* Service Days Quick Nav */}
           <Card className="border-0 shadow-md">
             <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-4">
-                <Button variant="ghost" size="icon" onClick={() => navigateWeek('prev')}>
-                  <ChevronLeft className="h-5 w-5" />
-                </Button>
-                <h3 className="text-lg font-semibold">
-                  {format(currentWeekStart, "MMMM yyyy", { locale: ptBR })}
-                </h3>
-                <Button variant="ghost" size="icon" onClick={() => navigateWeek('next')}>
-                  <ChevronRight className="h-5 w-5" />
-                </Button>
-              </div>
-              
-              <div className="grid grid-cols-7 gap-2">
-                {weekDays.map((day) => {
-                  const dayAppointments = getAppointmentsForDate(day);
-                  const isSelected = isSameDay(day, selectedDate);
-                  const isCurrentDay = isToday(day);
+              <div className="flex items-center gap-2 overflow-x-auto pb-2">
+                {serviceDays.slice(0, 7).map((day) => {
+                  const dayAppointments = getAppointmentsForServiceDay(day.id);
+                  const isSelected = day.id === selectedServiceDayId;
                   
                   return (
                     <button
-                      key={day.toISOString()}
-                      onClick={() => setSelectedDate(day)}
-                      className={`p-3 rounded-lg text-center transition-all ${
+                      key={day.id}
+                      onClick={() => setSelectedServiceDayId(day.id)}
+                      className={`flex-shrink-0 p-3 rounded-lg text-center transition-all min-w-[100px] ${
                         isSelected 
                           ? 'bg-primary text-primary-foreground' 
-                          : isCurrentDay 
-                            ? 'bg-primary/10 text-primary'
-                            : 'hover:bg-muted'
+                          : 'hover:bg-muted'
                       }`}
                     >
                       <p className="text-xs font-medium uppercase">
-                        {format(day, 'EEE', { locale: ptBR })}
+                        {day.weekday_name.slice(0, 3)}
                       </p>
                       <p className="text-lg font-bold mt-1">
-                        {format(day, 'd')}
+                        {day.service_date.split('-')[2]}/{day.service_date.split('-')[1]}
                       </p>
                       {dayAppointments.length > 0 && (
                         <Badge 
@@ -322,12 +366,11 @@ export default function Appointments() {
             </CardContent>
           </Card>
 
-          {/* Appointments List */}
           <Card className="border-0 shadow-md">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Clock className="h-4 w-4 text-primary" />
-                Agendamentos - {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
+                Agendamentos - {selectedServiceDay?.label || format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
               </CardTitle>
             </CardHeader>
             <CardContent>

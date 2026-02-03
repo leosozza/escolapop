@@ -3,7 +3,6 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   Search,
-  Calendar,
   Clock,
   Send,
   Phone,
@@ -22,14 +21,15 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { LEAD_STATUS_CONFIG, type Lead } from '@/types/database';
 import { cn } from '@/lib/utils';
+import { useServiceDays } from '@/hooks/useServiceDays';
+import { AddServiceDayDialog } from '@/components/crm/AddServiceDayDialog';
+import { ServiceDayTimeSelect } from '@/components/scheduling/ServiceDayTimeSelect';
 
 interface ChatMessage {
   id: string;
@@ -58,9 +58,12 @@ export default function AgentPortfolio() {
   
   // Scheduling state
   const [schedulingLead, setSchedulingLead] = useState<Lead | null>(null);
-  const [scheduledDate, setScheduledDate] = useState<Date | undefined>();
+  const [selectedDayId, setSelectedDayId] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
   const [isScheduling, setIsScheduling] = useState(false);
+  const [addServiceDayOpen, setAddServiceDayOpen] = useState(false);
+  
+  const { serviceDays, refetch: refetchServiceDays } = useServiceDays();
   
   // Chat state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -128,11 +131,14 @@ export default function AgentPortfolio() {
   };
 
   const handleSchedule = async () => {
-    if (!schedulingLead || !scheduledDate || !scheduledTime || !user) return;
+    if (!schedulingLead || !selectedDayId || !scheduledTime || !user) return;
+
+    // Get the selected service day
+    const selectedDay = serviceDays.find(d => d.id === selectedDayId);
+    if (!selectedDay) return;
 
     setIsScheduling(true);
     try {
-      // Get agent profile
       const { data: agentProfile } = await supabase
         .from('profiles')
         .select('id')
@@ -141,13 +147,15 @@ export default function AgentPortfolio() {
 
       if (!agentProfile) throw new Error('Perfil não encontrado');
 
+      const scheduledDate = new Date(selectedDay.service_date + 'T12:00:00');
+
       // Create appointment
       const { error: appointmentError } = await supabase
         .from('appointments')
         .insert({
           lead_id: schedulingLead.id,
           agent_id: agentProfile.id,
-          scheduled_date: format(scheduledDate, 'yyyy-MM-dd'),
+          scheduled_date: selectedDay.service_date,
           scheduled_time: scheduledTime,
           confirmed: false,
         });
@@ -168,20 +176,20 @@ export default function AgentPortfolio() {
 
       toast({
         title: 'Agendamento criado!',
-        description: `${schedulingLead.full_name} agendado para ${format(scheduledDate, 'dd/MM/yyyy')} às ${scheduledTime}`,
+        description: `${schedulingLead.full_name} agendado para ${selectedDay.label} às ${scheduledTime}`,
       });
 
       // Add system message
       const systemMessage: ChatMessage = {
         id: `sys-${Date.now()}`,
-        content: `📅 Agendamento criado para ${format(scheduledDate, 'dd/MM/yyyy')} às ${scheduledTime}. Mensagem automática enviada.`,
+        content: `📅 Agendamento criado para ${selectedDay.label} às ${scheduledTime}. Mensagem automática enviada.`,
         sender: 'system',
         timestamp: new Date(),
       };
 
       // Reset and refresh
       setSchedulingLead(null);
-      setScheduledDate(undefined);
+      setSelectedDayId('');
       setScheduledTime('');
       fetchPortfolio();
       
@@ -346,47 +354,18 @@ export default function AgentPortfolio() {
 
             {/* Scheduling Form */}
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        'justify-start text-left font-normal',
-                        !scheduledDate && 'text-muted-foreground'
-                      )}
-                      disabled={!schedulingLead}
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {scheduledDate ? format(scheduledDate, 'dd/MM/yyyy') : 'Data'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={scheduledDate}
-                      onSelect={setScheduledDate}
-                      disabled={(date) => date < new Date()}
-                      locale={ptBR}
-                    />
-                  </PopoverContent>
-                </Popover>
-
-                <div className="relative">
-                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="time"
-                    value={scheduledTime}
-                    onChange={(e) => setScheduledTime(e.target.value)}
-                    className="pl-10"
-                    disabled={!schedulingLead}
-                  />
-                </div>
-              </div>
+              <ServiceDayTimeSelect
+                selectedDayId={selectedDayId}
+                selectedTime={scheduledTime}
+                onDayChange={setSelectedDayId}
+                onTimeChange={setScheduledTime}
+                onAddServiceDay={() => setAddServiceDayOpen(true)}
+                disabled={!schedulingLead}
+              />
 
               <Button
                 className="w-full bg-gradient-primary hover:opacity-90"
-                disabled={!schedulingLead || !scheduledDate || !scheduledTime || isScheduling}
+                disabled={!schedulingLead || !selectedDayId || !scheduledTime || isScheduling}
                 onClick={handleSchedule}
               >
                 {isScheduling ? (
@@ -400,6 +379,15 @@ export default function AgentPortfolio() {
           </div>
         </CardContent>
       </Card>
+
+      <AddServiceDayDialog
+        open={addServiceDayOpen}
+        onOpenChange={setAddServiceDayOpen}
+        onSuccess={() => {
+          refetchServiceDays();
+          setAddServiceDayOpen(false);
+        }}
+      />
 
       {/* Split View: Portfolio + Chat */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-0">

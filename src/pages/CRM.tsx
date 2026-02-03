@@ -98,7 +98,33 @@ export default function CRM() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setLeads((data as ExtendedLead[]) || []);
+
+      // Fetch agents separately for leads that have assigned_agent_id
+      const leadsWithAgent = data || [];
+      const agentIds = [...new Set(leadsWithAgent.filter(l => l.assigned_agent_id).map(l => l.assigned_agent_id))];
+      
+      let agentsMap: Record<string, { full_name: string }> = {};
+      if (agentIds.length > 0) {
+        const { data: agentsData } = await supabase
+          .from('agents')
+          .select('id, full_name')
+          .in('id', agentIds);
+        
+        if (agentsData) {
+          agentsMap = agentsData.reduce((acc, agent) => {
+            acc[agent.id] = { full_name: agent.full_name };
+            return acc;
+          }, {} as Record<string, { full_name: string }>);
+        }
+      }
+
+      // Merge agent data into leads
+      const enrichedLeads = leadsWithAgent.map(lead => ({
+        ...lead,
+        agent: lead.assigned_agent_id ? agentsMap[lead.assigned_agent_id] : null,
+      }));
+
+      setLeads(enrichedLeads as ExtendedLead[]);
     } catch (error) {
       console.error('Error fetching leads:', error);
       toast({

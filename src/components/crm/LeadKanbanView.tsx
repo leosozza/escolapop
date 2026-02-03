@@ -164,10 +164,17 @@ export function LeadKanbanView({
                         </DropdownMenu>
                       </div>
 
-                      {/* Contact Info */}
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
-                        <Phone className="h-3 w-3" />
-                        {lead.phone}
+                      {/* Contact Info & Agent */}
+                      <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                        <div className="flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          {lead.phone}
+                        </div>
+                        {lead.agent?.full_name && (
+                          <span className="text-primary font-medium">
+                            {lead.agent.full_name}
+                          </span>
+                        )}
                       </div>
 
                       {/* Course & Source */}

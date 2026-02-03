@@ -1,223 +1,341 @@
 
 
-# Plano: Sistema de Importação/Exportação CSV e Webhook para Alunos
+# Plano: Dias de Atendimento e Formulario Rapido de Agendamento
 
 ## Resumo
 
-Implementar um sistema completo de importação/exportação para o módulo de Alunos (`/students`), incluindo:
-1. **Exportação CSV**: Download dos dados de alunos/matrículas
-2. **Importação CSV**: Upload com mapeamento de colunas e validação
-3. **Webhook**: Endpoint para receber matrículas de sistemas externos
+Vou reestruturar a Carteira Comercial (CRM) para incluir:
+1. **Tabela de Dias de Atendimento** - Cadastro de dias disponiveis para agendamento
+2. **Formulario Rapido Inline** - Substituir o botao de dialogo por campos diretos na pagina
+3. **Controle de Capacidade por Horario** - Limite de 15 por horario com aviso visual
+4. **Horarios Fixos** - Das 9h as 16h, de 1 em 1 hora
 
 ---
 
-## Arquitetura
+## Arquitetura de Dados
+
+### Nova Tabela: `service_days` (Dias de Atendimento)
+
+| Coluna | Tipo | Descricao |
+|--------|------|-----------|
+| id | UUID | Identificador unico |
+| service_date | DATE | Data do atendimento |
+| weekday_name | TEXT | Nome do dia da semana (ex: "Sabado") |
+| is_active | BOOLEAN | Se esta ativo para agendamentos |
+| max_per_hour | INTEGER | Limite por horario (padrao: 15) |
+| created_at | TIMESTAMPTZ | Data de criacao |
+| created_by | UUID | Quem criou |
+
+### Relacionamento com Appointments
+
+A tabela `appointments` ja possui os campos necessarios:
+- `scheduled_date`: Vinculado aos `service_days`
+- `scheduled_time`: Horario do agendamento
+
+---
+
+## Fluxo de Interface
+
+### Layout da Pagina CRM (Nova Estrutura)
 
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│                     Students Page (/students)                   │
-├─────────────────────────────────────────────────────────────────┤
-│  [Exportar CSV]  [Importar CSV]  [Webhook Info]                 │
-└─────────────┬──────────────┬─────────────────┬──────────────────┘
-              │              │                 │
-              ▼              ▼                 ▼
-       ┌──────────┐   ┌─────────────┐   ┌─────────────────┐
-       │ Download │   │ CSV Import  │   │ Webhook Info    │
-       │   CSV    │   │   Dialog    │   │    Sheet        │
-       └──────────┘   └──────────────┘  └─────────────────┘
-                              │                 │
-                              ▼                 ▼
-                      ┌──────────────┐  ┌─────────────────────────┐
-                      │ leads +      │  │ webhook-students        │
-                      │ enrollments  │  │ (Edge Function)         │
-                      └──────────────┘  └─────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ CARTEIRA COMERCIAL                                    [Tela Cheia] [Kanban] │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  NOVO AGENDAMENTO (Formulario Rapido Inline)                        │   │
+│  ├─────────────────────────────────────────────────────────────────────┤   │
+│  │                                                                      │   │
+│  │  Nome do Responsavel    Nome do Modelo       Telefone               │   │
+│  │  [________________]     [________________]   [________________]      │   │
+│  │                                                                      │   │
+│  │  Dia de Atendimento              Horario                            │   │
+│  │  [10/01 - Sabado ▼]             [09:00 ▼]  [15/15 Lotado!]          │   │
+│  │                                                                      │   │
+│  │  [+ Criar Dia de Atendimento]                    [Agendar Lead]     │   │
+│  │                                                                      │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  ┌─ Tabs de Status ───────────────────────────────────────────────────────┐│
+│  │ [Agendado(12)] [Confirmado(5)] [Aguard(3)] [Atrasado(2)] ... [Todos]  ││
+│  └────────────────────────────────────────────────────────────────────────┘│
+│                                                                             │
+│  ┌─ Lista/Kanban de Leads ─────────────────────────────────────────────────┐│
+│  │  ...                                                                    ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Dialog para Criar Dia de Atendimento
+
+```text
+┌─────────────────────────────────────────────┐
+│  Criar Dia de Atendimento                   │
+├─────────────────────────────────────────────┤
+│                                             │
+│  Data *                                     │
+│  [Calendario de selecao]                    │
+│                                             │
+│  Limite por horario                         │
+│  [15]  (padrao)                             │
+│                                             │
+│  Preview: "10/01 - Sabado"                  │
+│                                             │
+│              [Cancelar]  [Criar]            │
+└─────────────────────────────────────────────┘
 ```
 
 ---
 
-## Componentes a Criar
+## Componentes a Criar/Modificar
 
-### 1. Botões de Ação no Header (Students.tsx)
+### 1. Nova Migracao SQL
 
-Adicionar três botões ao header da página:
-- **Exportar CSV**: Gera e baixa arquivo CSV com dados das matrículas
-- **Importar CSV**: Abre dialog de importação
-- **Webhook**: Abre painel com documentação do webhook
+```sql
+-- Tabela de dias de atendimento comercial
+CREATE TABLE IF NOT EXISTS public.service_days (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  service_date DATE NOT NULL UNIQUE,
+  weekday_name TEXT NOT NULL,
+  is_active BOOLEAN DEFAULT true,
+  max_per_hour INTEGER DEFAULT 15,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  created_by UUID REFERENCES auth.users(id)
+);
 
-### 2. StudentCSVExportButton (Novo Componente)
+-- RLS
+ALTER TABLE public.service_days ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Staff can read service_days"
+  ON public.service_days FOR SELECT
+  TO authenticated
+  USING (public.is_staff(auth.uid()));
+
+CREATE POLICY "Staff can insert service_days"
+  ON public.service_days FOR INSERT
+  TO authenticated
+  WITH CHECK (public.is_staff(auth.uid()));
+
+CREATE POLICY "Staff can update service_days"
+  ON public.service_days FOR UPDATE
+  TO authenticated
+  USING (public.is_staff(auth.uid()));
+```
+
+### 2. Novo Componente: QuickLeadForm
+
+Localizado em: `src/components/crm/QuickLeadForm.tsx`
+
+Campos:
+- Nome do Responsavel (guardian_name) *
+- Nome do Modelo (full_name) *
+- Telefone (phone) *
+- Dia de Atendimento (Select com dias criados) *
+- Horario (Select de 09:00 a 16:00) *
+
+Comportamentos:
+- Mostra contagem de agendados por horario
+- Aviso visual quando horario >= 15
+- Botao "Agendar Lead" que cria lead + appointment em uma transacao
+
+### 3. Novo Componente: AddServiceDayDialog
+
+Localizado em: `src/components/crm/AddServiceDayDialog.tsx`
 
 Funcionalidades:
-- Selecionar quais colunas exportar
-- Filtrar por status/curso antes de exportar
-- Gerar arquivo CSV com encoding UTF-8 (suporte a acentos)
+- Calendario para selecionar data
+- Auto-preenche nome do dia da semana
+- Campo para limite por horario (default 15)
+- Impede criar dias duplicados
 
-Colunas disponíveis:
-- Nome do Aluno
-- Telefone
-- Email
-- Idade
-- Curso
-- Turma
-- Status
-- Tipo de Matrícula
-- Data de Matrícula
-- Código de Agente
-- Influenciador
+### 4. Atualizacao: CRM.tsx
 
-### 3. StudentCSVImportDialog (Novo Componente)
+Mudancas:
+- Remover botao "Novo Lead" que abre dialog
+- Adicionar QuickLeadForm no topo da pagina
+- Manter tabs de status
+- Manter toggle lista/kanban
 
-Baseado no padrão existente em `CSVImportDialog.tsx`:
-- Upload do arquivo
-- Mapeamento de colunas (com auto-detecção)
-- Preview dos dados
-- Validação (campos obrigatórios, duplicatas)
-- Progresso de importação
-- Resumo final
+### 5. Hook: useServiceDays
 
-Campos mapeáveis:
-- Nome Completo (obrigatório)
-- Telefone (obrigatório)
-- Idade
-- Curso (nome ou ID)
-- Turma (nome ou ID)
-- Tipo de Matrícula
-- Código do Agente
-- Influenciador
-- Observações
+```typescript
+// src/hooks/useServiceDays.ts
+export function useServiceDays() {
+  // Buscar dias de atendimento ativos
+  // Buscar contagem de appointments por dia/hora
+  // Retornar dados formatados para o select
+}
+```
 
-### 4. StudentWebhookSheet (Novo Componente)
+### 6. Hook: useAppointmentCounts
 
-Painel lateral com:
-- URL do webhook
-- Parâmetros aceitos (tabela)
-- Exemplos de uso (GET e POST)
-- Histórico de matrículas recentes via webhook
-
-### 5. Edge Function: webhook-students (Nova Função)
-
-Endpoint público para criar matrículas:
-- Aceita GET e POST
-- Valida campos obrigatórios
-- Verifica duplicatas por telefone
-- Cria lead + enrollment automaticamente
-- Suporta mapeamento flexível de campos
+```typescript
+// src/hooks/useAppointmentCounts.ts
+export function useAppointmentCounts(serviceDate: string) {
+  // Buscar total de agendamentos por horario
+  // Para cada hora de 09:00 a 16:00
+  // Retornar: { "09:00": 5, "10:00": 15, ... }
+}
+```
 
 ---
 
-## Detalhes Técnicos
+## Logica de Negocio
 
-### Exportação CSV
+### Horarios Disponiveis
 
 ```typescript
-// Função de exportação
-const exportToCSV = () => {
-  const headers = ['Nome', 'Telefone', 'Curso', 'Turma', 'Status', ...];
-  const rows = enrollments.map(e => [
-    e.lead?.full_name,
-    e.lead?.phone,
-    e.course?.name,
-    e.class?.name,
-    e.status,
-    ...
-  ]);
-  
-  const csv = [headers, ...rows]
-    .map(row => row.join(';'))
-    .join('\n');
-  
-  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
-  // Download usando URL.createObjectURL
-};
+export const COMMERCIAL_HOURS = [
+  '09:00', '10:00', '11:00', '12:00',
+  '13:00', '14:00', '15:00', '16:00'
+] as const;
 ```
 
-### Importação CSV - Fluxo
+### Formato do Dia de Atendimento
 
-1. **Upload**: Aceitar arquivo .csv
-2. **Parse**: Ler e detectar delimitador (,  ou ;)
-3. **Auto-map**: Mapear colunas automaticamente por nome
-4. **Validação**: 
-   - Nome e telefone obrigatórios
-   - Verificar duplicatas
-   - Validar curso/turma existentes
-5. **Preview**: Mostrar primeiras 5 linhas
-6. **Importar**: 
-   - Criar lead com status 'matriculado'
-   - Criar enrollment vinculado
-7. **Resultado**: Mostrar sucesso/falhas
+```typescript
+// Exemplo de exibicao no Select
+"10/01 - Sabado"
+"11/01 - Domingo"
+"15/01 - Quinta-feira"
+```
 
-### Webhook - Parâmetros
+### Contagem por Horario
 
-| Parâmetro | Aliases | Campo | Obrigatório |
-|-----------|---------|-------|-------------|
-| full_name | client_name, nome | Nome do Aluno | Sim |
-| phone | telefone, celular | Telefone | Sim |
-| age | idade, student_age | Idade | Nao |
-| course | curso, course_name | Nome do Curso | Nao |
-| class_name | turma | Nome da Turma | Nao |
-| enrollment_type | tipo_matricula | Tipo | Nao |
-| referral_code | codigo_agente | Codigo Agente | Nao |
-| influencer | influenciador | Influenciador | Nao |
+```typescript
+// Query para contar por horario
+const { data } = await supabase
+  .from('appointments')
+  .select('scheduled_time')
+  .eq('scheduled_date', selectedDate);
 
-### Estrutura de Arquivos
+// Agrupar por horario
+const counts = data.reduce((acc, apt) => {
+  const hour = apt.scheduled_time.slice(0, 5); // "09:00"
+  acc[hour] = (acc[hour] || 0) + 1;
+  return acc;
+}, {});
+```
+
+### Aviso de Lotacao
+
+```typescript
+// No select de horarios
+const isFull = counts[hour] >= maxPerHour;
+const isWarning = counts[hour] >= maxPerHour * 0.8; // 80%
+
+// Visual
+<SelectItem className={isFull ? "text-red-500" : isWarning ? "text-amber-500" : ""}>
+  {hour} ({counts[hour]}/{maxPerHour})
+</SelectItem>
+```
+
+---
+
+## Fluxo de Criacao Rapida
+
+1. Usuario preenche formulario rapido
+2. Clica em "Agendar Lead"
+3. Sistema cria lead com status `agendado`:
+   ```typescript
+   const lead = await supabase.from('leads').insert({
+     guardian_name,
+     full_name,
+     phone,
+     status: 'agendado',
+     scheduled_at: `${service_date}T${scheduled_time}`,
+     source: 'presencial'
+   });
+   ```
+4. Sistema cria appointment vinculado:
+   ```typescript
+   await supabase.from('appointments').insert({
+     lead_id: lead.id,
+     agent_id: currentProfile.id,
+     scheduled_date: service_date,
+     scheduled_time,
+     confirmed: false
+   });
+   ```
+5. Lead aparece na aba "Agendado" imediatamente
+
+---
+
+## Estrutura de Arquivos
 
 ```text
 src/
   components/
-    students/
-      StudentCSVExportButton.tsx    (novo)
-      StudentCSVImportDialog.tsx    (novo)
-      StudentWebhookSheet.tsx       (novo)
-  pages/
-    Students.tsx                    (atualizar)
+    crm/
+      QuickLeadForm.tsx           (NOVO)
+      AddServiceDayDialog.tsx     (NOVO)
+      CRM.tsx                     (ATUALIZAR)
+  hooks/
+    useServiceDays.ts             (NOVO)
+    useAppointmentCounts.ts       (NOVO)
+  lib/
+    commercial-schedule-config.ts (NOVO)
 
 supabase/
-  functions/
-    webhook-students/
-      index.ts                      (novo)
-  config.toml                       (atualizar)
+  migrations/
+    [timestamp]_service_days.sql  (NOVO)
 ```
 
 ---
 
-## Alteracoes em Students.tsx
+## Detalhes de Implementacao
 
-Adicionar ao header:
+### QuickLeadForm Component
 
-```tsx
-<div className="flex gap-2">
-  <StudentCSVExportButton enrollments={enrollments} />
-  <Button variant="outline" onClick={() => setIsImportOpen(true)}>
-    <Upload className="h-4 w-4 mr-2" />
-    Importar CSV
-  </Button>
-  <Button variant="outline" onClick={() => setIsWebhookOpen(true)}>
-    <Plug className="h-4 w-4 mr-2" />
-    Webhook
-  </Button>
-  <Button onClick={() => setIsAddDialogOpen(true)}>
-    <Plus className="h-4 w-4" />
-    Nova Matricula
-  </Button>
-</div>
+```typescript
+interface QuickLeadFormProps {
+  onSuccess: () => void;
+}
+
+export function QuickLeadForm({ onSuccess }: QuickLeadFormProps) {
+  const [guardianName, setGuardianName] = useState('');
+  const [modelName, setModelName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedTime, setSelectedTime] = useState('');
+  
+  const { serviceDays, isLoading: loadingDays } = useServiceDays();
+  const { counts, maxPerHour } = useAppointmentCounts(selectedDate);
+  
+  // ...
+}
 ```
 
+### Validacoes
+
+- Nome do responsavel: minimo 2 caracteres
+- Nome do modelo: minimo 2 caracteres
+- Telefone: minimo 10 digitos
+- Dia de atendimento: obrigatorio
+- Horario: obrigatorio
+
+### Mensagens de Aviso
+
+- Horario cheio (>= 15): "Este horario esta lotado! Confirme antes de continuar."
+- Horario quase cheio (>= 12): "Horario quase lotado (X/15)"
+
 ---
 
-## Segurança
+## Consideracoes de UX
 
-1. **Webhook publico**: Validacao de campos obrigatorios, normalizacao de telefone
-2. **RLS**: Apenas staff pode ver/editar enrollments e leads
-3. **Validacao de entrada**: Sanitizacao de dados antes de inserir
-4. **Logs**: Registrar cada importacao/webhook para auditoria
+1. **Formulario Sempre Visivel**: O formulario rapido fica no topo, sempre disponivel
+2. **Feedback Visual de Lotacao**: Cores indicam ocupacao do horario
+3. **Dias Ordenados**: Mostrar dias futuros primeiro
+4. **Limpeza Automatica**: Formulario limpa apos sucesso
+5. **Foco Automatico**: Primeiro campo recebe foco ao carregar
 
 ---
 
-## Sequencia de Implementacao
+## Proximos Passos Apos Implementacao
 
-1. Criar `StudentCSVExportButton.tsx` - funcionalidade de exportacao
-2. Criar `StudentCSVImportDialog.tsx` - wizard de importacao
-3. Criar `StudentWebhookSheet.tsx` - documentacao do webhook
-4. Criar edge function `webhook-students` - endpoint de integracao
-5. Atualizar `Students.tsx` - integrar novos componentes
-6. Atualizar `supabase/config.toml` - registrar nova funcao
+1. Testar fluxo completo de agendamento rapido
+2. Verificar se lead aparece corretamente nas tabs
+3. Testar criacao de novo dia de atendimento
+4. Validar contagem de capacidade por horario
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { CalendarClock, Loader2, AlertTriangle } from 'lucide-react';
+import { CalendarClock, Loader2, AlertTriangle, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,6 +20,12 @@ import { useAppointmentCounts } from '@/hooks/useAppointmentCounts';
 import { AddServiceDayDialog } from './AddServiceDayDialog';
 import { COMMERCIAL_HOURS } from '@/lib/commercial-schedule-config';
 import { cn } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query';
+
+interface Agent {
+  id: string;
+  full_name: string;
+}
 
 interface QuickLeadFormProps {
   onSuccess: () => void;
@@ -31,11 +37,26 @@ export function QuickLeadForm({ onSuccess }: QuickLeadFormProps) {
   const [phone, setPhone] = useState('');
   const [selectedDayId, setSelectedDayId] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
+  const [selectedAgentId, setSelectedAgentId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const guardianRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { profile } = useAuth();
+
+  // Fetch active agents
+  const { data: agents = [] } = useQuery<Agent[]>({
+    queryKey: ['agents-active'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('agents')
+        .select('id, full_name')
+        .eq('is_active', true)
+        .order('full_name');
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   const { serviceDays, isLoading: loadingDays, refetch: refetchDays } = useServiceDays();
   
@@ -104,6 +125,14 @@ export function QuickLeadForm({ onSuccess }: QuickLeadFormProps) {
       });
       return false;
     }
+    if (!selectedAgentId) {
+      toast({
+        variant: 'destructive',
+        title: 'Agente obrigatório',
+        description: 'Selecione o agente de relacionamento.',
+      });
+      return false;
+    }
     return true;
   };
 
@@ -112,7 +141,7 @@ export function QuickLeadForm({ onSuccess }: QuickLeadFormProps) {
 
     setIsSubmitting(true);
     try {
-      // Create lead with status 'agendado'
+      // Create lead with status 'agendado' and assigned agent
       const { data: leadData, error: leadError } = await supabase
         .from('leads')
         .insert({
@@ -122,18 +151,19 @@ export function QuickLeadForm({ onSuccess }: QuickLeadFormProps) {
           status: 'agendado',
           source: 'presencial',
           scheduled_at: `${selectedDay.service_date}T${selectedTime}:00`,
+          assigned_agent_id: selectedAgentId,
         })
         .select()
         .single();
 
       if (leadError) throw leadError;
 
-      // Create appointment linked to lead
+      // Create appointment linked to lead with same agent
       const { error: aptError } = await supabase
         .from('appointments')
         .insert({
           lead_id: leadData.id,
-          agent_id: profile.user_id,
+          agent_id: selectedAgentId,
           scheduled_date: selectedDay.service_date,
           scheduled_time: selectedTime,
           confirmed: false,
@@ -152,6 +182,7 @@ export function QuickLeadForm({ onSuccess }: QuickLeadFormProps) {
       setPhone('');
       setSelectedDayId('');
       setSelectedTime('');
+      setSelectedAgentId('');
       guardianRef.current?.focus();
 
       onSuccess();
@@ -280,6 +311,35 @@ export function QuickLeadForm({ onSuccess }: QuickLeadFormProps) {
                     </span>
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Agente de Relacionamento */}
+          <div className="space-y-2 md:col-span-2">
+            <Label>Agente de Relacionamento *</Label>
+            <Select
+              value={selectedAgentId}
+              onValueChange={setSelectedAgentId}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o agente" />
+              </SelectTrigger>
+              <SelectContent>
+                {agents.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-muted-foreground">
+                    Nenhum agente cadastrado
+                  </div>
+                ) : (
+                  agents.map((agent) => (
+                    <SelectItem key={agent.id} value={agent.id}>
+                      <span className="flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        {agent.full_name}
+                      </span>
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>

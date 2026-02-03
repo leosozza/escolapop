@@ -80,8 +80,8 @@ export function LeadListView({
             <TableHead>Lead</TableHead>
             <TableHead>Responsável</TableHead>
             <TableHead>Contato</TableHead>
+            <TableHead>Agente</TableHead>
             <TableHead>Fonte</TableHead>
-            <TableHead>Campanha</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Criado em</TableHead>
             <TableHead>Agendamento</TableHead>
@@ -143,6 +143,11 @@ export function LeadListView({
                     </div>
                   </TableCell>
                   <TableCell>
+                    <span className="text-sm font-medium text-primary">
+                      {lead.agent?.full_name || "-"}
+                    </span>
+                  </TableCell>
+                  <TableCell>
                     <div className="flex items-center gap-2">
                       <div
                         className="p-1.5 rounded"
@@ -155,9 +160,6 @@ export function LeadListView({
                       </div>
                       <span className="text-sm">{sourceInfo.name}</span>
                     </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {lead.campaign || "-"}
                   </TableCell>
                   <TableCell>
                     <Badge 

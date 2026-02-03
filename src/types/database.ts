@@ -13,9 +13,16 @@ export type LeadStatus =
   | 'lead'
   | 'em_atendimento'
   | 'agendado'
+  | 'aguardando_confirmacao'
   | 'confirmado'
+  | 'atrasado'
   | 'compareceu'
+  | 'fechado'
+  | 'nao_fechado'
   | 'proposta'
+  | 'reagendar'
+  | 'declinou'
+  | 'limbo'
   | 'matriculado'
   | 'perdido';
 
@@ -271,11 +278,18 @@ export interface ContentProgress {
 // Status labels and colors
 export const LEAD_STATUS_CONFIG: Record<LeadStatus, { label: string; color: string; bgColor: string }> = {
   lead: { label: 'Novo Lead', color: 'text-info', bgColor: 'bg-info/10' },
-  em_atendimento: { label: 'Em Atendimento', color: 'text-warning', bgColor: 'bg-warning/10' },
+  em_atendimento: { label: 'Sem Resposta', color: 'text-warning', bgColor: 'bg-warning/10' },
   agendado: { label: 'Agendado', color: 'text-primary', bgColor: 'bg-primary/10' },
-  confirmado: { label: 'Confirmado', color: 'text-accent', bgColor: 'bg-accent/10' },
-  compareceu: { label: 'Compareceu', color: 'text-success', bgColor: 'bg-success/10' },
+  aguardando_confirmacao: { label: 'Aguardando Confirmação', color: 'text-yellow-600', bgColor: 'bg-yellow-500/10' },
+  confirmado: { label: 'Confirmado', color: 'text-green-600', bgColor: 'bg-green-500/10' },
+  atrasado: { label: 'Atrasado', color: 'text-red-600', bgColor: 'bg-red-500/10' },
+  compareceu: { label: 'Compareceu', color: 'text-teal-600', bgColor: 'bg-teal-500/10' },
+  fechado: { label: 'Fechado', color: 'text-emerald-600', bgColor: 'bg-emerald-500/10' },
+  nao_fechado: { label: 'Não Fechado', color: 'text-orange-600', bgColor: 'bg-orange-500/10' },
   proposta: { label: 'Proposta', color: 'text-secondary', bgColor: 'bg-secondary/10' },
+  reagendar: { label: 'Reagendar', color: 'text-amber-600', bgColor: 'bg-amber-500/10' },
+  declinou: { label: 'Declinou', color: 'text-rose-600', bgColor: 'bg-rose-500/10' },
+  limbo: { label: 'Limbo', color: 'text-muted-foreground', bgColor: 'bg-muted/50' },
   matriculado: { label: 'Matriculado', color: 'text-success', bgColor: 'bg-success/20' },
   perdido: { label: 'Perdido', color: 'text-destructive', bgColor: 'bg-destructive/10' },
 };

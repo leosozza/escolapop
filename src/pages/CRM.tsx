@@ -1,23 +1,26 @@
-import { useState, useEffect } from 'react';
-import { Plus, Search, Loader2 } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Plus, Search, Loader2, Maximize2, Minimize2, List, Kanban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Lead, LeadStatus } from '@/types/database';
+import type { LeadStatus } from '@/types/database';
 import { LEAD_STATUS_CONFIG } from '@/types/database';
-import { ExtendedLead, LeadSource, CRMViewMode } from '@/types/crm';
+import { ExtendedLead, LeadSource } from '@/types/crm';
 import { AddLeadDialog } from '@/components/crm/AddLeadDialog';
-import { LeadDetailsSheet } from '@/components/leads/LeadDetailsSheet';
+import { LeadHistorySheet } from '@/components/leads/LeadHistorySheet';
 import { EditLeadDialog } from '@/components/leads/EditLeadDialog';
-import { ViewToggle } from '@/components/crm/ViewToggle';
 import { LeadSourceManager } from '@/components/crm/LeadSourceManager';
 import { CustomFieldsManager } from '@/components/crm/CustomFieldsManager';
 import { CSVImportDialog } from '@/components/crm/CSVImportDialog';
 import { LeadListView } from '@/components/crm/LeadListView';
 import { LeadKanbanView } from '@/components/crm/LeadKanbanView';
-import { LeadPipelineView } from '@/components/crm/LeadPipelineView';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,12 +31,39 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog";
 
-// Convert ExtendedLead to Lead for legacy components
-const toBaseLead = (lead: ExtendedLead): Lead => ({
-  ...lead,
-  source: (lead.lead_source?.name?.toLowerCase() || lead.source || 'outro') as Lead['source'],
-  status: lead.status as Lead['status'],
+// Commercial workflow tabs
+const STATUS_TABS: { key: LeadStatus | 'todos'; label: string; color: string }[] = [
+  { key: 'agendado', label: 'Agendado', color: 'bg-blue-500' },
+  { key: 'confirmado', label: 'Confirmado', color: 'bg-green-500' },
+  { key: 'aguardando_confirmacao', label: 'Aguard. Confirm.', color: 'bg-yellow-500' },
+  { key: 'atrasado', label: 'Atrasado', color: 'bg-red-500' },
+  { key: 'compareceu', label: 'Compareceu', color: 'bg-teal-500' },
+  { key: 'fechado', label: 'Fechado', color: 'bg-emerald-500' },
+  { key: 'nao_fechado', label: 'Não Fechado', color: 'bg-orange-500' },
+  { key: 'reagendar', label: 'Reagendar', color: 'bg-amber-500' },
+  { key: 'declinou', label: 'Declinou', color: 'bg-rose-500' },
+  { key: 'todos', label: 'Todos', color: 'bg-primary' },
+];
+
+// Convert ExtendedLead to format for history sheet
+const toLeadData = (lead: ExtendedLead) => ({
+  id: lead.id,
+  full_name: lead.full_name,
+  phone: lead.phone,
+  email: lead.email,
+  guardian_name: lead.guardian_name,
+  source: lead.lead_source?.name || lead.source || 'outro',
+  status: lead.status as LeadStatus,
+  notes: lead.notes,
+  scheduled_at: lead.scheduled_at,
+  created_at: lead.created_at,
+  updated_at: lead.updated_at,
+  course: lead.course,
 });
 
 export default function CRM() {
@@ -41,8 +71,9 @@ export default function CRM() {
   const [sources, setSources] = useState<LeadSource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<CRMViewMode>('kanban');
-  const [statusFilter, setStatusFilter] = useState<LeadStatus | null>(null);
+  const [activeTab, setActiveTab] = useState<LeadStatus | 'todos'>('agendado');
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   // Dialog states
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -113,7 +144,7 @@ export default function CRM() {
 
       toast({
         title: 'Lead atualizado!',
-        description: `${lead.full_name} movido para ${LEAD_STATUS_CONFIG[newStatus].label}`,
+        description: `${lead.full_name} movido para ${LEAD_STATUS_CONFIG[newStatus]?.label || newStatus}`,
       });
     } catch (error) {
       console.error('Error updating lead:', error);
@@ -149,17 +180,31 @@ export default function CRM() {
     }
   };
 
-  const filteredLeads = leads.filter(lead => {
-    const matchesSearch = 
-      lead.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.phone.includes(searchQuery) ||
-      lead.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.guardian_name?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = !statusFilter || lead.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  // Get counts by status
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { todos: leads.length };
+    STATUS_TABS.forEach(tab => {
+      if (tab.key !== 'todos') {
+        counts[tab.key] = leads.filter(l => l.status === tab.key).length;
+      }
+    });
+    return counts;
+  }, [leads]);
+
+  // Filter leads by search and active tab
+  const filteredLeads = useMemo(() => {
+    return leads.filter(lead => {
+      const matchesSearch = 
+        lead.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lead.phone.includes(searchQuery) ||
+        lead.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lead.guardian_name?.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesStatus = activeTab === 'todos' || lead.status === activeTab;
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [leads, searchQuery, activeTab]);
 
   const handleViewDetails = (lead: ExtendedLead) => {
     setSelectedLead(lead);
@@ -172,18 +217,12 @@ export default function CRM() {
   };
 
   const handleSchedule = (lead: ExtendedLead) => {
-    // TODO: Implementar agendamento
     toast({ title: 'Funcionalidade de agendamento em desenvolvimento' });
   };
 
   const handleDeleteRequest = (lead: ExtendedLead) => {
     setLeadToDelete(lead);
     setIsDeleteDialogOpen(true);
-  };
-
-  const handlePipelineStageClick = (status: LeadStatus) => {
-    setStatusFilter(status);
-    setViewMode('list');
   };
 
   if (isLoading) {
@@ -194,42 +233,49 @@ export default function CRM() {
     );
   }
 
-  return (
-    <div className="space-y-6 animate-fade-in">
+  const MainContent = () => (
+    <div className={cn(
+      "space-y-4 animate-fade-in",
+      isFullscreen && "p-6"
+    )}>
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Pipeline CRM</h1>
-          <p className="text-muted-foreground">
-            Gerencie seus leads e oportunidades • {leads.length} leads totais
+          <h1 className="text-2xl font-bold tracking-tight">Carteira Comercial</h1>
+          <p className="text-muted-foreground text-sm">
+            {leads.length} leads no pipeline comercial
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <ViewToggle currentView={viewMode} onViewChange={setViewMode} />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setViewMode(viewMode === 'list' ? 'kanban' : 'list')}
+            title={viewMode === 'list' ? 'Visualizar Kanban' : 'Visualizar Lista'}
+          >
+            {viewMode === 'list' ? <Kanban className="h-4 w-4" /> : <List className="h-4 w-4" />}
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            title={isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'}
+          >
+            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </Button>
         </div>
       </div>
 
       {/* Toolbar */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar leads..."
-              className="pl-10 w-64"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          {statusFilter && (
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setStatusFilter(null)}
-            >
-              Limpar filtro: {LEAD_STATUS_CONFIG[statusFilter].label}
-            </Button>
-          )}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar leads..."
+            className="pl-10 w-full md:w-64"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <LeadSourceManager />
@@ -245,35 +291,81 @@ export default function CRM() {
         </div>
       </div>
 
-      {/* Views */}
-      {viewMode === 'list' && (
-        <LeadListView
-          leads={filteredLeads}
-          sources={sources}
-          onViewDetails={handleViewDetails}
-          onEdit={handleEdit}
-          onSchedule={handleSchedule}
-          onDelete={handleDeleteRequest}
-          isAdmin={isAdmin()}
-        />
-      )}
+      {/* Status Tabs */}
+      <Card className="border-0 shadow-sm">
+        <CardContent className="p-0">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as LeadStatus | 'todos')}>
+            <div className="px-4 pt-4">
+              <ScrollArea className="w-full">
+                <TabsList className="inline-flex h-10 w-auto gap-1 bg-muted/50 p-1">
+                  {STATUS_TABS.map((tab) => (
+                    <TabsTrigger
+                      key={tab.key}
+                      value={tab.key}
+                      className="text-xs px-3 data-[state=active]:bg-background whitespace-nowrap gap-2"
+                    >
+                      <div className={cn("w-2 h-2 rounded-full", tab.color)} />
+                      {tab.label}
+                      {statusCounts[tab.key] > 0 && (
+                        <Badge 
+                          variant="secondary" 
+                          className={cn(
+                            "ml-1 h-5 min-w-[20px] px-1.5 text-xs",
+                            activeTab === tab.key ? "bg-primary/10 text-primary" : ""
+                          )}
+                        >
+                          {statusCounts[tab.key]}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+            </div>
 
-      {viewMode === 'kanban' && (
-        <LeadKanbanView
-          leads={filteredLeads}
-          sources={sources}
-          onViewDetails={handleViewDetails}
-          onEdit={handleEdit}
-          onSchedule={handleSchedule}
-          onStatusChange={handleStatusChange}
-        />
-      )}
+            <TabsContent value={activeTab} className="mt-0 p-4">
+              {viewMode === 'list' ? (
+                <ScrollArea className={isFullscreen ? "h-[calc(100vh-280px)]" : "h-[500px]"}>
+                  <LeadListView
+                    leads={filteredLeads}
+                    sources={sources}
+                    onViewDetails={handleViewDetails}
+                    onEdit={handleEdit}
+                    onSchedule={handleSchedule}
+                    onDelete={handleDeleteRequest}
+                    isAdmin={isAdmin()}
+                  />
+                </ScrollArea>
+              ) : (
+                <ScrollArea className={isFullscreen ? "h-[calc(100vh-280px)]" : "h-[600px]"}>
+                  <LeadKanbanView
+                    leads={filteredLeads}
+                    sources={sources}
+                    onViewDetails={handleViewDetails}
+                    onEdit={handleEdit}
+                    onSchedule={handleSchedule}
+                    onStatusChange={handleStatusChange}
+                  />
+                </ScrollArea>
+              )}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+    </div>
+  );
 
-      {viewMode === 'pipeline' && (
-        <LeadPipelineView
-          leads={filteredLeads}
-          onStageClick={handlePipelineStageClick}
-        />
+  return (
+    <>
+      {isFullscreen ? (
+        <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
+          <DialogContent className="max-w-[98vw] w-full h-[95vh] overflow-hidden p-0">
+            <MainContent />
+          </DialogContent>
+        </Dialog>
+      ) : (
+        <MainContent />
       )}
 
       {/* Dialogs */}
@@ -283,10 +375,10 @@ export default function CRM() {
         onSuccess={fetchLeads}
       />
 
-      <LeadDetailsSheet
+      <LeadHistorySheet
         open={isDetailsOpen}
         onOpenChange={setIsDetailsOpen}
-        lead={selectedLead ? toBaseLead(selectedLead) : null}
+        lead={selectedLead ? toLeadData(selectedLead) : null}
         onEdit={() => {
           setIsDetailsOpen(false);
           setIsEditOpen(true);
@@ -301,7 +393,11 @@ export default function CRM() {
         <EditLeadDialog
           open={isEditOpen}
           onOpenChange={setIsEditOpen}
-          lead={toBaseLead(selectedLead)}
+          lead={{
+            ...selectedLead,
+            source: (selectedLead.lead_source?.name?.toLowerCase() || selectedLead.source || 'outro') as any,
+            status: selectedLead.status as any,
+          }}
           onSuccess={fetchLeads}
         />
       )}
@@ -323,6 +419,6 @@ export default function CRM() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 }

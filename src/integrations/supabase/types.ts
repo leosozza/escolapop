@@ -1548,8 +1548,15 @@ export type Database = {
         | "lead"
         | "em_atendimento"
         | "agendado"
+        | "aguardando_confirmacao"
         | "confirmado"
+        | "atrasado"
         | "compareceu"
+        | "fechado"
+        | "nao_fechado"
+        | "reagendar"
+        | "declinou"
+        | "limbo"
         | "proposta"
         | "matriculado"
         | "perdido"
@@ -1737,8 +1744,15 @@ export const Constants = {
         "lead",
         "em_atendimento",
         "agendado",
+        "aguardando_confirmacao",
         "confirmado",
+        "atrasado",
         "compareceu",
+        "fechado",
+        "nao_fechado",
+        "reagendar",
+        "declinou",
+        "limbo",
         "proposta",
         "matriculado",
         "perdido",

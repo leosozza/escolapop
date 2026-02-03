@@ -13,10 +13,12 @@ import { SummaryPanel } from '@/components/dashboard/SummaryPanel';
 import { RelationshipTable } from '@/components/dashboard/RelationshipTable';
 import { DateFilter } from '@/components/dashboard/DateFilter';
 import { EditAgentDialog } from '@/components/dashboard/EditAgentDialog';
+import { LeadHistorySheet } from '@/components/leads/LeadHistorySheet';
 import AddAgentDialog from '@/components/team/AddAgentDialog';
-import { format, differenceInHours, isSameDay, setHours, setMinutes } from 'date-fns';
+import { format, isSameDay, setHours, setMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import type { LeadStatus } from '@/types/database';
 
 interface StaffMember {
   id: string;
@@ -37,16 +39,24 @@ interface RelationshipAgent {
 interface LeadData {
   id: string;
   full_name: string;
+  phone: string;
+  email: string | null;
+  guardian_name: string | null;
+  source: string;
   status: string;
+  notes: string | null;
   updated_at: string;
   scheduled_at: string | null;
+  created_at: string;
   assigned_agent_id: string | null;
+  course?: { name: string } | null;
 }
 
 // Mock data for testing - will be removed when real data is available
 const generateMockLeads = (): LeadData[] => {
   const now = new Date();
-  const statuses = ['lead', 'em_atendimento', 'agendado', 'confirmado', 'compareceu', 'proposta', 'matriculado', 'perdido'];
+  const statuses = ['agendado', 'confirmado', 'aguardando_confirmacao', 'atrasado', 'compareceu', 'fechado', 'nao_fechado', 'reagendar'];
+  const sources = ['whatsapp', 'instagram', 'facebook', 'indicacao'];
   const names = [
     'Ana Carolina Silva', 'Bruno Fernandes', 'Camila Oliveira', 'Daniel Costa',
     'Eduarda Santos', 'Felipe Rodrigues', 'Gabriela Lima', 'Henrique Almeida',
@@ -65,12 +75,19 @@ const generateMockLeads = (): LeadData[] => {
     return {
       id: `mock-${index}`,
       full_name: name,
+      phone: `(11) 9${String(9000 + index).padStart(4, '0')}-${String(1000 + index).padStart(4, '0')}`,
+      email: `${name.toLowerCase().replace(/ /g, '.')}@email.com`,
+      guardian_name: index % 3 === 0 ? `Responsável de ${name.split(' ')[0]}` : null,
+      source: sources[index % sources.length],
       status,
+      notes: index % 4 === 0 ? 'Lead interessado no curso de modelo' : null,
       updated_at: new Date(now.getTime() - hoursAgo * 60 * 60 * 1000).toISOString(),
-      scheduled_at: ['agendado', 'confirmado'].includes(status) 
+      created_at: new Date(now.getTime() - (hoursAgo + 48) * 60 * 60 * 1000).toISOString(),
+      scheduled_at: ['agendado', 'confirmado', 'aguardando_confirmacao'].includes(status) 
         ? setMinutes(setHours(now, scheduledHour), (index % 4) * 15).toISOString()
         : null,
       assigned_agent_id: null,
+      course: index % 2 === 0 ? { name: 'Modelo Profissional' } : null,
     };
   });
 };
@@ -87,6 +104,8 @@ export default function Dashboard() {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [showAddAgentDialog, setShowAddAgentDialog] = useState(false);
   const [editingAgent, setEditingAgent] = useState<RelationshipAgent | null>(null);
+  const [selectedLead, setSelectedLead] = useState<LeadData | null>(null);
+  const [isLeadHistoryOpen, setIsLeadHistoryOpen] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -120,12 +139,18 @@ export default function Dashboard() {
       // Fetch leads - exclude matriculados (they belong to academic, not commercial)
       const { data: leadsData } = await supabase
         .from('leads')
-        .select('id, full_name, status, updated_at, assigned_agent_id, scheduled_at')
+        .select(`
+          id, full_name, phone, email, guardian_name, source, status, notes, 
+          updated_at, scheduled_at, created_at, assigned_agent_id,
+          course:courses(name)
+        `)
         .neq('status', 'matriculado')
         .order('updated_at', { ascending: false });
 
       // Use mock data if no real leads exist
-      const finalLeads = (leadsData && leadsData.length > 0) ? leadsData : generateMockLeads();
+      const finalLeads = (leadsData && leadsData.length > 0) 
+        ? (leadsData as unknown as LeadData[])
+        : generateMockLeads();
       setLeads(finalLeads);
 
       // Fetch staff by role
@@ -227,26 +252,28 @@ export default function Dashboard() {
 
   // Summary panel totals
   const summaryTotals = useMemo(() => {
-    const now = new Date();
     return {
       total: filteredLeadsByDate.length,
       confirmados: filteredLeadsByDate.filter((l) => l.status === 'confirmado').length,
-      agendados: filteredLeadsByDate.filter((l) => l.status === 'agendado').length,
-      semResposta: filteredLeadsByDate.filter((l) => l.status === 'em_atendimento' && differenceInHours(now, new Date(l.updated_at)) > 24).length,
-      atrasados: filteredLeadsByDate.filter((l) => l.status === 'lead' && differenceInHours(now, new Date(l.updated_at)) > 12).length,
+      agendados: filteredLeadsByDate.filter((l) => l.status === 'agendado' || l.status === 'aguardando_confirmacao').length,
+      semResposta: filteredLeadsByDate.filter((l) => l.status === 'em_atendimento').length,
+      atrasados: filteredLeadsByDate.filter((l) => l.status === 'atrasado').length,
       reagendar: filteredLeadsByDate.filter((l) => l.status === 'reagendar').length,
-      declinou: filteredLeadsByDate.filter((l) => l.status === 'perdido').length,
+      declinou: filteredLeadsByDate.filter((l) => l.status === 'declinou').length,
       limbo: filteredLeadsByDate.filter((l) => l.status === 'limbo').length,
     };
   }, [filteredLeadsByDate]);
 
-  // Status bar segments
+  // Status bar segments - commercial workflow
   const statusSegments: StatusSegment[] = useMemo(() => [
-    { key: 'confirmado', label: 'Confirmado', count: filteredLeadsByDate.filter((l) => l.status === 'confirmado').length, colorClass: 'bg-success' },
-    { key: 'agendado', label: 'Pendente', count: filteredLeadsByDate.filter((l) => l.status === 'agendado').length, colorClass: 'bg-warning' },
-    { key: 'em_atendimento', label: 'Sem Resposta', count: filteredLeadsByDate.filter((l) => l.status === 'em_atendimento').length, colorClass: 'bg-info' },
-    { key: 'lead', label: 'Novos', count: filteredLeadsByDate.filter((l) => l.status === 'lead').length, colorClass: 'bg-primary' },
-    { key: 'perdido', label: 'Declinou', count: filteredLeadsByDate.filter((l) => l.status === 'perdido').length, colorClass: 'bg-destructive' },
+    { key: 'agendado', label: 'Agendado', count: filteredLeadsByDate.filter((l) => l.status === 'agendado').length, colorClass: 'bg-blue-500' },
+    { key: 'confirmado', label: 'Confirmado', count: filteredLeadsByDate.filter((l) => l.status === 'confirmado').length, colorClass: 'bg-green-500' },
+    { key: 'aguardando_confirmacao', label: 'Aguard.', count: filteredLeadsByDate.filter((l) => l.status === 'aguardando_confirmacao').length, colorClass: 'bg-yellow-500' },
+    { key: 'atrasado', label: 'Atrasado', count: filteredLeadsByDate.filter((l) => l.status === 'atrasado').length, colorClass: 'bg-red-500' },
+    { key: 'compareceu', label: 'Compareceu', count: filteredLeadsByDate.filter((l) => l.status === 'compareceu').length, colorClass: 'bg-teal-500' },
+    { key: 'fechado', label: 'Fechado', count: filteredLeadsByDate.filter((l) => l.status === 'fechado').length, colorClass: 'bg-emerald-500' },
+    { key: 'reagendar', label: 'Reagendar', count: filteredLeadsByDate.filter((l) => l.status === 'reagendar').length, colorClass: 'bg-amber-500' },
+    { key: 'declinou', label: 'Declinou', count: filteredLeadsByDate.filter((l) => l.status === 'declinou').length, colorClass: 'bg-rose-500' },
   ], [filteredLeadsByDate]);
 
   if (isLoading) {
@@ -366,7 +393,10 @@ export default function Dashboard() {
       <RelationshipTable
         leads={filteredLeads}
         agents={agents}
-        onLeadClick={(lead) => console.log('Lead clicked:', lead)}
+        onLeadClick={(lead) => {
+          setSelectedLead(lead as LeadData);
+          setIsLeadHistoryOpen(true);
+        }}
         className="min-h-[600px]"
       />
 
@@ -383,6 +413,16 @@ export default function Dashboard() {
         onOpenChange={(open) => !open && setEditingAgent(null)}
         agent={editingAgent}
         onSuccess={fetchDashboardData}
+      />
+
+      {/* Lead History Sheet */}
+      <LeadHistorySheet
+        open={isLeadHistoryOpen}
+        onOpenChange={setIsLeadHistoryOpen}
+        lead={selectedLead ? {
+          ...selectedLead,
+          status: selectedLead.status as LeadStatus,
+        } : null}
       />
     </div>
   );

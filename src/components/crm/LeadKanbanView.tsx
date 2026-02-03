@@ -25,14 +25,15 @@ interface LeadKanbanViewProps {
 }
 
 const PIPELINE_COLUMNS: { status: LeadStatus; label: string; color: string }[] = [
-  { status: "lead", label: "Novos", color: "bg-blue-500" },
-  { status: "em_atendimento", label: "Em Atendimento", color: "bg-yellow-500" },
-  { status: "agendado", label: "Agendados", color: "bg-purple-500" },
-  { status: "confirmado", label: "Confirmados", color: "bg-green-500" },
-  { status: "compareceu", label: "Compareceram", color: "bg-teal-500" },
-  { status: "proposta", label: "Propostas", color: "bg-orange-500" },
-  { status: "matriculado", label: "Matriculados", color: "bg-emerald-500" },
-  { status: "perdido", label: "Perdidos", color: "bg-red-500" },
+  { status: "agendado", label: "Agendado", color: "bg-blue-500" },
+  { status: "confirmado", label: "Confirmado", color: "bg-green-500" },
+  { status: "aguardando_confirmacao", label: "Aguard. Confirm.", color: "bg-yellow-500" },
+  { status: "atrasado", label: "Atrasado", color: "bg-red-500" },
+  { status: "compareceu", label: "Compareceu", color: "bg-teal-500" },
+  { status: "fechado", label: "Fechado", color: "bg-emerald-500" },
+  { status: "nao_fechado", label: "Não Fechado", color: "bg-orange-500" },
+  { status: "reagendar", label: "Reagendar", color: "bg-amber-500" },
+  { status: "declinou", label: "Declinou", color: "bg-rose-500" },
 ];
 
 export function LeadKanbanView({

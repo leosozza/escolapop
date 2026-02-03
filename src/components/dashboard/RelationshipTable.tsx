@@ -42,25 +42,34 @@ interface RelationshipTableProps {
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
   lead: { bg: 'bg-info/10', text: 'text-info', label: 'Novo' },
-  em_atendimento: { bg: 'bg-warning/10', text: 'text-warning', label: 'Em Atendimento' },
+  em_atendimento: { bg: 'bg-warning/10', text: 'text-warning', label: 'Sem Resposta' },
   agendado: { bg: 'bg-primary/10', text: 'text-primary', label: 'Agendado' },
-  confirmado: { bg: 'bg-success/10', text: 'text-success', label: 'Confirmado' },
-  compareceu: { bg: 'bg-accent/10', text: 'text-accent-foreground', label: 'Compareceu' },
+  aguardando_confirmacao: { bg: 'bg-yellow-500/10', text: 'text-yellow-600', label: 'Aguardando Confirm.' },
+  confirmado: { bg: 'bg-green-500/10', text: 'text-green-600', label: 'Confirmado' },
+  atrasado: { bg: 'bg-red-500/10', text: 'text-red-600', label: 'Atrasado' },
+  compareceu: { bg: 'bg-teal-500/10', text: 'text-teal-600', label: 'Compareceu' },
+  fechado: { bg: 'bg-emerald-500/10', text: 'text-emerald-600', label: 'Fechado' },
+  nao_fechado: { bg: 'bg-orange-500/10', text: 'text-orange-600', label: 'Não Fechado' },
   proposta: { bg: 'bg-secondary/10', text: 'text-secondary-foreground', label: 'Proposta' },
+  reagendar: { bg: 'bg-amber-500/10', text: 'text-amber-600', label: 'Reagendar' },
+  declinou: { bg: 'bg-rose-500/10', text: 'text-rose-600', label: 'Declinou' },
+  limbo: { bg: 'bg-muted/50', text: 'text-muted-foreground', label: 'Limbo' },
   matriculado: { bg: 'bg-success/10', text: 'text-success', label: 'Matriculado' },
   perdido: { bg: 'bg-destructive/10', text: 'text-destructive', label: 'Perdido' },
 };
 
-// Tab configuration with priority order
+// Tab configuration - Commercial workflow order
 const TABS = [
-  { key: 'todos', label: 'Todos', statuses: null },
-  { key: 'agendado', label: 'Agendados', statuses: ['agendado'] },
-  { key: 'confirmado', label: 'Confirmados', statuses: ['confirmado'] },
-  { key: 'compareceu', label: 'Compareceram', statuses: ['compareceu'] },
-  { key: 'proposta', label: 'Proposta', statuses: ['proposta'] },
-  { key: 'em_atendimento', label: 'Aguardando', statuses: ['em_atendimento', 'lead'] },
-  { key: 'matriculado', label: 'Matriculados', statuses: ['matriculado'] },
-  { key: 'perdido', label: 'Perdidos', statuses: ['perdido'] },
+  { key: 'agendado', label: 'Agendado', statuses: ['agendado'], area: 'agente' },
+  { key: 'confirmado', label: 'Confirmado', statuses: ['confirmado'], area: 'agente' },
+  { key: 'aguardando_confirmacao', label: 'Aguard. Confirm.', statuses: ['aguardando_confirmacao'], area: 'agente' },
+  { key: 'atrasado', label: 'Atrasado', statuses: ['atrasado'], area: 'auto' },
+  { key: 'compareceu', label: 'Compareceu', statuses: ['compareceu'], area: 'recepcao' },
+  { key: 'fechado', label: 'Fechado', statuses: ['fechado'], area: 'recepcao' },
+  { key: 'nao_fechado', label: 'Não Fechado', statuses: ['nao_fechado'], area: 'recepcao' },
+  { key: 'reagendar', label: 'Reagendar', statuses: ['reagendar'], area: 'auto' },
+  { key: 'declinou', label: 'Declinou', statuses: ['declinou'], area: 'agente' },
+  { key: 'todos', label: 'Todos', statuses: null, area: 'all' },
 ];
 
 const ROW_COLORS = [

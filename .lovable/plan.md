@@ -1,4 +1,30 @@
 
+# Arquitetura: Comercial vs Acadêmico
+
+## Regras de Separação de Dados
+
+### Entidade Central: `leads` (tabela única)
+Todos os clientes (comerciais e acadêmicos) são armazenados na tabela `leads`. A distinção entre comercial e acadêmico é feita pelo **status** do lead.
+
+### Carteira Comercial (CRM, Dashboard, Appointments, Reception)
+- **Filtro**: `status != 'matriculado'`
+- **Status comerciais**: agendado, confirmado, aguardando_confirmacao, atrasado, compareceu, fechado, nao_fechado, reagendar, declinou, limbo
+- **Fluxo**: Lead → Agendamento → Check-in → Venda (fechado) ou Não Venda (nao_fechado)
+
+### Módulo Acadêmico (Students, Classes, Enrollments)
+- **Tabela**: `enrollments` com referência ao `lead_id`
+- **Status acadêmicos**: ativo, em_curso, inadimplente, evasao, concluido, trancado
+- **Entrada**: 
+  1. Lead comercial que fechou → cria enrollment + atualiza lead.status = 'matriculado'
+  2. Indicação direta → cria lead com status 'matriculado' + cria enrollment
+
+### Integrações
+- **Comercial → Acadêmico**: Quando lead fecha venda, pode ser matriculado no módulo acadêmico
+- **Acadêmico → Comercial**: NÃO aparece (leads com status 'matriculado' são excluídos da carteira)
+- **Acadêmico independente**: Pode criar alunos diretamente via indicação/referral (sem passar pelo comercial)
+
+---
+
 # Plano: Integracao Completa do Fluxo Comercial
 
 ## Resumo do Problema

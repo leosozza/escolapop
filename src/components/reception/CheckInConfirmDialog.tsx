@@ -15,13 +15,11 @@ interface Appointment {
   id: string;
   scheduled_date: string;
   scheduled_time: string;
+  agent_id?: string;
   lead: {
     full_name: string;
     phone: string;
     email: string | null;
-  } | null;
-  agent: {
-    full_name: string;
   } | null;
 }
 
@@ -103,17 +101,6 @@ export function CheckInConfirmDialog({
                 </div>
               </div>
 
-              {appointment.agent && (
-                <div className="flex items-center gap-2 p-3 bg-background rounded-lg col-span-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Atendente</p>
-                    <p className="text-sm font-medium">
-                      {appointment.agent.full_name}
-                    </p>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
@@ -29,6 +29,7 @@ import { QRCodeDialog } from '@/components/reception/QRCodeDialog';
 import { QRScannerDialog } from '@/components/reception/QRScannerDialog';
 import { CheckInConfirmDialog } from '@/components/reception/CheckInConfirmDialog';
 import { ReceptionDashboard } from '@/components/reception/ReceptionDashboard';
+import { DateFilter } from '@/components/dashboard/DateFilter';
 
 interface AppointmentWithDetails {
   id: string;
@@ -37,6 +38,7 @@ interface AppointmentWithDetails {
   confirmed: boolean | null;
   attended: boolean | null;
   notes: string | null;
+  agent_id: string;
   lead: {
     id: string;
     full_name: string;
@@ -44,15 +46,20 @@ interface AppointmentWithDetails {
     email: string | null;
     status: string;
   } | null;
-  agent: {
-    full_name: string;
-  } | null;
+}
+
+interface AgentInfo {
+  id: string;
+  full_name: string;
+  whatsapp_phone: string;
 }
 
 export default function Reception() {
   const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
+  const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
@@ -60,10 +67,22 @@ export default function Reception() {
   const [activeTab, setActiveTab] = useState('checkin');
   const { toast } = useToast();
 
-  const fetchTodayAppointments = async () => {
+  // Fetch agents once
+  useEffect(() => {
+    const fetchAgents = async () => {
+      const { data } = await supabase
+        .from('agents')
+        .select('id, full_name, whatsapp_phone')
+        .eq('is_active', true);
+      setAgents(data || []);
+    };
+    fetchAgents();
+  }, []);
+
+  const fetchAppointments = useCallback(async (date: Date) => {
     setIsLoading(true);
     try {
-      const today = format(new Date(), 'yyyy-MM-dd');
+      const dateStr = format(date, 'yyyy-MM-dd');
       const { data, error } = await supabase
         .from('appointments')
         .select(`
@@ -73,10 +92,10 @@ export default function Reception() {
           confirmed,
           attended,
           notes,
-          lead:leads(id, full_name, phone, email, status),
-          agent:profiles!appointments_agent_id_fkey(full_name)
+          agent_id,
+          lead:leads(id, full_name, phone, email, status)
         `)
-        .eq('scheduled_date', today)
+        .eq('scheduled_date', dateStr)
         .order('scheduled_time', { ascending: true });
 
       if (error) throw error;
@@ -91,15 +110,23 @@ export default function Reception() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
-    fetchTodayAppointments();
-    
-    // Refresh every minute
-    const interval = setInterval(fetchTodayAppointments, 60000);
-    return () => clearInterval(interval);
-  }, []);
+    if (selectedDate) {
+      fetchAppointments(selectedDate);
+      
+      // Refresh every minute
+      const interval = setInterval(() => fetchAppointments(selectedDate), 60000);
+      return () => clearInterval(interval);
+    }
+  }, [selectedDate, fetchAppointments]);
+
+  // Helper to get agent name by ID
+  const getAgentName = (agentId: string) => {
+    const agent = agents.find(a => a.id === agentId);
+    return agent?.full_name || 'Não atribuído';
+  };
 
   const handleCheckIn = async (appointment: AppointmentWithDetails, attended: boolean) => {
     try {
@@ -134,7 +161,7 @@ export default function Reception() {
           : `${appointment.lead?.full_name} marcado como não compareceu.`,
       });
 
-      fetchTodayAppointments();
+      if (selectedDate) fetchAppointments(selectedDate);
       setCheckInDialogOpen(false);
       setSelectedAppointment(null);
     } catch (error) {
@@ -220,11 +247,17 @@ export default function Reception() {
             Recepção
           </h1>
           <p className="text-muted-foreground">
-            Check-in presencial • {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
+            Check-in presencial • {selectedDate 
+              ? format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR })
+              : 'Selecione uma data'}
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <DateFilter 
+            selectedDate={selectedDate} 
+            onDateChange={setSelectedDate}
+          />
           {activeTab === 'checkin' && (
             <>
               <div className="relative flex-1 md:w-64 md:flex-none">
@@ -398,12 +431,10 @@ export default function Reception() {
                                 <Phone className="h-3.5 w-3.5" />
                                 {appointment.lead?.phone}
                               </span>
-                              {appointment.agent && (
-                                <span className="flex items-center gap-1">
-                                  <User className="h-3.5 w-3.5" />
-                                  {appointment.agent.full_name}
-                                </span>
-                              )}
+                              <span className="flex items-center gap-1">
+                                <User className="h-3.5 w-3.5" />
+                                {getAgentName(appointment.agent_id)}
+                              </span>
                             </div>
                           </div>
                         </div>

@@ -12,6 +12,10 @@ import {
   Briefcase,
   Camera,
   ClipboardList,
+  Brush,
+  Image,
+  Crown,
+  Video,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,6 +52,11 @@ const SECTORS = {
   professor_influencia: { label: 'Prof. Influência', icon: GraduationCap },
   administrativo: { label: 'Administrativo', icon: Briefcase },
   produtor: { label: 'Produtor', icon: Camera },
+  maquiagem: { label: 'Maquiagem', icon: Brush },
+  edicao_imagem: { label: 'Edição de Imagem', icon: Image },
+  fotografo: { label: 'Fotógrafo(a)', icon: Camera },
+  gerente: { label: 'Gerente', icon: Crown },
+  video_maker: { label: 'Video Maker', icon: Video },
 } as const;
 
 const AREAS = {
@@ -55,6 +64,7 @@ const AREAS = {
   financeiro: { label: 'Financeiro', color: 'bg-green-500/10 text-green-600' },
   academico: { label: 'Acadêmico', color: 'bg-purple-500/10 text-purple-600' },
   gestao: { label: 'Gestão', color: 'bg-orange-500/10 text-orange-600' },
+  producao: { label: 'Produção', color: 'bg-pink-500/10 text-pink-600' },
 } as const;
 
 type SectorKey = keyof typeof SECTORS;

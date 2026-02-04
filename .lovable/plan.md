@@ -1,344 +1,152 @@
 
-# Arquitetura: Comercial vs Acadêmico
 
-## Regras de Separação de Dados
+# Plano: Cadastro de Funcionários
 
-### Entidade Central: `leads` (tabela única)
-Todos os clientes (comerciais e acadêmicos) são armazenados na tabela `leads`. A distinção entre comercial e acadêmico é feita pelo **status** do lead.
+## Resumo
 
-### Carteira Comercial (CRM, Dashboard, Appointments, Reception)
-- **Filtro**: `status != 'matriculado'`
-- **Status comerciais**: agendado, confirmado, aguardando_confirmacao, atrasado, compareceu, fechado, nao_fechado, reagendar, declinou, limbo
-- **Fluxo**: Lead → Agendamento → Check-in → Venda (fechado) ou Não Venda (nao_fechado)
-
-### Módulo Acadêmico (Students, Classes, Enrollments)
-- **Tabela**: `enrollments` com referência ao `lead_id`
-- **Status acadêmicos**: ativo, em_curso, inadimplente, evasao, concluido, trancado
-- **Entrada**: 
-  1. Lead comercial que fechou → cria enrollment + atualiza lead.status = 'matriculado'
-  2. Indicação direta → cria lead com status 'matriculado' + cria enrollment
-
-### Integrações
-- **Comercial → Acadêmico**: Quando lead fecha venda, pode ser matriculado no módulo acadêmico
-- **Acadêmico → Comercial**: NÃO aparece (leads com status 'matriculado' são excluídos da carteira)
-- **Acadêmico independente**: Pode criar alunos diretamente via indicação/referral (sem passar pelo comercial)
+Vou adicionar todos os funcionários listados ao sistema. Para isso, preciso:
+1. Adicionar novos cargos (setores) que ainda não existem no banco
+2. Adicionar nova área "Produção" para profissionais do Studio
+3. Inserir todos os 21 funcionários
+4. Atualizar o frontend para exibir os novos cargos
 
 ---
 
-# Plano: Integracao Completa do Fluxo Comercial
+## Funcionários a Cadastrar
 
-## Resumo do Problema
+| Cargo | Nome | Área |
+|-------|------|------|
+| **Produtor** | Maryana Mesquita | Produção |
+| **Produtor** | Ana Paula | Produção |
+| **Produtor** | Chelly | Produção |
+| **Produtor** | Rafael | Produção |
+| **Recepcionista** | Yara | Comercial |
+| **Recepcionista** | Ligida | Comercial |
+| **Recepcionista** | Juliana | Comercial |
+| **Recepcionista** | Alice | Comercial |
+| **Recepcionista** | Carol | Comercial |
+| **Editor de Imagem** | Helo | Produção |
+| **Editor de Imagem** | Thales | Produção |
+| **Maquiagem** | Jessica | Produção |
+| **Maquiagem** | Gael | Produção |
+| **Fotógrafa** | Nagila | Produção |
+| **Gerente** | Ramon | Gestão (Todas as áreas) |
+| **Video Maker** | Layne | Produção |
+| **Video Maker** | Augusto | Produção |
 
-Apos as alteracoes no CRM (QuickLeadForm, service_days, novos status), as demais paginas comerciais nao foram atualizadas para utilizar a mesma logica. Isso causa:
+### Agentes de Relacionamento (tabela `agents`)
 
-1. **Inconsistencia de dados** - Cada pagina usa fluxos diferentes de agendamento
-2. **Status desatualizados** - Reception e Appointments nao reconhecem os novos status
-3. **Falta de integracao com service_days** - Appointments e AgentPortfolio usam calendario livre ao inves dos dias de atendimento criados
-4. **Tabulacoes desconectadas** - Reception atualiza status sem seguir o workflow correto
+| Nome |
+|------|
+| Ana Paula |
+| Ana Beatriz |
+| Emilly |
+| Camila |
+| Andressa |
 
 ---
 
-## Paginas a Corrigir
+## Alterações no Banco de Dados
 
-| Pagina | Problemas | Correcoes |
-|--------|-----------|-----------|
-| **Appointments** | Usa calendario livre, nao usa service_days | Integrar service_days e horarios fixos |
-| **Reception** | Atualiza para 'compareceu' mas nao segue fluxo correto | Adicionar tabulacoes corretas (compareceu/fechado/nao_fechado) |
-| **AgentPortfolio** | Usa calendario livre, agendamento manual | Integrar service_days e capacidade |
-| **Dashboard** | Status bar correta, mas SummaryPanel usa totais gerais | Refinar contagens por status |
-| **ProducerQueue** | Usa 'compareceu' correto, mas 'matriculado'/'perdido' nao sao os status finais | Atualizar para 'fechado'/'nao_fechado' |
-| **ScheduleLeadDialog** | Usa calendario livre | Integrar service_days |
-| **AddAppointmentDialog** | Usa calendario livre | Integrar service_days |
+### 1. Novos valores no enum `team_sector`
+
+Setores a adicionar:
+- `maquiagem` - Profissionais de maquiagem
+- `edicao_imagem` - Editores de foto/vídeo
+- `fotografo` - Fotógrafos
+- `gerente` - Gerentes
+- `video_maker` - Produtores de vídeo
+
+### 2. Novo valor no enum `team_area`
+
+- `producao` - Para profissionais do Studio
+
+### 3. Inserir funcionários na tabela `team_members`
+
+17 registros na tabela `team_members`
+
+### 4. Inserir agentes na tabela `agents`
+
+5 registros na tabela `agents`
 
 ---
 
-## Arquitetura de Dados Esperada
+## Alterações no Frontend
 
-### Fluxo de Status Correto
+### Arquivos a Modificar
+
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/pages/Team.tsx` | Adicionar novos setores (maquiagem, edicao_imagem, etc.) e área (producao) |
+| `src/components/team/AddTeamMemberDialog.tsx` | Adicionar novos setores e área no formulário |
+| `src/components/team/EditTeamMemberDialog.tsx` | Mesmas opções novas |
+
+### Novos Setores no Frontend
 
 ```text
-┌────────────────────────────────────────────────────────────────────────────┐
-│                         CARTEIRA COMERCIAL                                  │
-├────────────────────────────────────────────────────────────────────────────┤
-│                                                                            │
-│  ┌─────────────────────────────────────────────────────────────────────┐  │
-│  │  AGENTES DE RELACIONAMENTO (CRM / AgentPortfolio)                   │  │
-│  │                                                                      │  │
-│  │  agendado ──► confirmado ──► aguardando_confirmacao                 │  │
-│  │      │                              │                               │  │
-│  │      └──────────────────────────────┴───► declinou                  │  │
-│  └─────────────────────────────────────────────────────────────────────┘  │
-│                                    │                                       │
-│                        (Cliente chega no horario)                          │
-│                                    ▼                                       │
-│  ┌─────────────────────────────────────────────────────────────────────┐  │
-│  │  RECEPCAO (Reception)                                                │  │
-│  │                                                                      │  │
-│  │  compareceu ──► fechado (vendeu) / nao_fechado (nao vendeu)         │  │
-│  └─────────────────────────────────────────────────────────────────────┘  │
-│                                                                            │
-│  ┌─────────────────────────────────────────────────────────────────────┐  │
-│  │  AUTOMATICO (Sistema)                                                │  │
-│  │                                                                      │  │
-│  │  atrasado (1h apos horario marcado)                                 │  │
-│  │  reagendar (18h se nao compareceu)                                  │  │
-│  │  limbo (3 dias sem reagendamento)                                   │  │
-│  └─────────────────────────────────────────────────────────────────────┘  │
-└────────────────────────────────────────────────────────────────────────────┘
+SECTORS:
+  maquiagem → "Maquiagem" (ícone: Brush)
+  edicao_imagem → "Edição de Imagem" (ícone: Image)
+  fotografo → "Fotógrafo(a)" (ícone: Camera)
+  gerente → "Gerente" (ícone: Crown)
+  video_maker → "Video Maker" (ícone: Video)
 ```
 
----
-
-## Correcoes Detalhadas
-
-### 1. Appointments.tsx
-
-**Problema**: Usa calendario livre para selecionar datas. Nao utiliza os `service_days` criados.
-
-**Correcao**:
-- Integrar hook `useServiceDays` para listar apenas dias disponiveis
-- Atualizar `ScheduleByHour` para usar horarios comerciais (9-16h)
-- Atualizar dialogs de agendamento para usar select de service_days
-
-```typescript
-// Adicionar imports
-import { useServiceDays } from '@/hooks/useServiceDays';
-import { COMMERCIAL_HOURS } from '@/lib/commercial-schedule-config';
-
-// No componente
-const { serviceDays } = useServiceDays();
-
-// Filtrar apenas datas com service_days
-const availableDates = serviceDays.map(d => new Date(d.service_date + 'T12:00:00'));
-```
-
-### 2. ScheduleLeadDialog.tsx
-
-**Problema**: Usa calendario livre e nao considera capacidade por horario.
-
-**Correcao**:
-- Substituir campo de data por select com service_days
-- Substituir campo de hora por select com horarios fixos (9-16h)
-- Adicionar indicador de capacidade por horario
-
-```typescript
-// Substituir Popover/Calendar por:
-<Select value={selectedDayId} onValueChange={setSelectedDayId}>
-  <SelectContent>
-    {serviceDays.map(day => (
-      <SelectItem key={day.id} value={day.id}>
-        {day.label}
-      </SelectItem>
-    ))}
-  </SelectContent>
-</Select>
-
-// Substituir Input type="time" por:
-<Select value={selectedTime} onValueChange={setSelectedTime}>
-  <SelectContent>
-    {hourCounts.map(h => (
-      <SelectItem key={h.hour} value={h.hour}>
-        {h.hour} ({h.count}/{maxPerHour})
-      </SelectItem>
-    ))}
-  </SelectContent>
-</Select>
-```
-
-### 3. AddAppointmentDialog.tsx
-
-**Problema**: Mesmos problemas do ScheduleLeadDialog.
-
-**Correcao**:
-- Mesma abordagem: integrar service_days e horarios fixos
-- Mostrar contagem de capacidade
-
-### 4. Reception.tsx
-
-**Problema**: Atualiza status para 'compareceu' ou 'perdido', mas o fluxo correto exige diferenciar entre:
-- `compareceu` = check-in confirmado, aguardando atendimento
-- `fechado` = vendeu (matriculou)
-- `nao_fechado` = nao vendeu
-
-**Correcao**:
-- Check-in marca apenas `compareceu` (ja esta correto)
-- Remover atualizacao para 'perdido' no check-in (era incorreto)
-- A tabulacao final (fechado/nao_fechado) deve ocorrer no **ProducerQueue**
-
-```typescript
-// handleCheckIn - Corrigir:
-const handleCheckIn = async (appointment, attended: boolean) => {
-  if (attended) {
-    // Check-in OK - status 'compareceu'
-    await supabase.from('leads')
-      .update({ status: 'compareceu', attended_at: new Date().toISOString() })
-      .eq('id', appointment.lead.id);
-  } else {
-    // Nao compareceu no horario - marcar como 'atrasado' (automatico) ou 'reagendar'
-    // A logica automatica cuidara disso as 18h
-  }
-};
-```
-
-### 5. ProducerQueue.tsx
-
-**Problema**: Usa 'matriculado' e 'perdido' como status finais, mas o fluxo comercial define:
-- `fechado` = vendeu
-- `nao_fechado` = nao vendeu
-- `matriculado` = convertido para academico (apos fechado)
-
-**Correcao**:
-- Trocar 'matriculado' por 'fechado'
-- Trocar 'perdido' por 'nao_fechado'
-- A conversao para 'matriculado' ocorre quando o aluno e criado no modulo Academico
-
-```typescript
-// Substituir:
-const newStatus = closeResult === 'matriculado' ? 'fechado' : 'nao_fechado';
-```
-
-### 6. AgentPortfolio.tsx
-
-**Problema**: Usa calendario livre para agendamento.
-
-**Correcao**:
-- Integrar `useServiceDays` e `useAppointmentCounts`
-- Substituir calendario por select de dias disponiveis
-- Adicionar indicador de capacidade
-
-### 7. Dashboard.tsx (SummaryPanel)
-
-**Problema**: Contagens estao corretas mas podem incluir leads de outros dias.
-
-**Correcao**:
-- Garantir que `agendados` e `confirmados` filtram apenas pelo dia selecionado
-- `atrasados`, `reagendar`, `declinou` mostram totais gerais
-
----
-
-## Componentes Afetados
-
-| Arquivo | Tipo de Alteracao |
-|---------|-------------------|
-| `src/pages/Appointments.tsx` | Integrar service_days, filtrar por dias disponiveis |
-| `src/pages/Reception.tsx` | Corrigir fluxo de tabulacao de check-in |
-| `src/pages/AgentPortfolio.tsx` | Integrar service_days no agendamento |
-| `src/pages/ProducerQueue.tsx` | Trocar 'matriculado'/'perdido' por 'fechado'/'nao_fechado' |
-| `src/components/appointments/ScheduleLeadDialog.tsx` | Integrar service_days e capacidade |
-| `src/components/appointments/AddAppointmentDialog.tsx` | Integrar service_days e capacidade |
-| `src/components/dashboard/ScheduleByHour.tsx` | Atualizar para usar COMMERCIAL_HOURS |
-
----
-
-## Novo Componente Compartilhado
-
-Criar um componente reutilizavel para selecao de dia/hora com capacidade:
+### Nova Área no Frontend
 
 ```text
-src/components/scheduling/ServiceDayTimeSelect.tsx
-```
-
-```typescript
-interface ServiceDayTimeSelectProps {
-  selectedDayId: string;
-  selectedTime: string;
-  onDayChange: (dayId: string) => void;
-  onTimeChange: (time: string) => void;
-  disabled?: boolean;
-}
-
-export function ServiceDayTimeSelect({
-  selectedDayId,
-  selectedTime,
-  onDayChange,
-  onTimeChange,
-  disabled
-}: ServiceDayTimeSelectProps) {
-  const { serviceDays } = useServiceDays();
-  const selectedDay = serviceDays.find(d => d.id === selectedDayId);
-  const { hourCounts } = useAppointmentCounts(
-    selectedDay?.service_date || null,
-    selectedDay?.max_per_hour
-  );
-
-  return (
-    <div className="grid grid-cols-2 gap-4">
-      <Select value={selectedDayId} onValueChange={onDayChange}>
-        {/* ... */}
-      </Select>
-      <Select value={selectedTime} onValueChange={onTimeChange}>
-        {/* ... */}
-      </Select>
-    </div>
-  );
-}
+AREAS:
+  producao → "Produção" (cor: pink)
 ```
 
 ---
 
-## Fluxo de Dados Corrigido
+## Estrutura Visual
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           FLUXO DE DADOS                                    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  1. CRIACAO DE LEAD (CRM QuickLeadForm / ScheduleLeadDialog)               │
-│     ├── Cria registro em 'leads' com status 'agendado'                     │
-│     ├── Cria registro em 'appointments' vinculado                          │
-│     └── Utiliza 'service_days' para data e horarios fixos                  │
-│                                                                             │
-│  2. CONFIRMACAO (Dashboard / AgentPortfolio)                               │
-│     ├── Agente atualiza status: agendado ► confirmado                      │
-│     └── Registra em 'lead_history' com responsavel                         │
-│                                                                             │
-│  3. CHECK-IN (Reception)                                                   │
-│     ├── Recepcao marca 'compareceu' no 'appointments.attended = true'      │
-│     ├── Atualiza 'leads.status' para 'compareceu'                          │
-│     └── Lead entra na fila do ProducerQueue                                │
-│                                                                             │
-│  4. ATENDIMENTO (ProducerQueue)                                            │
-│     ├── Produtor atende e tabula: 'fechado' ou 'nao_fechado'               │
-│     └── Registra em 'lead_history' com detalhes                            │
-│                                                                             │
-│  5. AUTOMATICO (Sistema - a implementar depois)                            │
-│     ├── 1h apos horario: marca 'atrasado'                                  │
-│     ├── 18h: marca 'reagendar' se nao compareceu                           │
-│     └── 3 dias: marca 'limbo'                                              │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│ EQUIPE                                                                  │
+├─────────────────────────────────────────────────────────────────────────┤
+│ [Todos] [Comercial] [Financeiro] [Acadêmico] [Gestão] [Produção]       │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐    │
+│ │ [MN]         │ │ [AP]         │ │ [CH]         │ │ [RF]         │    │
+│ │ Maryana M.   │ │ Ana Paula    │ │ Chelly       │ │ Rafael       │    │
+│ │ 📹 Produtor  │ │ 📹 Produtor  │ │ 📹 Produtor  │ │ 📹 Produtor  │    │
+│ │ [Produção]   │ │ [Produção]   │ │ [Produção]   │ │ [Produção]   │    │
+│ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘    │
+│                                                                         │
+│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐    │
+│ │ [YA]         │ │ [LG]         │ │ [JU]         │ │ [AL]         │    │
+│ │ Yara         │ │ Ligida       │ │ Juliana      │ │ Alice        │    │
+│ │ 🚪 Recepção  │ │ 🚪 Recepção  │ │ 🚪 Recepção  │ │ 🚪 Recepção  │    │
+│ │ [Comercial]  │ │ [Comercial]  │ │ [Comercial]  │ │ [Comercial]  │    │
+│ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘    │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Validacoes de Integridade
+## Ordem de Implementação
 
-Adicionar verificacoes para garantir consistencia:
-
-1. **Lead so pode ser 'agendado' se tiver appointment ativo**
-2. **Lead so pode ser 'compareceu' se appointment.attended = true**
-3. **Lead 'fechado'/'nao_fechado' deve ter passado por 'compareceu'**
-4. **Apenas dias em 'service_days' podem receber agendamentos**
-
----
-
-## Ordem de Implementacao
-
-1. Criar componente compartilhado `ServiceDayTimeSelect`
-2. Atualizar `ScheduleLeadDialog` com novo componente
-3. Atualizar `AddAppointmentDialog` com novo componente
-4. Atualizar `AgentPortfolio` com novo componente
-5. Corrigir `Reception` - remover atualizacao incorreta de status
-6. Corrigir `ProducerQueue` - trocar status finais
-7. Atualizar `Appointments` para filtrar por service_days
-8. Atualizar `ScheduleByHour` para usar COMMERCIAL_HOURS
+1. **Migração SQL** - Adicionar novos valores aos enums
+2. **Migração SQL** - Inserir funcionários em `team_members`
+3. **Migração SQL** - Inserir agentes em `agents`
+4. **Atualizar Team.tsx** - Novos setores e áreas
+5. **Atualizar AddTeamMemberDialog.tsx** - Opções novas
+6. **Atualizar EditTeamMemberDialog.tsx** - Opções novas
 
 ---
 
-## Resumo Tecnico
+## Resumo Técnico
 
-- **8 arquivos** a modificar
-- **1 componente novo** compartilhado
-- **0 alteracoes de banco** (schema ja esta correto)
-- Foco em **reutilizacao** do hook `useServiceDays` e `useAppointmentCounts`
-- **Padronizacao** de status entre todas as paginas comerciais
+- **1 migração SQL** com:
+  - 5 novos valores em `team_sector`
+  - 1 novo valor em `team_area`
+  - 17 inserts em `team_members`
+  - 5 inserts em `agents`
+- **3 arquivos frontend** a modificar
+- **22 funcionários** cadastrados no total
+

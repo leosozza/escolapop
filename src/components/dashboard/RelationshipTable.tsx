@@ -11,11 +11,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Target } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Target, Clock, User, MessageSquare, Loader2 } from 'lucide-react';
+import { useMemo, useState, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Agent {
   id: string;
@@ -83,8 +89,20 @@ const ROW_COLORS = [
   'bg-orange-500',
 ];
 
+interface LeadHistoryEntry {
+  id: string;
+  to_status: string;
+  from_status: string | null;
+  created_at: string;
+  notes: string | null;
+  changed_by: string | null;
+}
+
 export function RelationshipTable({ leads, agents, onLeadClick, className }: RelationshipTableProps) {
   const [activeTab, setActiveTab] = useState('todos');
+  const [hoveredLeadHistory, setHoveredLeadHistory] = useState<LeadHistoryEntry | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [historyCache, setHistoryCache] = useState<Record<string, LeadHistoryEntry | null>>({});
 
   const getAgentById = (agentId: string | null | undefined) => {
     if (!agentId) return null;
@@ -108,6 +126,37 @@ export function RelationshipTable({ leads, agents, onLeadClick, className }: Rel
       return '-';
     }
   };
+
+  // Fetch last history entry for a lead
+  const fetchLeadHistory = useCallback(async (leadId: string) => {
+    // Check cache first
+    if (historyCache[leadId] !== undefined) {
+      setHoveredLeadHistory(historyCache[leadId]);
+      return;
+    }
+
+    setIsLoadingHistory(true);
+    try {
+      const { data, error } = await supabase
+        .from('lead_history')
+        .select('id, to_status, from_status, created_at, notes, changed_by')
+        .eq('lead_id', leadId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      const historyEntry = data as LeadHistoryEntry | null;
+      setHistoryCache(prev => ({ ...prev, [leadId]: historyEntry }));
+      setHoveredLeadHistory(historyEntry);
+    } catch (error) {
+      console.error('Error fetching lead history:', error);
+      setHoveredLeadHistory(null);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, [historyCache]);
 
   // Get tab counts
   const tabCounts = useMemo(() => {
@@ -170,14 +219,71 @@ export function RelationshipTable({ leads, agents, onLeadClick, className }: Rel
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                        {getInitials(lead.full_name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="font-medium">{lead.full_name}</span>
-                  </div>
+                  <HoverCard openDelay={200} closeDelay={100}>
+                    <HoverCardTrigger asChild>
+                      <div 
+                        className="flex items-center gap-2 cursor-pointer"
+                        onMouseEnter={() => fetchLeadHistory(lead.id)}
+                      >
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                            {getInitials(lead.full_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium hover:underline">{lead.full_name}</span>
+                      </div>
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-80" side="right" align="start">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-primary" />
+                          <h4 className="text-sm font-semibold">Última Atualização</h4>
+                        </div>
+                        
+                        {isLoadingHistory ? (
+                          <div className="flex items-center justify-center py-4">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : hoveredLeadHistory ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {hoveredLeadHistory.from_status && (
+                                <>
+                                  <Badge variant="outline" className="text-xs">
+                                    {STATUS_STYLES[hoveredLeadHistory.from_status]?.label || hoveredLeadHistory.from_status}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">→</span>
+                                </>
+                              )}
+                              <Badge className={cn(
+                                STATUS_STYLES[hoveredLeadHistory.to_status]?.bg,
+                                STATUS_STYLES[hoveredLeadHistory.to_status]?.text,
+                                'text-xs'
+                              )}>
+                                {STATUS_STYLES[hoveredLeadHistory.to_status]?.label || hoveredLeadHistory.to_status}
+                              </Badge>
+                            </div>
+                            
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Clock className="h-3 w-3" />
+                              <span>{format(new Date(hoveredLeadHistory.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
+                            </div>
+                            
+                            {hoveredLeadHistory.notes && (
+                              <div className="flex items-start gap-2 p-2 bg-muted/50 rounded-md">
+                                <MessageSquare className="h-3 w-3 mt-0.5 text-muted-foreground shrink-0" />
+                                <p className="text-xs text-muted-foreground">{hoveredLeadHistory.notes}</p>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-center py-4">
+                            <p className="text-sm text-muted-foreground">Nenhum histórico encontrado</p>
+                          </div>
+                        )}
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
                 </TableCell>
                 <TableCell>
                   {agent ? (

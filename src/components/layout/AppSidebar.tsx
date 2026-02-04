@@ -23,6 +23,7 @@ import {
   ChevronRight,
   Rocket,
   Receipt,
+  Camera,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -74,6 +75,7 @@ const sidebarGroups = [
       { name: 'Agendamentos', href: '/appointments', icon: Calendar },
       { name: 'Recepção', href: '/reception', icon: DoorOpen },
       { name: 'Atendimento', href: '/producer-queue', icon: MessageSquare },
+      { name: 'Studio', href: '/studio', icon: Camera },
     ],
   },
   {

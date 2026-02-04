@@ -3,6 +3,7 @@ import { CalendarClock, Loader2, AlertTriangle, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PhoneInput } from '@/components/ui/phone-input';
 import {
   Select,
   SelectContent,
@@ -71,16 +72,8 @@ export function QuickLeadForm({ onSuccess }: QuickLeadFormProps) {
     guardianRef.current?.focus();
   }, []);
 
-  const formatPhone = (value: string) => {
-    const digits = value.replace(/\D/g, '');
-    if (digits.length <= 2) return digits;
-    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-    if (digits.length <= 11) return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
-  };
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPhone(formatPhone(e.target.value));
+  const handlePhoneChange = (value: string) => {
+    setPhone(value);
   };
 
   const validateForm = () => {
@@ -236,12 +229,11 @@ export function QuickLeadForm({ onSuccess }: QuickLeadFormProps) {
           {/* Telefone */}
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="phone">Telefone *</Label>
-            <Input
+            <PhoneInput
               id="phone"
               placeholder="(00) 00000-0000"
               value={phone}
               onChange={handlePhoneChange}
-              maxLength={16}
             />
           </div>
 

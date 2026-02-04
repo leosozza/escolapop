@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { PhoneInput } from '@/components/ui/phone-input';
 import {
   Form,
   FormControl,
@@ -35,7 +36,7 @@ import { LEAD_SOURCE_CONFIG, LEAD_STATUS_CONFIG } from '@/types/database';
 
 const leadSchema = z.object({
   full_name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  phone: z.string().min(10, 'Telefone inválido'),
+  phone: z.string().min(10, 'Telefone deve ter pelo menos 10 dígitos').regex(/^\d+$/, 'Apenas números são permitidos'),
   email: z.string().email('Email inválido').optional().or(z.literal('')),
   source: z.string(),
   status: z.string(),
@@ -169,7 +170,11 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
                   <FormItem>
                     <FormLabel>Telefone *</FormLabel>
                     <FormControl>
-                      <Input placeholder="(11) 99999-9999" {...field} />
+                      <PhoneInput 
+                        placeholder="(11) 99999-9999" 
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

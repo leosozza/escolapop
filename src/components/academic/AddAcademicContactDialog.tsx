@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PhoneInput } from '@/components/ui/phone-input';
 import {
   Select,
   SelectContent,
@@ -148,12 +149,11 @@ export function AddAcademicContactDialog({
 
           <div className="space-y-2">
             <Label htmlFor="phone">Telefone *</Label>
-            <Input
+            <PhoneInput
               id="phone"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={setPhone}
               placeholder="(11) 99999-9999"
-              required
             />
           </div>
 

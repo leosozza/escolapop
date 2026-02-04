@@ -28,6 +28,7 @@ import Reports from "./pages/Reports";
 import Roadmap from "./pages/Roadmap";
 import Billing from "./pages/Billing";
 import AcademicSupport from "./pages/AcademicSupport";
+import Studio from "./pages/Studio";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -120,6 +121,14 @@ const App = () => (
               element={
                 <AppLayout>
                   <ProducerQueue />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/studio"
+              element={
+                <AppLayout>
+                  <Studio />
                 </AppLayout>
               }
             />

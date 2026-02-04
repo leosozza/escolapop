@@ -1466,6 +1466,109 @@ export type Database = {
         }
         Relationships: []
       }
+      studio_sessions: {
+        Row: {
+          check_in_time: string | null
+          code: string | null
+          created_at: string | null
+          delivery_notes: string | null
+          delivery_status: string | null
+          editing_end: string | null
+          editing_start: string | null
+          id: string
+          lead_id: string
+          makeup_artist_id: string | null
+          making_of_done: boolean | null
+          next_return_date: string | null
+          photo_count: number | null
+          photos_done: boolean | null
+          plan: string | null
+          producer_id: string | null
+          return_reason: string | null
+          session_date: string
+          status: string | null
+          studio_end: string | null
+          studio_start: string | null
+          updated_at: string | null
+          video_done: boolean | null
+          video_notes: string | null
+        }
+        Insert: {
+          check_in_time?: string | null
+          code?: string | null
+          created_at?: string | null
+          delivery_notes?: string | null
+          delivery_status?: string | null
+          editing_end?: string | null
+          editing_start?: string | null
+          id?: string
+          lead_id: string
+          makeup_artist_id?: string | null
+          making_of_done?: boolean | null
+          next_return_date?: string | null
+          photo_count?: number | null
+          photos_done?: boolean | null
+          plan?: string | null
+          producer_id?: string | null
+          return_reason?: string | null
+          session_date?: string
+          status?: string | null
+          studio_end?: string | null
+          studio_start?: string | null
+          updated_at?: string | null
+          video_done?: boolean | null
+          video_notes?: string | null
+        }
+        Update: {
+          check_in_time?: string | null
+          code?: string | null
+          created_at?: string | null
+          delivery_notes?: string | null
+          delivery_status?: string | null
+          editing_end?: string | null
+          editing_start?: string | null
+          id?: string
+          lead_id?: string
+          makeup_artist_id?: string | null
+          making_of_done?: boolean | null
+          next_return_date?: string | null
+          photo_count?: number | null
+          photos_done?: boolean | null
+          plan?: string | null
+          producer_id?: string | null
+          return_reason?: string | null
+          session_date?: string
+          status?: string | null
+          studio_end?: string | null
+          studio_start?: string | null
+          updated_at?: string | null
+          video_done?: boolean | null
+          video_notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "studio_sessions_makeup_artist_id_fkey"
+            columns: ["makeup_artist_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "studio_sessions_producer_id_fkey"
+            columns: ["producer_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_members: {
         Row: {
           areas: Database["public"]["Enums"]["team_area"][]

@@ -3,13 +3,11 @@ import {
   MessageCircle,
   Phone,
   GraduationCap,
-  Calendar,
   User,
   RefreshCcw,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -22,6 +20,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { openWhatsApp, getWhatsAppLink } from '@/lib/whatsapp';
 
 interface AcademicContact {
   id: string;
@@ -67,13 +66,11 @@ export function AcademicConversationPanel({
   const [notes, setNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  const openWhatsApp = () => {
-    const cleanPhone = contact.phone.replace(/\D/g, '');
-    const formattedPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
-    const message = encodeURIComponent(
+  const handleOpenWhatsApp = () => {
+    openWhatsApp(
+      contact.phone,
       `Olá ${contact.full_name}! Aqui é ${operatorName} do departamento acadêmico. Como posso ajudá-lo(a)?`
     );
-    window.open(`https://wa.me/${formattedPhone}?text=${message}`, '_blank');
   };
 
   const saveNote = async () => {
@@ -123,10 +120,16 @@ export function AcademicConversationPanel({
             <div>
               <CardTitle className="text-lg">{contact.full_name}</CardTitle>
               <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1">
+                <a
+                  href={getWhatsAppLink(contact.phone)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <Phone className="h-3 w-3" />
                   {contact.phone}
-                </span>
+                </a>
                 {contact.referral_agent_code && (
                   <span className="flex items-center gap-1">
                     <User className="h-3 w-3" />
@@ -136,7 +139,7 @@ export function AcademicConversationPanel({
               </div>
             </div>
           </div>
-          <Button onClick={openWhatsApp} className="gap-2">
+          <Button onClick={handleOpenWhatsApp} className="gap-2">
             <MessageCircle className="h-4 w-4" />
             Abrir WhatsApp
           </Button>

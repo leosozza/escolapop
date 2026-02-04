@@ -29,6 +29,11 @@ const SECTORS = [
   { value: 'professor_influencia', label: 'Professor de Influência' },
   { value: 'administrativo', label: 'Administrativo' },
   { value: 'produtor', label: 'Produtor' },
+  { value: 'maquiagem', label: 'Maquiagem' },
+  { value: 'edicao_imagem', label: 'Edição de Imagem' },
+  { value: 'fotografo', label: 'Fotógrafo(a)' },
+  { value: 'gerente', label: 'Gerente' },
+  { value: 'video_maker', label: 'Video Maker' },
 ] as const;
 
 const AREAS = [
@@ -36,6 +41,7 @@ const AREAS = [
   { value: 'financeiro', label: 'Financeiro' },
   { value: 'academico', label: 'Acadêmico' },
   { value: 'gestao', label: 'Gestão' },
+  { value: 'producao', label: 'Produção' },
 ] as const;
 
 type SectorValue = typeof SECTORS[number]['value'];

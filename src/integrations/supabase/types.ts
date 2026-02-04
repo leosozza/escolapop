@@ -1597,7 +1597,12 @@ export type Database = {
         | "boleto"
         | "dinheiro"
         | "transferencia"
-      team_area: "comercial" | "financeiro" | "academico" | "gestao"
+      team_area:
+        | "comercial"
+        | "financeiro"
+        | "academico"
+        | "gestao"
+        | "producao"
       team_sector:
         | "recepcao"
         | "departamento_matricula"
@@ -1606,6 +1611,11 @@ export type Database = {
         | "professor_influencia"
         | "administrativo"
         | "produtor"
+        | "maquiagem"
+        | "edicao_imagem"
+        | "fotografo"
+        | "gerente"
+        | "video_maker"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1795,7 +1805,7 @@ export const Constants = {
         "dinheiro",
         "transferencia",
       ],
-      team_area: ["comercial", "financeiro", "academico", "gestao"],
+      team_area: ["comercial", "financeiro", "academico", "gestao", "producao"],
       team_sector: [
         "recepcao",
         "departamento_matricula",
@@ -1804,6 +1814,11 @@ export const Constants = {
         "professor_influencia",
         "administrativo",
         "produtor",
+        "maquiagem",
+        "edicao_imagem",
+        "fotografo",
+        "gerente",
+        "video_maker",
       ],
     },
   },

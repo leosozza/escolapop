@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -54,7 +55,7 @@ const ENROLLMENT_TYPES = [
 // Schema para novo aluno (agora é lead direto) - sem email
 const newStudentSchema = z.object({
   full_name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  phone: z.string().min(10, 'Telefone deve ter pelo menos 10 dígitos'),
+  phone: z.string().min(10, 'Telefone deve ter pelo menos 10 dígitos').regex(/^\d+$/, 'Apenas números são permitidos'),
   course_id: z.string().min(1, 'Selecione um curso'),
   class_id: z.string().min(1, 'Selecione uma turma'),
   enrollment_type: z.string().min(1, 'Selecione o tipo de matrícula'),
@@ -470,7 +471,11 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                       <FormItem>
                         <FormLabel>Telefone *</FormLabel>
                         <FormControl>
-                          <Input placeholder="(11) 99999-9999" {...field} />
+                          <PhoneInput 
+                            placeholder="(11) 99999-9999" 
+                            value={field.value}
+                            onChange={field.onChange}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

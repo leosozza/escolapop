@@ -15,12 +15,10 @@ interface Appointment {
   id: string;
   scheduled_date: string;
   scheduled_time: string;
+  agent_id?: string;
   lead: {
     full_name: string;
     phone: string;
-  } | null;
-  agent: {
-    full_name: string;
   } | null;
 }
 
@@ -118,17 +116,6 @@ export function QRCodeDialog({ open, onOpenChange, appointment }: QRCodeDialogPr
               </div>
             </div>
 
-            {appointment.agent && (
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                <User className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-muted-foreground text-xs">Atendente</p>
-                  <p className="font-medium text-foreground">
-                    {appointment.agent.full_name}
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Download Button */}

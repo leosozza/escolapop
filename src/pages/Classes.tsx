@@ -42,9 +42,20 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AddClassDialog } from '@/components/classes/AddClassDialog';
+import { EditClassDialog } from '@/components/classes/EditClassDialog';
 import { ClassStudentsList } from '@/components/classes/ClassStudentsList';
 import { ClassCalendarDialog } from '@/components/classes/ClassCalendarDialog';
 import { WEEKDAYS, COURSE_WEEKS } from '@/lib/course-schedule-config';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface ClassStatusCounts {
   em_curso: number;
@@ -82,9 +93,28 @@ export default function Classes() {
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [isStudentsListOpen, setIsStudentsListOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [selectedRoom, setSelectedRoom] = useState<string>('all');
   const { toast } = useToast();
+
+  const handleDeactivateClass = async () => {
+    if (!selectedClass) return;
+    try {
+      const { error } = await supabase
+        .from('classes')
+        .update({ is_active: false })
+        .eq('id', selectedClass.id);
+      if (error) throw error;
+      toast({ title: 'Turma desativada', description: `${selectedClass.name} foi desativada.` });
+      fetchClasses();
+    } catch {
+      toast({ variant: 'destructive', title: 'Erro ao desativar turma' });
+    } finally {
+      setIsDeleteDialogOpen(false);
+    }
+  };
 
   useEffect(() => {
     fetchClasses();
@@ -248,16 +278,16 @@ export default function Classes() {
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-popover">
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); }}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Editar
-                </DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); }}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Excluir
-                </DropdownMenuItem>
-              </DropdownMenuContent>
+                <DropdownMenuContent align="end" className="bg-popover">
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSelectedClass(classItem); setIsEditDialogOpen(true); }}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); setSelectedClass(classItem); setIsDeleteDialogOpen(true); }}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Desativar
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
@@ -647,6 +677,32 @@ export default function Classes() {
           }}
         />
       )}
+
+      {selectedClass && (
+        <EditClassDialog
+          open={isEditDialogOpen}
+          onOpenChange={setIsEditDialogOpen}
+          classData={selectedClass}
+          onSuccess={fetchClasses}
+        />
+      )}
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desativar turma?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A turma "{selectedClass?.name}" será desativada. Os alunos permanecerão no sistema.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeactivateClass} className="bg-destructive text-destructive-foreground">
+              Desativar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -117,6 +117,10 @@ export function QuickCertificateIssuer() {
   };
 
   const filteredStudents = students.filter((s) => {
+    // Filter by selected template's course
+    if (selectedTemplate && selectedTemplate.course_id && s.course_id !== selectedTemplate.course_id) {
+      return false;
+    }
     const query = searchQuery.toLowerCase();
     return (
       s.full_name.toLowerCase().includes(query) ||

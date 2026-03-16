@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { openWhatsAppWeb } from '@/lib/whatsapp';
 import { Button } from '@/components/ui/button';
@@ -84,6 +85,7 @@ const ENROLLMENT_TYPE_CONFIG: Record<string, { label: string; color: string }> =
 };
 
 export default function Students() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [courseFilter, setCourseFilter] = useState<string>('all');
@@ -472,10 +474,10 @@ export default function Students() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setSelectedLeadId(enrollment.lead_id)}
+                            onClick={() => navigate(`/students/${enrollment.lead_id}`)}
                           >
                             <Eye className="h-4 w-4 mr-1" />
-                            Ver
+                            Perfil
                           </Button>
                         </div>
                       </TableCell>

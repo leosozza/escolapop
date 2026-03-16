@@ -14,6 +14,7 @@ import Appointments from "./pages/Appointments";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
 import Students from "./pages/Students";
+import StudentProfile from "./pages/StudentProfile";
 import LMS from "./pages/LMS";
 import Reception from "./pages/Reception";
 import AgentPortfolio from "./pages/AgentPortfolio";
@@ -81,6 +82,14 @@ const App = () => (
               element={
                 <AppLayout>
                   <Students />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/students/:leadId"
+              element={
+                <AppLayout>
+                  <StudentProfile />
                 </AppLayout>
               }
             />

@@ -336,9 +336,9 @@ export default function Classes() {
                     <Edit className="h-4 w-4 mr-2" />
                     Editar
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); setSelectedClass(classItem); setIsDeleteDialogOpen(true); }}>
+                  <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); setSelectedClass(classItem); setDeleteAdminPassword(''); setDeleteError(''); setIsDeleteDialogOpen(true); }}>
                     <Trash2 className="h-4 w-4 mr-2" />
-                    Desativar
+                    Excluir
                   </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>

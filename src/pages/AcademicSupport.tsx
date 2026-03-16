@@ -7,6 +7,8 @@ import {
   Users,
   BookOpen,
   AlertTriangle,
+  CheckCircle,
+  Lock,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,19 +20,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { AcademicConversationPanel } from '@/components/academic/AcademicConversationPanel';
 import { AddAcademicContactDialog } from '@/components/academic/AddAcademicContactDialog';
 
-// Academic statuses for tabulation
 const ACADEMIC_TABULATION_CONFIG: Record<string, { label: string; color: string }> = {
   ativo: { label: 'Matriculado', color: 'bg-blue-500' },
   em_curso: { label: 'Em Curso', color: 'bg-green-500' },
   evasao: { label: 'Não Ativo', color: 'bg-orange-500' },
   concluido: { label: 'Concluído', color: 'bg-emerald-600' },
   trancado: { label: 'Trancado', color: 'bg-muted-foreground' },
-  rematricular: { label: 'Rematricular', color: 'bg-purple-500' },
 };
 
 interface AcademicContact {
@@ -49,7 +47,7 @@ interface AcademicContact {
 
 export default function AcademicSupport() {
   const { toast } = useToast();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const [contacts, setContacts] = useState<AcademicContact[]>([]);
   const [filteredContacts, setFilteredContacts] = useState<AcademicContact[]>([]);
   const [selectedContact, setSelectedContact] = useState<AcademicContact | null>(null);
@@ -68,7 +66,6 @@ export default function AcademicSupport() {
 
   const fetchContacts = async () => {
     try {
-      // Fetch enrollments with student/lead data
       const { data: enrollments, error } = await supabase
         .from('enrollments')
         .select(`
@@ -88,7 +85,6 @@ export default function AcademicSupport() {
 
       if (error) throw error;
 
-      // Calculate absences for each student
       const contactsWithAbsences = await Promise.all(
         (enrollments || []).map(async (enrollment: any) => {
           let absencesCount = 0;
@@ -142,7 +138,6 @@ export default function AcademicSupport() {
 
     if (activeTab !== 'all') {
       if (activeTab === 'nao_ativos') {
-        // 3+ absences
         filtered = filtered.filter((c) => c.absences_count >= 3 || c.status === 'evasao');
       } else {
         filtered = filtered.filter((c) => c.status === activeTab);
@@ -163,7 +158,10 @@ export default function AcademicSupport() {
 
   const handleStatusUpdate = async (enrollmentId: string, newStatus: string) => {
     try {
-      // Cast to valid academic status
+      // Find current status for history
+      const currentContact = contacts.find(c => c.id === enrollmentId);
+      const fromStatus = currentContact?.status;
+
       const validStatus = newStatus as 'ativo' | 'em_curso' | 'evasao' | 'concluido' | 'trancado' | 'inadimplente';
       const { error } = await supabase
         .from('enrollments')
@@ -171,6 +169,16 @@ export default function AcademicSupport() {
         .eq('id', enrollmentId);
 
       if (error) throw error;
+
+      // Record in enrollment_history
+      if (fromStatus && fromStatus !== newStatus) {
+        await supabase.from('enrollment_history').insert({
+          enrollment_id: enrollmentId,
+          from_status: fromStatus as any,
+          to_status: newStatus as any,
+          changed_by: user?.id || null,
+        });
+      }
 
       setContacts((prev) =>
         prev.map((c) => (c.id === enrollmentId ? { ...c, status: newStatus } : c))
@@ -197,12 +205,13 @@ export default function AcademicSupport() {
   const getInitials = (name: string) =>
     name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 
-  // Stats
   const stats = {
+    total: contacts.length,
     matriculados: contacts.filter((c) => c.status === 'ativo').length,
     emCurso: contacts.filter((c) => c.status === 'em_curso').length,
     naoAtivos: contacts.filter((c) => c.absences_count >= 3 || c.status === 'evasao').length,
     concluidos: contacts.filter((c) => c.status === 'concluido').length,
+    trancados: contacts.filter((c) => c.status === 'trancado').length,
   };
 
   return (
@@ -212,13 +221,13 @@ export default function AcademicSupport() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Atendimento Matrícula</h1>
           <p className="text-muted-foreground">
-            Departamento Acadêmico - Gestão de alunos via WhatsApp
+            Departamento Acadêmico • {stats.total} alunos
           </p>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card className="border-0 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Matriculados</CardTitle>
@@ -252,11 +261,21 @@ export default function AcademicSupport() {
         <Card className="border-0 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Concluídos</CardTitle>
-            <Users className="h-4 w-4 text-emerald-600" />
+            <CheckCircle className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-emerald-600">{stats.concluidos}</div>
             <p className="text-xs text-muted-foreground">Formados</p>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Trancados</CardTitle>
+            <Lock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-muted-foreground">{stats.trancados}</div>
+            <p className="text-xs text-muted-foreground">Trancamento</p>
           </CardContent>
         </Card>
       </div>
@@ -289,24 +308,18 @@ export default function AcademicSupport() {
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
             <div className="px-4">
-              <TabsList className="w-full grid grid-cols-4 h-auto">
-                <TabsTrigger value="all" className="text-xs py-1.5">
-                  Todos
-                </TabsTrigger>
-                <TabsTrigger value="ativo" className="text-xs py-1.5">
-                  Matriculados
-                </TabsTrigger>
-                <TabsTrigger value="em_curso" className="text-xs py-1.5">
-                  Em Curso
-                </TabsTrigger>
-                <TabsTrigger value="nao_ativos" className="text-xs py-1.5">
-                  Não Ativos
-                </TabsTrigger>
+              <TabsList className="w-full grid grid-cols-6 h-auto">
+                <TabsTrigger value="all" className="text-xs py-1.5">Todos</TabsTrigger>
+                <TabsTrigger value="ativo" className="text-xs py-1.5">Matric.</TabsTrigger>
+                <TabsTrigger value="em_curso" className="text-xs py-1.5">Curso</TabsTrigger>
+                <TabsTrigger value="nao_ativos" className="text-xs py-1.5">N.Ativo</TabsTrigger>
+                <TabsTrigger value="concluido" className="text-xs py-1.5">Concl.</TabsTrigger>
+                <TabsTrigger value="trancado" className="text-xs py-1.5">Tranc.</TabsTrigger>
               </TabsList>
             </div>
 
             <CardContent className="flex-1 p-0 mt-3">
-              <ScrollArea className="h-[calc(100vh-440px)]">
+              <ScrollArea className="h-[calc(100vh-480px)]">
                 <div className="px-4 pb-4 space-y-2">
                   {isLoading ? (
                     <div className="text-center py-8 text-muted-foreground">

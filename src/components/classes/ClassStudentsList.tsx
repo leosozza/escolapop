@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { openWhatsAppWeb } from '@/lib/whatsapp';
 import { toast } from 'sonner';
 import {
   Sheet,

@@ -186,9 +186,15 @@ export default function Classes() {
 
       if (error) throw error;
 
+      // Normalize teacher join (FK returns single object or array depending on relationship)
+      const normalizedData = (data || []).map((c: any) => ({
+        ...c,
+        teacher: Array.isArray(c.teacher) ? c.teacher[0] || null : c.teacher,
+      }));
+
       // Fetch student counts and status breakdown for each class
       const classesWithCounts = await Promise.all(
-        (data || []).map(async (c) => {
+        normalizedData.map(async (c: any) => {
           const { data: enrollments } = await supabase
             .from('enrollments')
             .select('status')
@@ -197,14 +203,13 @@ export default function Classes() {
           
           const statusCounts: ClassStatusCounts = {
             em_curso: 0,
-            status_aberto: 0, // Previously inadimplente
+            status_aberto: 0,
             evasao: 0,
             trancado: 0,
             total: enrollments?.length || 0,
           };
 
           enrollments?.forEach((e) => {
-            // Both 'ativo' and 'em_curso' count as em_curso (students attending)
             if (e.status === 'em_curso' || e.status === 'ativo') statusCounts.em_curso++;
             else if (e.status === 'inadimplente') statusCounts.status_aberto++;
             else if (e.status === 'evasao') statusCounts.evasao++;

@@ -16,6 +16,7 @@ import type { Course, CourseModality } from '@/types/database';
 import { COURSE_MODALITY_CONFIG } from '@/types/database';
 import { AddCourseDialog } from '@/components/courses/AddCourseDialog';
 import { EditCourseDialog } from '@/components/courses/EditCourseDialog';
+import { CourseDetailsSheet } from '@/components/courses/CourseDetailsSheet';
 
 const modalityIcons = {
   presencial: Building,

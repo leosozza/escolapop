@@ -38,7 +38,6 @@ import { openWhatsAppWeb, getWhatsAppWebLink } from '@/lib/whatsapp';
 import { format, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
-import { StudentDetailsSheet } from '@/components/students/StudentDetailsSheet';
 
 interface AcademicContact {
   id: string;

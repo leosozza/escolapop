@@ -332,6 +332,10 @@ export default function StudentProfile() {
           <Save className="h-4 w-4 mr-1" />
           Salvar Alterações
         </Button>
+        <Button size="sm" variant="outline" onClick={() => setIsEnrollDialogOpen(true)}>
+          <GraduationCap className="h-4 w-4 mr-1" />
+          Nova Matrícula
+        </Button>
       </div>
 
       {/* Profile Card */}

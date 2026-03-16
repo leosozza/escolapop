@@ -222,10 +222,8 @@ export default function Students() {
     );
   };
 
-  const openWhatsApp = (phone: string, name: string) => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    const message = encodeURIComponent(`Olá ${name}! Entramos em contato sobre suas aulas na escola.`);
-    window.open(`https://wa.me/55${cleanPhone}?text=${message}`, '_blank');
+  const handleOpenWhatsApp = (phone: string, name: string) => {
+    openWhatsAppWeb(phone, `Olá ${name}! Entramos em contato sobre suas aulas na escola.`);
   };
 
   return (

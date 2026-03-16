@@ -266,17 +266,12 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
     onUpdate?.();
   };
 
-  const openWhatsApp = (phone: string | null, studentName: string) => {
+  const handleOpenWhatsApp = (phone: string | null, studentName: string) => {
     if (!phone) {
       toast.error('Telefone não cadastrado');
       return;
     }
-    
-    const cleanPhone = phone.replace(/\D/g, '');
-    const message = encodeURIComponent(
-      `Olá ${studentName}! Entramos em contato sobre suas aulas na ${classInfo?.course?.name || 'escola'}.`
-    );
-    window.open(`https://wa.me/55${cleanPhone}?text=${message}`, '_blank');
+    openWhatsAppWeb(phone, `Olá ${studentName}! Entramos em contato sobre suas aulas na ${classInfo?.course?.name || 'escola'}.`);
   };
 
   const getInitials = (name: string) =>

@@ -200,10 +200,8 @@ export function WhatsAppContactPanel() {
       .toUpperCase()
       .slice(0, 2);
 
-  const openWhatsApp = (phone: string) => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    const formattedPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
-    window.open(`https://wa.me/${formattedPhone}`, '_blank');
+  const handleOpenWhatsApp = (phone: string) => {
+    openWhatsAppWeb(phone);
   };
 
   return (

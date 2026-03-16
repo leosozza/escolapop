@@ -42,9 +42,20 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AddClassDialog } from '@/components/classes/AddClassDialog';
+import { EditClassDialog } from '@/components/classes/EditClassDialog';
 import { ClassStudentsList } from '@/components/classes/ClassStudentsList';
 import { ClassCalendarDialog } from '@/components/classes/ClassCalendarDialog';
 import { WEEKDAYS, COURSE_WEEKS } from '@/lib/course-schedule-config';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface ClassStatusCounts {
   em_curso: number;

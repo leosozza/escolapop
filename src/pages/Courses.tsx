@@ -182,7 +182,10 @@ export default function Courses() {
                         <Edit className="h-4 w-4 mr-2" />
                         Editar
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        setSelectedCourse(course);
+                        setIsDetailsSheetOpen(true);
+                      }}>
                         <Eye className="h-4 w-4 mr-2" />
                         Ver detalhes
                       </DropdownMenuItem>

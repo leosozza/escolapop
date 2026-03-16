@@ -85,6 +85,7 @@ const ENROLLMENT_TYPE_CONFIG: Record<string, { label: string; color: string }> =
 };
 
 export default function Students() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [courseFilter, setCourseFilter] = useState<string>('all');

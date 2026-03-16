@@ -397,7 +397,7 @@ export default function AcademicSupport() {
         )}
       </div>
 
-      <AddAcademicContactDialog
+      <AddEnrollmentDialog
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
         onSuccess={handleContactCreated}

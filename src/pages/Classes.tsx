@@ -397,6 +397,12 @@ export default function Classes() {
             <span>{classItem.room}</span>
           </div>
         )}
+        {classItem.teacher?.full_name && (
+          <div className="flex items-center gap-2 text-sm">
+            <GraduationCap className="h-4 w-4 text-muted-foreground" />
+            <span>Prof. {classItem.teacher.full_name}</span>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -740,19 +740,46 @@ export default function Classes() {
         />
       )}
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => { setIsDeleteDialogOpen(open); if (!open) { setDeleteAdminPassword(''); setDeleteError(''); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Desativar turma?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir turma?</AlertDialogTitle>
             <AlertDialogDescription>
-              A turma "{selectedClass?.name}" será desativada. Os alunos permanecerão no sistema.
+              {(selectedClass?.student_count || 0) > 0 ? (
+                <>
+                  A turma "<strong>{selectedClass?.name}</strong>" possui <strong>{selectedClass?.student_count} aluno(s)</strong>. 
+                  Para excluí-la, confirme com a senha de administrador ou gestor. 
+                  Os alunos serão desvinculados da turma mas permanecerão no sistema.
+                </>
+              ) : (
+                <>
+                  A turma "<strong>{selectedClass?.name}</strong>" não possui alunos e será excluída permanentemente.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {(selectedClass?.student_count || 0) > 0 && (
+            <div className="space-y-2 py-2">
+              <label className="text-sm font-medium">Senha de administrador</label>
+              <Input
+                type="password"
+                placeholder="Digite sua senha"
+                value={deleteAdminPassword}
+                onChange={(e) => { setDeleteAdminPassword(e.target.value); setDeleteError(''); }}
+              />
+              {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
+            </div>
+          )}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeactivateClass} className="bg-destructive text-destructive-foreground">
-              Desativar
-            </AlertDialogAction>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteClass} 
+              disabled={isDeleting}
+            >
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Excluir
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { AcademicConversationPanel } from '@/components/academic/AcademicConversationPanel';
-import { AddAcademicContactDialog } from '@/components/academic/AddAcademicContactDialog';
+import { AddEnrollmentDialog } from '@/components/students/AddEnrollmentDialog';
 
 const ACADEMIC_TABULATION_CONFIG: Record<string, { label: string; color: string }> = {
   ativo: { label: 'Matriculado', color: 'bg-blue-500' },

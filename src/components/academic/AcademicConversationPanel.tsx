@@ -139,9 +139,9 @@ export function AcademicConversationPanel({
               </div>
             </div>
           </div>
-          <Button onClick={handleOpenWhatsApp} className="gap-2">
+          <Button onClick={handleOpenWhatsApp} className="gap-2 bg-green-600 hover:bg-green-700 text-white">
             <MessageCircle className="h-4 w-4" />
-            Abrir WhatsApp
+            Abrir WhatsApp Web
           </Button>
         </div>
       </CardHeader>

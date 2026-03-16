@@ -325,7 +325,7 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => openWhatsApp(student.phone, student.full_name)}
+                onClick={() => handleOpenWhatsApp(student.phone, student.full_name)}
               >
                 <MessageCircle className="h-4 w-4 mr-1" />
                 WhatsApp

@@ -121,7 +121,7 @@ export function AcademicConversationPanel({
               <CardTitle className="text-lg">{contact.full_name}</CardTitle>
               <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
                 <a
-                  href={getWhatsAppLink(contact.phone)}
+                  href={getWhatsAppWebLink(contact.phone)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer"

@@ -430,7 +430,7 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => openWhatsApp(student.phone, student.student_name)}
+                          onClick={() => handleOpenWhatsApp(student.phone, student.student_name)}
                           className="shrink-0"
                         >
                           <MessageCircle className="h-4 w-4 mr-1" />

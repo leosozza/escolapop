@@ -464,7 +464,7 @@ export default function Students() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => openWhatsApp(enrollment.lead!.phone, enrollment.lead!.full_name)}
+                              onClick={() => handleOpenWhatsApp(enrollment.lead!.phone, enrollment.lead!.full_name)}
                             >
                               <MessageCircle className="h-4 w-4" />
                             </Button>

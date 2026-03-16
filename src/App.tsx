@@ -30,7 +30,7 @@ import Roadmap from "./pages/Roadmap";
 import Billing from "./pages/Billing";
 import AcademicSupport from "./pages/AcademicSupport";
 import Studio from "./pages/Studio";
-import QuickAttendance from "./pages/QuickAttendance";
+
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();

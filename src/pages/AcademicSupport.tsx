@@ -47,7 +47,7 @@ interface AcademicContact {
 
 export default function AcademicSupport() {
   const { toast } = useToast();
-  const { profile, user } = useAuth();
+  const { profile } = useAuth();
   const [contacts, setContacts] = useState<AcademicContact[]>([]);
   const [filteredContacts, setFilteredContacts] = useState<AcademicContact[]>([]);
   const [selectedContact, setSelectedContact] = useState<AcademicContact | null>(null);

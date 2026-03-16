@@ -86,9 +86,10 @@ interface AddEnrollmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  preSelectedLeadId?: string;
 }
 
-export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnrollmentDialogProps) {
+export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelectedLeadId }: AddEnrollmentDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [enrollmentSource, setEnrollmentSource] = useState<'new' | 'existing'>('new');
   const [duplicateWarning, setDuplicateWarning] = useState<DuplicateInfo | null>(null);

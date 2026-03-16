@@ -337,18 +337,11 @@ export default function StudentProfile() {
       {/* Profile Card */}
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16">
-              <AvatarFallback className="text-lg bg-primary text-primary-foreground">
-                {getInitials(student.full_name)}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <CardTitle className="text-xl">{student.full_name}</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {enrollments?.length || 0} matrícula(s) • Desde {format(new Date(student.created_at), 'dd/MM/yyyy', { locale: ptBR })}
-              </p>
-            </div>
+          <div>
+            <CardTitle className="text-xl">{student.full_name}</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {enrollments?.length || 0} matrícula(s) • Desde {format(new Date(student.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+            </p>
           </div>
         </CardHeader>
         <CardContent>

@@ -244,6 +244,10 @@ export default function Students() {
             <StudentCSVExportButton enrollments={enrollments} />
             <StudentCSVImportDialog onSuccess={() => refetch()} />
             <StudentWebhookSheet />
+            <Button variant="outline" onClick={() => setIsAttendanceOpen(true)} className="gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              Dar Presença
+            </Button>
             <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2">
               <Plus className="h-4 w-4" />
               Nova Matrícula

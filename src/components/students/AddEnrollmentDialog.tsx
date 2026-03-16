@@ -304,7 +304,6 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
           source: 'indicacao' as const,
           status: 'matriculado' as const,
           notes: values.notes || null,
-          assigned_agent_id: values.agent_id || null,
         })
         .select('id')
         .single();

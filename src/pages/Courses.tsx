@@ -245,6 +245,12 @@ export default function Courses() {
           onSuccess={fetchCourses}
         />
       )}
+
+      <CourseDetailsSheet
+        course={selectedCourse}
+        open={isDetailsSheetOpen}
+        onOpenChange={setIsDetailsSheetOpen}
+      />
     </div>
   );
 }

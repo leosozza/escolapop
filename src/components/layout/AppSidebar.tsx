@@ -16,6 +16,7 @@ import {
   MessageSquare,
   Users2,
   ClipboardCheck,
+  CheckCircle2,
   Award,
   FileText,
   CreditCard,
@@ -82,6 +83,7 @@ const sidebarGroups = [
     title: 'Acadêmico',
     items: [
       { name: 'Atendimento Matrícula', href: '/academic-support', icon: Headphones },
+      { name: 'Presença', href: '/attendance', icon: CheckCircle2 },
       { name: 'Alunos', href: '/students', icon: Users },
       { name: 'Turmas', href: '/classes', icon: Users2 },
       { name: 'Cursos', href: '/courses', icon: GraduationCap },

@@ -34,7 +34,7 @@ import { PhoneInput } from '@/components/ui/phone-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { UserPlus, Users, Info } from 'lucide-react';
+import { UserPlus, Users, Info, MessageCircle } from 'lucide-react';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
 import { DuplicateWarningDialog } from './DuplicateWarningDialog';
 
@@ -468,8 +468,11 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                     control={newStudentForm.control}
                     name="phone"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Telefone *</FormLabel>
+                  <FormItem>
+                        <FormLabel className="flex items-center gap-1">
+                          <MessageCircle className="h-3 w-3 text-green-500" />
+                          Telefone (WhatsApp) *
+                        </FormLabel>
                         <FormControl>
                           <PhoneInput 
                             placeholder="(11) 99999-9999" 
@@ -477,6 +480,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                             onChange={field.onChange}
                           />
                         </FormControl>
+                        <FormDescription>Este número será usado para contato via WhatsApp</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -558,19 +562,31 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                   />
                 )}
 
-                {/* Campo condicional: Código do Agenciado */}
-                {selectedEnrollmentTypeNew === 'indicacao_aluno' && (
+                {/* Campo condicional: Código do Agenciado / MaxFama */}
+                {(selectedEnrollmentTypeNew === 'indicacao_aluno' || selectedEnrollmentTypeNew === 'modelo_agenciado_maxfama') && (
                   <FormField
                     control={newStudentForm.control}
                     name="referral_agent_code"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Código do Aluno que Indicou *</FormLabel>
+                        <FormLabel>
+                          {selectedEnrollmentTypeNew === 'modelo_agenciado_maxfama' ? 'Código MaxFama *' : 'Código do Aluno que Indicou *'}
+                        </FormLabel>
                         <FormControl>
-                          <Input placeholder="Ex: AG001" {...field} />
+                          <Input
+                            placeholder="Ex: 123456"
+                            maxLength={8}
+                            {...field}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '').slice(0, 8);
+                              field.onChange(val);
+                            }}
+                          />
                         </FormControl>
                         <FormDescription>
-                          Código de agenciado do aluno que fez a indicação
+                          {selectedEnrollmentTypeNew === 'modelo_agenciado_maxfama'
+                            ? 'Código de 6 a 8 dígitos do modelo agenciado'
+                            : 'Código de agenciado do aluno que fez a indicação'}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -797,17 +813,30 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                   />
                 )}
 
-                {/* Campo condicional: Código do Agenciado */}
-                {selectedEnrollmentTypeExisting === 'indicacao_aluno' && (
+                {/* Campo condicional: Código do Agenciado / MaxFama */}
+                {(selectedEnrollmentTypeExisting === 'indicacao_aluno' || selectedEnrollmentTypeExisting === 'modelo_agenciado_maxfama') && (
                   <FormField
                     control={existingLeadForm.control}
                     name="referral_agent_code"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Código do Aluno que Indicou</FormLabel>
+                        <FormLabel>
+                          {selectedEnrollmentTypeExisting === 'modelo_agenciado_maxfama' ? 'Código MaxFama' : 'Código do Aluno que Indicou'}
+                        </FormLabel>
                         <FormControl>
-                          <Input placeholder="Ex: AG001" {...field} />
+                          <Input
+                            placeholder="Ex: 123456"
+                            maxLength={8}
+                            {...field}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '').slice(0, 8);
+                              field.onChange(val);
+                            }}
+                          />
                         </FormControl>
+                        <FormDescription>
+                          Código de 6 a 8 dígitos
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

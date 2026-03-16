@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import {
@@ -268,8 +268,6 @@ export default function StudentProfile() {
     }
   };
 
-  const getInitials = (name: string) =>
-    name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
   const getStatusBadge = (status: AcademicStatus) => {
     const config = ACADEMIC_STATUS_CONFIG[status];
@@ -337,18 +335,11 @@ export default function StudentProfile() {
       {/* Profile Card */}
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16">
-              <AvatarFallback className="text-lg bg-primary text-primary-foreground">
-                {getInitials(student.full_name)}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <CardTitle className="text-xl">{student.full_name}</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {enrollments?.length || 0} matrícula(s) • Desde {format(new Date(student.created_at), 'dd/MM/yyyy', { locale: ptBR })}
-              </p>
-            </div>
+          <div>
+            <CardTitle className="text-xl">{student.full_name}</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {enrollments?.length || 0} matrícula(s) • Desde {format(new Date(student.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+            </p>
           </div>
         </CardHeader>
         <CardContent>
@@ -362,12 +353,28 @@ export default function StudentProfile() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Telefone</Label>
-              <Input
-                id="phone"
-                value={editData.phone}
-                onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
-              />
+              <Label htmlFor="phone" className="flex items-center gap-1">
+                <MessageCircle className="h-3 w-3 text-green-500" />
+                Telefone (WhatsApp)
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id="phone"
+                  value={editData.phone}
+                  onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => openWhatsAppWeb(editData.phone, `Olá ${editData.full_name}!`)}
+                  title="Abrir WhatsApp"
+                >
+                  <MessageCircle className="h-4 w-4 text-green-500" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Este número será usado para contato via WhatsApp</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="guardian_name">

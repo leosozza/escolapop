@@ -93,9 +93,28 @@ export default function Classes() {
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [isStudentsListOpen, setIsStudentsListOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [selectedRoom, setSelectedRoom] = useState<string>('all');
   const { toast } = useToast();
+
+  const handleDeactivateClass = async () => {
+    if (!selectedClass) return;
+    try {
+      const { error } = await supabase
+        .from('classes')
+        .update({ is_active: false })
+        .eq('id', selectedClass.id);
+      if (error) throw error;
+      toast({ title: 'Turma desativada', description: `${selectedClass.name} foi desativada.` });
+      fetchClasses();
+    } catch {
+      toast({ variant: 'destructive', title: 'Erro ao desativar turma' });
+    } finally {
+      setIsDeleteDialogOpen(false);
+    }
+  };
 
   useEffect(() => {
     fetchClasses();

@@ -91,9 +91,14 @@ export function EditClassDialog({ open, onOpenChange, onSuccess, classData }: Ed
   });
 
   const { data: teachers } = useQuery({
-    queryKey: ['teachers-for-class-edit'],
+    queryKey: ['academic-team-for-class-edit'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('profiles').select('id, user_id, full_name').order('full_name');
+      const { data, error } = await supabase
+        .from('team_members')
+        .select('id, full_name, sector')
+        .in('sector', ['professor_teatro', 'professor_passarela', 'professor_influencia', 'gerente', 'recepcao'])
+        .eq('is_active', true)
+        .order('full_name');
       if (error) throw error;
       return data;
     },
@@ -257,12 +262,17 @@ export function EditClassDialog({ open, onOpenChange, onSuccess, classData }: Ed
 
             <FormField control={form.control} name="teacher_id" render={({ field }) => (
               <FormItem>
-                <FormLabel>Professor</FormLabel>
+                <FormLabel>Responsável da Turma</FormLabel>
                 <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger></FormControl>
+                  <FormControl><SelectTrigger><SelectValue placeholder="Selecione o responsável" /></SelectTrigger></FormControl>
                   <SelectContent>
                     {teachers?.map((t) => (
-                      <SelectItem key={t.user_id} value={t.user_id}>{t.full_name}</SelectItem>
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.full_name}
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          ({t.sector.replace('professor_', 'Prof. ').replace('gerente', 'Gerente').replace('recepcao', 'Recepção')})
+                        </span>
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

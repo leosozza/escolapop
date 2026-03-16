@@ -178,10 +178,24 @@ export function QuickCertificateIssuer() {
           upsert: true,
         });
 
+      // Mark certificate as issued on the enrollment
+      if (selectedStudent.enrollment_id) {
+        await supabase
+          .from('enrollments')
+          .update({
+            certificate_issued: true,
+            certificate_issued_at: new Date().toISOString(),
+          })
+          .eq('id', selectedStudent.enrollment_id);
+      }
+
       toast({
         title: 'Certificado gerado!',
         description: `Arquivo salvo: ${fileName}`,
       });
+
+      // Refresh data to remove issued student from list
+      fetchData();
     } catch (error) {
       console.error('Error generating PDF:', error);
       toast({

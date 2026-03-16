@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -45,6 +45,7 @@ import { format, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
 import { openWhatsAppWeb } from '@/lib/whatsapp';
+import { AddEnrollmentDialog } from '@/components/students/AddEnrollmentDialog';
 
 const ENROLLMENT_TYPE_CONFIG: Record<string, { label: string; color: string }> = {
   modelo_agenciado_maxfama: { label: 'MaxFama', color: 'bg-purple-500 text-white' },
@@ -63,6 +64,7 @@ export default function StudentProfile() {
   const { leadId } = useParams<{ leadId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [isEnrollDialogOpen, setIsEnrollDialogOpen] = useState(false);
 
   // Editable fields
   const [editData, setEditData] = useState<{
@@ -329,6 +331,10 @@ export default function StudentProfile() {
         <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
           <Save className="h-4 w-4 mr-1" />
           Salvar Alterações
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setIsEnrollDialogOpen(true)}>
+          <GraduationCap className="h-4 w-4 mr-1" />
+          Nova Matrícula
         </Button>
       </div>
 
@@ -688,6 +694,16 @@ export default function StudentProfile() {
           )}
         </CardContent>
       </Card>
+
+      <AddEnrollmentDialog
+        open={isEnrollDialogOpen}
+        onOpenChange={setIsEnrollDialogOpen}
+        preSelectedLeadId={leadId}
+        onSuccess={() => {
+          setIsEnrollDialogOpen(false);
+          queryClient.invalidateQueries({ queryKey: ['student-profile-enrollments', leadId] });
+        }}
+      />
     </div>
   );
 }

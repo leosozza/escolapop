@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -86,9 +86,10 @@ interface AddEnrollmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  preSelectedLeadId?: string;
 }
 
-export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnrollmentDialogProps) {
+export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelectedLeadId }: AddEnrollmentDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [enrollmentSource, setEnrollmentSource] = useState<'new' | 'existing'>('new');
   const [duplicateWarning, setDuplicateWarning] = useState<DuplicateInfo | null>(null);
@@ -115,7 +116,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
   const existingLeadForm = useForm<ExistingLeadFormValues>({
     resolver: zodResolver(existingLeadSchema),
     defaultValues: {
-      lead_id: '',
+      lead_id: preSelectedLeadId || '',
       course_id: '',
       class_id: '',
       enrollment_type: '',
@@ -126,6 +127,14 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
       notes: '',
     },
   });
+
+  // When preSelectedLeadId changes, switch to existing tab and set lead
+  useEffect(() => {
+    if (preSelectedLeadId && open) {
+      setEnrollmentSource('existing');
+      existingLeadForm.setValue('lead_id', preSelectedLeadId);
+    }
+  }, [preSelectedLeadId, open]);
 
   const selectedEnrollmentTypeNew = newStudentForm.watch('enrollment_type');
   const selectedCourseIdNew = newStudentForm.watch('course_id');
@@ -717,7 +726,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Lead *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={!!preSelectedLeadId}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione o lead" />

@@ -37,6 +37,7 @@ import {
 import { ACADEMIC_STATUS_CONFIG, type AcademicStatus } from '@/types/database';
 import { AddEnrollmentDialog } from '@/components/students/AddEnrollmentDialog';
 import { StudentDetailsSheet } from '@/components/students/StudentDetailsSheet';
+import { QuickAttendancePopover } from '@/components/students/QuickAttendancePopover';
 import { StudentCSVExportButton } from '@/components/students/StudentCSVExportButton';
 import { StudentCSVImportDialog } from '@/components/students/StudentCSVImportDialog';
 import { StudentWebhookSheet } from '@/components/students/StudentWebhookSheet';
@@ -91,6 +92,7 @@ export default function Students() {
   const [courseFilter, setCourseFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
 
   // Fetch enrollments with lead data (students are leads now)
   const { data: enrollments, isLoading, refetch } = useQuery({
@@ -242,6 +244,10 @@ export default function Students() {
             <StudentCSVExportButton enrollments={enrollments} />
             <StudentCSVImportDialog onSuccess={() => refetch()} />
             <StudentWebhookSheet />
+            <Button variant="outline" onClick={() => setIsAttendanceOpen(true)} className="gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              Dar Presença
+            </Button>
             <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2">
               <Plus className="h-4 w-4" />
               Nova Matrícula
@@ -504,6 +510,11 @@ export default function Students() {
         open={!!selectedLeadId}
         onOpenChange={(open) => !open && setSelectedLeadId(null)}
         onUpdate={refetch}
+      />
+
+      <QuickAttendancePopover
+        open={isAttendanceOpen}
+        onOpenChange={setIsAttendanceOpen}
       />
     </>
   );

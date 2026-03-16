@@ -809,17 +809,30 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                   />
                 )}
 
-                {/* Campo condicional: Código do Agenciado */}
-                {selectedEnrollmentTypeExisting === 'indicacao_aluno' && (
+                {/* Campo condicional: Código do Agenciado / MaxFama */}
+                {(selectedEnrollmentTypeExisting === 'indicacao_aluno' || selectedEnrollmentTypeExisting === 'modelo_agenciado_maxfama') && (
                   <FormField
                     control={existingLeadForm.control}
                     name="referral_agent_code"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Código do Aluno que Indicou</FormLabel>
+                        <FormLabel>
+                          {selectedEnrollmentTypeExisting === 'modelo_agenciado_maxfama' ? 'Código MaxFama' : 'Código do Aluno que Indicou'}
+                        </FormLabel>
                         <FormControl>
-                          <Input placeholder="Ex: AG001" {...field} />
+                          <Input
+                            placeholder="Ex: 123456"
+                            maxLength={8}
+                            {...field}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '').slice(0, 8);
+                              field.onChange(val);
+                            }}
+                          />
                         </FormControl>
+                        <FormDescription>
+                          Código de 6 a 8 dígitos
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

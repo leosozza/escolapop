@@ -45,6 +45,7 @@ import { format, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
 import { openWhatsAppWeb } from '@/lib/whatsapp';
+import { AddEnrollmentDialog } from '@/components/students/AddEnrollmentDialog';
 
 const ENROLLMENT_TYPE_CONFIG: Record<string, { label: string; color: string }> = {
   modelo_agenciado_maxfama: { label: 'MaxFama', color: 'bg-purple-500 text-white' },

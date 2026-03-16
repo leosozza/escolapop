@@ -677,6 +677,32 @@ export default function Classes() {
           }}
         />
       )}
+
+      {selectedClass && (
+        <EditClassDialog
+          open={isEditDialogOpen}
+          onOpenChange={setIsEditDialogOpen}
+          classData={selectedClass}
+          onSuccess={fetchClasses}
+        />
+      )}
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desativar turma?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A turma "{selectedClass?.name}" será desativada. Os alunos permanecerão no sistema.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeactivateClass} className="bg-destructive text-destructive-foreground">
+              Desativar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

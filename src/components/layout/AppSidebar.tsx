@@ -16,6 +16,7 @@ import {
   MessageSquare,
   Users2,
   ClipboardCheck,
+  CheckCircle2,
   Award,
   FileText,
   CreditCard,

@@ -111,14 +111,6 @@ const App = () => (
               }
             />
             <Route
-              path="/attendance"
-              element={
-                <AppLayout>
-                  <QuickAttendance />
-                </AppLayout>
-              }
-            />
-            <Route
               path="/reception"
               element={
                 <AppLayout>

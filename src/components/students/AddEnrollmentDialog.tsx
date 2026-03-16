@@ -116,7 +116,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
   const existingLeadForm = useForm<ExistingLeadFormValues>({
     resolver: zodResolver(existingLeadSchema),
     defaultValues: {
-      lead_id: '',
+      lead_id: preSelectedLeadId || '',
       course_id: '',
       class_id: '',
       enrollment_type: '',
@@ -127,6 +127,14 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
       notes: '',
     },
   });
+
+  // When preSelectedLeadId changes, switch to existing tab and set lead
+  useEffect(() => {
+    if (preSelectedLeadId && open) {
+      setEnrollmentSource('existing');
+      existingLeadForm.setValue('lead_id', preSelectedLeadId);
+    }
+  }, [preSelectedLeadId, open]);
 
   const selectedEnrollmentTypeNew = newStudentForm.watch('enrollment_type');
   const selectedCourseIdNew = newStudentForm.watch('course_id');

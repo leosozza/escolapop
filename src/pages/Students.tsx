@@ -511,6 +511,11 @@ export default function Students() {
         onOpenChange={(open) => !open && setSelectedLeadId(null)}
         onUpdate={refetch}
       />
+
+      <QuickAttendancePopover
+        open={isAttendanceOpen}
+        onOpenChange={setIsAttendanceOpen}
+      />
     </>
   );
 }

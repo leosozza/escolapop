@@ -355,12 +355,28 @@ export default function StudentProfile() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Telefone</Label>
-              <Input
-                id="phone"
-                value={editData.phone}
-                onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
-              />
+              <Label htmlFor="phone" className="flex items-center gap-1">
+                <MessageCircle className="h-3 w-3 text-green-500" />
+                Telefone (WhatsApp)
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id="phone"
+                  value={editData.phone}
+                  onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => openWhatsAppWeb(editData.phone, `Olá ${editData.full_name}!`)}
+                  title="Abrir WhatsApp"
+                >
+                  <MessageCircle className="h-4 w-4 text-green-500" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Este número será usado para contato via WhatsApp</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="guardian_name">

@@ -34,7 +34,7 @@ import { PhoneInput } from '@/components/ui/phone-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { UserPlus, Users, Info } from 'lucide-react';
+import { UserPlus, Users, Info, MessageCircle } from 'lucide-react';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
 import { DuplicateWarningDialog } from './DuplicateWarningDialog';
 

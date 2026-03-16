@@ -1,152 +1,61 @@
 
 
-# Plano: Cadastro de Funcionários
+# Plano: Finalizar e Integrar a Seção Acadêmica
 
-## Resumo
+## Problemas Encontrados
 
-Vou adicionar todos os funcionários listados ao sistema. Para isso, preciso:
-1. Adicionar novos cargos (setores) que ainda não existem no banco
-2. Adicionar nova área "Produção" para profissionais do Studio
-3. Inserir todos os 21 funcionários
-4. Atualizar o frontend para exibir os novos cargos
+Analisei todos os arquivos da seção Acadêmico e identifiquei as seguintes lacunas e funcionalidades incompletas:
 
----
+### 1. Botoes sem funcao (Classes.tsx)
+Os botoes "Editar" e "Excluir" no dropdown das turmas nao fazem nada -- os `onClick` estao vazios.
 
-## Funcionários a Cadastrar
+### 2. Botao sem funcao (Courses.tsx)
+O botao "Ver detalhes" no dropdown dos cursos nao tem acao.
 
-| Cargo | Nome | Área |
-|-------|------|------|
-| **Produtor** | Maryana Mesquita | Produção |
-| **Produtor** | Ana Paula | Produção |
-| **Produtor** | Chelly | Produção |
-| **Produtor** | Rafael | Produção |
-| **Recepcionista** | Yara | Comercial |
-| **Recepcionista** | Ligida | Comercial |
-| **Recepcionista** | Juliana | Comercial |
-| **Recepcionista** | Alice | Comercial |
-| **Recepcionista** | Carol | Comercial |
-| **Editor de Imagem** | Helo | Produção |
-| **Editor de Imagem** | Thales | Produção |
-| **Maquiagem** | Jessica | Produção |
-| **Maquiagem** | Gael | Produção |
-| **Fotógrafa** | Nagila | Produção |
-| **Gerente** | Ramon | Gestão (Todas as áreas) |
-| **Video Maker** | Layne | Produção |
-| **Video Maker** | Augusto | Produção |
+### 3. Historico de tabulacao nao registrado (AcademicSupport)
+Quando o operador muda o status no Atendimento Matricula, nenhum registro e salvo na tabela `enrollment_history`. As outras paginas (StudentDetailsSheet) mostram historico mas fica vazio porque ninguem grava.
 
-### Agentes de Relacionamento (tabela `agents`)
+### 4. Observacoes salvas nao sao exibidas (AcademicConversationPanel)
+O operador salva observacoes no enrollment, mas o painel nao mostra as observacoes ja salvas. Falta um historico visivel.
 
-| Nome |
-|------|
-| Ana Paula |
-| Ana Beatriz |
-| Emilly |
-| Camila |
-| Andressa |
+### 5. Sem grade de presenca no painel academico
+O AcademicConversationPanel mostra apenas contagem de faltas mas nao exibe a grade de 8 aulas como nas outras paginas.
 
----
+### 6. Sem link para detalhes completos do aluno
+Nao existe botao para navegar do Atendimento Matricula para a ficha completa do aluno (StudentDetailsSheet).
 
-## Alterações no Banco de Dados
+### 7. Status "rematricular" inconsistente
+O AcademicSupport define um status `rematricular` no config visual mas esse valor nao existe no enum do banco. O botao "Rematricular" corretamente seta `ativo`, mas a tabulacao visual esta fora de sincronia.
 
-### 1. Novos valores no enum `team_sector`
+## Plano de Implementacao
 
-Setores a adicionar:
-- `maquiagem` - Profissionais de maquiagem
-- `edicao_imagem` - Editores de foto/vídeo
-- `fotografo` - Fotógrafos
-- `gerente` - Gerentes
-- `video_maker` - Produtores de vídeo
+### A. Corrigir AcademicConversationPanel (principal)
+- Adicionar secao "Observacoes Anteriores" que carrega e exibe as notas ja salvas no enrollment
+- Adicionar grade visual de 8 aulas (igual StudentDetailsSheet) mostrando presenca/falta
+- Adicionar botao "Ver Ficha Completa" que abre StudentDetailsSheet
+- Registrar `enrollment_history` ao mudar status (INSERT com from_status, to_status, changed_by)
+- Remover `rematricular` do config visual (usar o botao existente que ja muda para `ativo`)
 
-### 2. Novo valor no enum `team_area`
+### B. Corrigir Classes.tsx -- Botoes Editar e Excluir
+- Editar: abrir dialog de edicao de turma (nome, sala, horario, professor)
+- Excluir: confirmar e desativar turma (is_active = false)
 
-- `producao` - Para profissionais do Studio
+### C. Corrigir Courses.tsx -- Ver Detalhes
+- Abrir sheet lateral com info completa do curso: turmas vinculadas, quantidade de alunos, modulos LMS
 
-### 3. Inserir funcionários na tabela `team_members`
+### D. AcademicSupport.tsx -- Melhorias
+- Ao atualizar status, tambem gravar na tabela `enrollment_history` com `changed_by` do usuario logado
+- Adicionar contador de total de alunos no header
+- Adicionar tab "Concluidos" e "Trancados" nas tabs de filtro
 
-17 registros na tabela `team_members`
+## Arquivos a Modificar
 
-### 4. Inserir agentes na tabela `agents`
-
-5 registros na tabela `agents`
-
----
-
-## Alterações no Frontend
-
-### Arquivos a Modificar
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/pages/Team.tsx` | Adicionar novos setores (maquiagem, edicao_imagem, etc.) e área (producao) |
-| `src/components/team/AddTeamMemberDialog.tsx` | Adicionar novos setores e área no formulário |
-| `src/components/team/EditTeamMemberDialog.tsx` | Mesmas opções novas |
-
-### Novos Setores no Frontend
-
-```text
-SECTORS:
-  maquiagem → "Maquiagem" (ícone: Brush)
-  edicao_imagem → "Edição de Imagem" (ícone: Image)
-  fotografo → "Fotógrafo(a)" (ícone: Camera)
-  gerente → "Gerente" (ícone: Crown)
-  video_maker → "Video Maker" (ícone: Video)
-```
-
-### Nova Área no Frontend
-
-```text
-AREAS:
-  producao → "Produção" (cor: pink)
-```
-
----
-
-## Estrutura Visual
-
-```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│ EQUIPE                                                                  │
-├─────────────────────────────────────────────────────────────────────────┤
-│ [Todos] [Comercial] [Financeiro] [Acadêmico] [Gestão] [Produção]       │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐    │
-│ │ [MN]         │ │ [AP]         │ │ [CH]         │ │ [RF]         │    │
-│ │ Maryana M.   │ │ Ana Paula    │ │ Chelly       │ │ Rafael       │    │
-│ │ 📹 Produtor  │ │ 📹 Produtor  │ │ 📹 Produtor  │ │ 📹 Produtor  │    │
-│ │ [Produção]   │ │ [Produção]   │ │ [Produção]   │ │ [Produção]   │    │
-│ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘    │
-│                                                                         │
-│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐    │
-│ │ [YA]         │ │ [LG]         │ │ [JU]         │ │ [AL]         │    │
-│ │ Yara         │ │ Ligida       │ │ Juliana      │ │ Alice        │    │
-│ │ 🚪 Recepção  │ │ 🚪 Recepção  │ │ 🚪 Recepção  │ │ 🚪 Recepção  │    │
-│ │ [Comercial]  │ │ [Comercial]  │ │ [Comercial]  │ │ [Comercial]  │    │
-│ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘    │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Ordem de Implementação
-
-1. **Migração SQL** - Adicionar novos valores aos enums
-2. **Migração SQL** - Inserir funcionários em `team_members`
-3. **Migração SQL** - Inserir agentes em `agents`
-4. **Atualizar Team.tsx** - Novos setores e áreas
-5. **Atualizar AddTeamMemberDialog.tsx** - Opções novas
-6. **Atualizar EditTeamMemberDialog.tsx** - Opções novas
-
----
-
-## Resumo Técnico
-
-- **1 migração SQL** com:
-  - 5 novos valores em `team_sector`
-  - 1 novo valor em `team_area`
-  - 17 inserts em `team_members`
-  - 5 inserts em `agents`
-- **3 arquivos frontend** a modificar
-- **22 funcionários** cadastrados no total
+| Arquivo | Acao |
+|---------|------|
+| `AcademicConversationPanel.tsx` | Exibir notas salvas, grade de presenca, botao ficha completa, gravar enrollment_history |
+| `AcademicSupport.tsx` | Gravar enrollment_history ao mudar status, adicionar tab Concluidos |
+| `Classes.tsx` | Implementar Editar (dialog) e Excluir (confirm + desativar) |
+| `Courses.tsx` | Implementar Ver Detalhes (sheet com turmas e alunos) |
+| Novo: `EditClassDialog.tsx` | Dialog para editar turma |
+| Novo: `CourseDetailsSheet.tsx` | Sheet com detalhes do curso |
 

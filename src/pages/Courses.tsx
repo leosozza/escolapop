@@ -31,6 +31,7 @@ export default function Courses() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false);
   const { toast } = useToast();
 
   const fetchCourses = async () => {

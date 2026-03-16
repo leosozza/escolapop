@@ -67,7 +67,7 @@ export function AcademicConversationPanel({
   const [isSaving, setIsSaving] = useState(false);
 
   const handleOpenWhatsApp = () => {
-    openWhatsApp(
+    openWhatsAppWeb(
       contact.phone,
       `Olá ${contact.full_name}! Aqui é ${operatorName} do departamento acadêmico. Como posso ajudá-lo(a)?`
     );

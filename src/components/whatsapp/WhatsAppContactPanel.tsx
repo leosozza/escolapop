@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { openWhatsAppWeb } from '@/lib/whatsapp';
 import { AddWhatsAppContactDialog } from './AddWhatsAppContactDialog';
 import { WhatsAppConversation } from './WhatsAppConversation';
 import { formatDistanceToNow } from 'date-fns';

@@ -384,17 +384,20 @@ export function AddClassDialog({ open, onOpenChange, onSuccess }: AddClassDialog
               name="teacher_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Professor</FormLabel>
+                  <FormLabel>Responsável da Turma</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecione o professor" />
+                        <SelectValue placeholder="Selecione o responsável" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {teachers?.map((teacher) => (
-                        <SelectItem key={teacher.user_id} value={teacher.user_id}>
+                        <SelectItem key={teacher.id} value={teacher.id}>
                           {teacher.full_name}
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            ({teacher.sector.replace('professor_', 'Prof. ').replace('gerente', 'Gerente').replace('recepcao', 'Recepção')})
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>

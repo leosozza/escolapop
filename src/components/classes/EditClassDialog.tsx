@@ -108,7 +108,7 @@ export function EditClassDialog({ open, onOpenChange, onSuccess, classData }: Ed
   const courseDuration = selectedCourse?.duration_hours || COURSE_DURATIONS[selectedCourse?.name || ''] || 1;
   const availableHours = getAvailableHours(courseDuration);
   const roomCapacity = ROOMS.find(r => r.id === form.watch('room'))?.capacity || 30;
-  const endDate = startDate ? addWeeks(startDate, COURSE_WEEKS) : null;
+  const endDate = startDate ? addWeeks(startDate, COURSE_WEEKS - 1) : null;
 
   useEffect(() => {
     if (selectedTime && !availableHours.includes(selectedTime)) {

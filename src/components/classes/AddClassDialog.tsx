@@ -131,8 +131,8 @@ export function AddClassDialog({ open, onOpenChange, onSuccess }: AddClassDialog
     }
   }, [selectedCourseId, selectedTime, availableHours, form]);
 
-  // Calculate end date (8 weeks from start)
-  const endDate = startDate ? addWeeks(startDate, COURSE_WEEKS) : null;
+  // Calculate end date (last class = start + 7 weeks, since start counts as week 1)
+  const endDate = startDate ? addWeeks(startDate, COURSE_WEEKS - 1) : null;
 
   const onSubmit = async (values: ClassFormValues) => {
     setIsSubmitting(true);

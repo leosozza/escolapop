@@ -261,7 +261,7 @@ export default function Classes() {
     filteredClasses.forEach(c => {
       const endDate = c.end_date 
         ? new Date(c.end_date) 
-        : new Date(new Date(c.start_date).getTime() + COURSE_WEEKS * 7 * 24 * 60 * 60 * 1000);
+        : new Date(new Date(c.start_date).getTime() + (COURSE_WEEKS - 1) * 7 * 24 * 60 * 60 * 1000);
       
       if (now > endDate || !c.is_active) {
         completed.push(c);
@@ -287,7 +287,7 @@ export default function Classes() {
 
   const getClassProgress = (startDate: string, endDate: string | null) => {
     const start = new Date(startDate);
-    const end = endDate ? new Date(endDate) : new Date(start.getTime() + COURSE_WEEKS * 7 * 24 * 60 * 60 * 1000);
+    const end = endDate ? new Date(endDate) : new Date(start.getTime() + (COURSE_WEEKS - 1) * 7 * 24 * 60 * 60 * 1000);
     const now = new Date();
     
     if (now < start) return { label: 'Não iniciada', variant: 'secondary' as const };

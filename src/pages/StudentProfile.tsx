@@ -64,6 +64,7 @@ export default function StudentProfile() {
   const { leadId } = useParams<{ leadId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [isEnrollDialogOpen, setIsEnrollDialogOpen] = useState(false);
 
   // Editable fields
   const [editData, setEditData] = useState<{

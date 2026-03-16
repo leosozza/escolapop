@@ -69,29 +69,20 @@ export function QuickCertificateIssuer() {
 
   const fetchData = async () => {
     try {
-      const [templatesRes, studentsRes] = await Promise.all([
+      const [templatesRes, enrollmentsRes] = await Promise.all([
         supabase
           .from('certificate_templates')
           .select('*, course:courses(name)')
           .eq('is_active', true)
           .order('name'),
-        supabase.from('leads').select('id, full_name').order('full_name'),
+        supabase
+          .from('enrollments')
+          .select('id, lead_id, course_id, referral_agent_code, lead:leads!enrollments_lead_id_fkey(id, full_name)')
+          .eq('status', 'concluido')
+          .eq('certificate_issued', false)
+          .not('lead_id', 'is', null)
+          .order('completed_at', { ascending: false }),
       ]);
-
-      // Also fetch enrollments with referral_agent_code
-      const { data: enrollmentsData } = await supabase
-        .from('enrollments')
-        .select('lead_id, referral_agent_code')
-        .not('referral_agent_code', 'is', null);
-
-      const enrollmentMap = new Map(
-        enrollmentsData?.map((e) => [e.lead_id, e.referral_agent_code]) || []
-      );
-
-      const studentsWithCode = (studentsRes.data || []).map((s) => ({
-        ...s,
-        referral_agent_code: enrollmentMap.get(s.id) || null,
-      }));
 
       if (templatesRes.error) throw templatesRes.error;
 
@@ -101,8 +92,18 @@ export function QuickCertificateIssuer() {
         text_elements: (Array.isArray(t.text_elements) ? t.text_elements : []) as unknown as TextElement[],
       }));
 
+      const studentsFromEnrollments: Student[] = (enrollmentsRes.data || [])
+        .filter((e: any) => e.lead)
+        .map((e: any) => ({
+          id: e.lead.id,
+          full_name: e.lead.full_name,
+          referral_agent_code: e.referral_agent_code,
+          enrollment_id: e.id,
+          course_id: e.course_id,
+        }));
+
       setTemplates(parsedTemplates);
-      setStudents(studentsWithCode);
+      setStudents(studentsFromEnrollments);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({

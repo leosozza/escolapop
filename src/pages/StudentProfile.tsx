@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
@@ -25,6 +26,12 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   ArrowLeft,
   Save,
   MessageCircle,
@@ -39,6 +46,8 @@ import {
   AlertCircle,
   FileText,
   Shield,
+  Plus,
+  BookOpen,
 } from 'lucide-react';
 import { ACADEMIC_STATUS_CONFIG, type AcademicStatus } from '@/types/database';
 import { format, addWeeks } from 'date-fns';
@@ -66,7 +75,6 @@ export default function StudentProfile() {
   const queryClient = useQueryClient();
   const [isEnrollDialogOpen, setIsEnrollDialogOpen] = useState(false);
 
-  // Editable fields
   const [editData, setEditData] = useState<{
     full_name: string;
     phone: string;
@@ -180,6 +188,24 @@ export default function StudentProfile() {
     enabled: !!enrollments?.length,
   });
 
+  // Fetch available classes for enrollment
+  const { data: availableClasses } = useQuery({
+    queryKey: ['available-classes-for-enrollment'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('classes')
+        .select(`
+          *,
+          course:courses(id, name),
+          teacher:profiles!classes_teacher_id_fkey(full_name)
+        `)
+        .eq('is_active', true)
+        .order('start_date', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Save lead data
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -270,7 +296,6 @@ export default function StudentProfile() {
     }
   };
 
-
   const getStatusBadge = (status: AcademicStatus) => {
     const config = ACADEMIC_STATUS_CONFIG[status];
     if (!config) return <Badge variant="outline">{status}</Badge>;
@@ -311,6 +336,23 @@ export default function StudentProfile() {
   const certificateEnrollments = enrollments?.filter(e => e.certificate_issued) || [];
   const pendingCertificates = enrollments?.filter(e => e.status === 'concluido' && !e.certificate_issued) || [];
 
+  // Active enrollments: those with a class and status ativo/em_curso
+  const activeEnrollments = enrollments?.filter(e =>
+    e.class_id && ['ativo', 'em_curso'].includes(e.status)
+  ) || [];
+
+  // Course history: enrollments that were actually attended or completed (have attendance records or are concluded/evasao/trancado)
+  const courseHistory = enrollments?.filter(e => {
+    const hasAttendance = attendanceByEnrollment?.[e.id]?.some(r => r.status !== null);
+    const isFinished = ['concluido', 'evasao', 'trancado'].includes(e.status);
+    return hasAttendance || isFinished;
+  }) || [];
+
+  // Enrollments without class (need to be assigned)
+  const unassignedEnrollments = enrollments?.filter(e =>
+    !e.class_id && ['ativo'].includes(e.status)
+  ) || [];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -331,10 +373,6 @@ export default function StudentProfile() {
         <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
           <Save className="h-4 w-4 mr-1" />
           Salvar Alterações
-        </Button>
-        <Button size="sm" variant="outline" onClick={() => setIsEnrollDialogOpen(true)}>
-          <GraduationCap className="h-4 w-4 mr-1" />
-          Nova Matrícula
         </Button>
       </div>
 
@@ -405,25 +443,60 @@ export default function StudentProfile() {
               />
             </div>
           </div>
+
+          {/* Matricular Aluno button below notes */}
+          <div className="mt-4">
+            <Button onClick={() => setIsEnrollDialogOpen(true)} className="w-full gap-2" variant="outline">
+              <Plus className="h-4 w-4" />
+              Matricular Aluno em Novo Curso
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Enrollments / Course History */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <GraduationCap className="h-5 w-5" />
-            Histórico de Cursos ({enrollments?.length || 0})
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {enrollments?.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhuma matrícula encontrada</p>
-          ) : (
-            enrollments?.map((enrollment: any) => {
+      {/* Unassigned enrollments warning */}
+      {unassignedEnrollments.length > 0 && (
+        <Card className="border-warning">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2 text-warning">
+              <AlertCircle className="h-5 w-5" />
+              Matrículas sem Turma ({unassignedEnrollments.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              O aluno precisa estar em uma turma para iniciar o curso.
+            </p>
+            {unassignedEnrollments.map((enrollment: any) => (
+              <div key={enrollment.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
+                <div>
+                  <p className="font-medium text-sm">{enrollment.course?.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Matriculado em {format(new Date(enrollment.enrolled_at), 'dd/MM/yyyy', { locale: ptBR })}
+                  </p>
+                </div>
+                {getStatusBadge(enrollment.status as AcademicStatus)}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Active Enrollments with attendance */}
+      {activeEnrollments.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5" />
+              Cursos em Andamento ({activeEnrollments.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {activeEnrollments.map((enrollment: any) => {
               const attendanceRecords = attendanceByEnrollment?.[enrollment.id] || [];
               const presentCount = attendanceRecords.filter(r => r.status === 'presente').length;
               const isComplete = presentCount >= COURSE_WEEKS;
+              const progressPercent = Math.round((presentCount / COURSE_WEEKS) * 100);
 
               return (
                 <Card key={enrollment.id} className="border">
@@ -439,12 +512,6 @@ export default function StudentProfile() {
                             {ENROLLMENT_TYPE_CONFIG[enrollment.enrollment_type].label}
                           </Badge>
                         )}
-                        {enrollment.certificate_issued && (
-                          <Badge className="bg-success text-success-foreground border-0 text-xs gap-1">
-                            <Award className="h-3 w-3" />
-                            Certificado Emitido
-                          </Badge>
-                        )}
                       </div>
                     </div>
                     {enrollment.referral_agent_code && (
@@ -456,7 +523,6 @@ export default function StudentProfile() {
                     )}
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {/* Class info */}
                     {enrollment.class && (
                       <div className="text-sm text-muted-foreground grid grid-cols-2 md:grid-cols-4 gap-2">
                         <span>Turma: {enrollment.class.name}</span>
@@ -468,12 +534,16 @@ export default function StudentProfile() {
 
                     <Separator />
 
-                    {/* Attendance grid */}
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Aulas Concluídas</span>
-                      <span className="font-medium">{presentCount}/{COURSE_WEEKS}</span>
+                    {/* Progress bar */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Progresso</span>
+                        <span className="font-medium">{presentCount}/{COURSE_WEEKS} aulas ({progressPercent}%)</span>
+                      </div>
+                      <Progress value={progressPercent} className="h-2" />
                     </div>
 
+                    {/* Attendance grid */}
                     <TooltipProvider>
                       <div className="flex gap-1">
                         {attendanceRecords.map((record, i) => (
@@ -542,14 +612,6 @@ export default function StudentProfile() {
                       </Button>
                     )}
 
-                    {enrollment.status === 'concluido' && !enrollment.certificate_issued && (
-                      <Button variant="outline" className="w-full gap-2" onClick={() => navigate('/certificates', {
-                        state: { studentName: student?.full_name, courseName: enrollment.course?.name, completionDate: enrollment.completed_at || enrollment.class?.end_date }
-                      })}>
-                        <FileText className="h-4 w-4" /> Ir para Emissão de Certificado
-                      </Button>
-                    )}
-
                     {/* Enrollment editable fields */}
                     <Separator />
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -606,10 +668,88 @@ export default function StudentProfile() {
                   </CardContent>
                 </Card>
               );
-            })
-          )}
-        </CardContent>
-      </Card>
+            })}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Course History - only courses that were actually attended/completed */}
+      {courseHistory.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <GraduationCap className="h-5 w-5" />
+              Histórico de Cursos ({courseHistory.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {courseHistory.map((enrollment: any) => {
+              const attendanceRecords = attendanceByEnrollment?.[enrollment.id] || [];
+              const presentCount = attendanceRecords.filter(r => r.status === 'presente').length;
+              const totalMarked = attendanceRecords.filter(r => r.status !== null).length;
+              const progressPercent = Math.round((presentCount / COURSE_WEEKS) * 100);
+
+              return (
+                <div key={enrollment.id} className="p-4 rounded-lg border space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <p className="font-medium">{enrollment.course?.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {enrollment.class?.name && `Turma: ${enrollment.class.name} • `}
+                        {enrollment.class?.start_date && `${format(new Date(enrollment.class.start_date), 'dd/MM/yyyy')}`}
+                        {enrollment.class?.end_date && ` a ${format(new Date(enrollment.class.end_date), 'dd/MM/yyyy')}`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(enrollment.status as AcademicStatus)}
+                      {enrollment.certificate_issued && (
+                        <Badge className="bg-success text-success-foreground border-0 text-xs gap-1">
+                          <Award className="h-3 w-3" />
+                          Certificado
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Conclusão</span>
+                      <span className="font-medium">{progressPercent}% ({presentCount}/{COURSE_WEEKS} aulas)</span>
+                    </div>
+                    <Progress value={progressPercent} className="h-2" />
+                  </div>
+
+                  <div className="flex gap-0.5">
+                    {attendanceRecords.map((record, i) => (
+                      <div
+                        key={i}
+                        className={`h-4 flex-1 rounded-sm ${
+                          record.status === 'presente'
+                            ? 'bg-success'
+                            : record.status === 'falta'
+                              ? 'bg-destructive'
+                              : record.status === 'justificado'
+                                ? 'bg-warning'
+                                : 'bg-muted'
+                        }`}
+                        title={`Aula ${record.lesson_number}: ${record.status || 'sem registro'}`}
+                      />
+                    ))}
+                  </div>
+
+                  {enrollment.status === 'concluido' && !enrollment.certificate_issued && (
+                    <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => navigate('/certificates', {
+                      state: { studentName: student?.full_name, courseName: enrollment.course?.name, completionDate: enrollment.completed_at || enrollment.class?.end_date }
+                    })}>
+                      <FileText className="h-3 w-3" /> Emitir Certificado
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Certificates Section */}
       {(certificateEnrollments.length > 0 || pendingCertificates.length > 0) && (

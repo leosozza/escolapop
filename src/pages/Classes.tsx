@@ -103,20 +103,69 @@ export default function Classes() {
   const [selectedRoom, setSelectedRoom] = useState<string>('all');
   const { toast } = useToast();
 
-  const handleDeactivateClass = async () => {
+  const handleDeleteClass = async () => {
     if (!selectedClass) return;
+    const hasStudents = (selectedClass.student_count || 0) > 0;
+
+    if (hasStudents) {
+      // Validate admin password
+      if (!deleteAdminPassword.trim()) {
+        setDeleteError('Digite a senha de administrador');
+        return;
+      }
+      setIsDeleting(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Não autenticado');
+
+        // Try to sign in with current user email + provided password to validate
+        const { error: authError } = await supabase.auth.signInWithPassword({
+          email: user.email!,
+          password: deleteAdminPassword,
+        });
+        if (authError) {
+          setDeleteError('Senha incorreta');
+          setIsDeleting(false);
+          return;
+        }
+
+        // Check if user is admin or gestor
+        const { data: roles } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .in('role', ['admin', 'gestor']);
+
+        if (!roles || roles.length === 0) {
+          setDeleteError('Apenas administradores ou gestores podem excluir turmas com alunos');
+          setIsDeleting(false);
+          return;
+        }
+      } catch {
+        setDeleteError('Erro ao validar credenciais');
+        setIsDeleting(false);
+        return;
+      }
+    }
+
+    setIsDeleting(true);
     try {
-      const { error } = await supabase
-        .from('classes')
-        .update({ is_active: false })
-        .eq('id', selectedClass.id);
+      // Delete enrollments linked to this class first
+      await supabase.from('attendance').delete().eq('class_id', selectedClass.id);
+      await supabase.from('enrollments').update({ class_id: null }).eq('class_id', selectedClass.id);
+      
+      const { error } = await supabase.from('classes').delete().eq('id', selectedClass.id);
       if (error) throw error;
-      toast({ title: 'Turma desativada', description: `${selectedClass.name} foi desativada.` });
+      
+      toast({ title: 'Turma excluída', description: `${selectedClass.name} foi removida.` });
       fetchClasses();
     } catch {
-      toast({ variant: 'destructive', title: 'Erro ao desativar turma' });
+      toast({ variant: 'destructive', title: 'Erro ao excluir turma' });
     } finally {
+      setIsDeleting(false);
       setIsDeleteDialogOpen(false);
+      setDeleteAdminPassword('');
+      setDeleteError('');
     }
   };
 

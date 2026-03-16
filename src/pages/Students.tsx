@@ -92,6 +92,7 @@ export default function Students() {
   const [courseFilter, setCourseFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
 
   // Fetch enrollments with lead data (students are leads now)
   const { data: enrollments, isLoading, refetch } = useQuery({

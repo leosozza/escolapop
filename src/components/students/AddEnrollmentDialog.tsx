@@ -366,7 +366,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
     try {
       // Update lead status to matriculado and set agent if provided
       const leadUpdate: Record<string, unknown> = { status: 'matriculado' as const };
-      if (values.agent_id) leadUpdate.assigned_agent_id = values.agent_id;
+      // agent_id from agents table is not compatible with assigned_agent_id FK (auth.users)
       
       await supabase
         .from('leads')

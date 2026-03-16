@@ -468,8 +468,11 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                     control={newStudentForm.control}
                     name="phone"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Telefone *</FormLabel>
+                  <FormItem>
+                        <FormLabel className="flex items-center gap-1">
+                          <MessageCircle className="h-3 w-3 text-green-500" />
+                          Telefone (WhatsApp) *
+                        </FormLabel>
                         <FormControl>
                           <PhoneInput 
                             placeholder="(11) 99999-9999" 
@@ -477,6 +480,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess }: AddEnroll
                             onChange={field.onChange}
                           />
                         </FormControl>
+                        <FormDescription>Este número será usado para contato via WhatsApp</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

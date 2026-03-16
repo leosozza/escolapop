@@ -1,152 +1,64 @@
 
 
-# Plano: Cadastro de Funcionários
+# Plano: Perfil Completo do Aluno com Edicao e Historico
 
-## Resumo
+## Contexto
 
-Vou adicionar todos os funcionários listados ao sistema. Para isso, preciso:
-1. Adicionar novos cargos (setores) que ainda não existem no banco
-2. Adicionar nova área "Produção" para profissionais do Studio
-3. Inserir todos os 21 funcionários
-4. Atualizar o frontend para exibir os novos cargos
+Hoje o `StudentDetailsSheet` abre uma sheet lateral com dados do aluno vindos da tabela `leads`. Nao permite editar telefone, nome, observacoes, guardian_name, etc. Tambem nao consolida o historico completo do aluno (todos os cursos, certificados emitidos, presencas totais).
 
----
+O aluno e identificado pelo `lead_id` na tabela `enrollments`. Seus dados ficam em `leads` (full_name, phone, guardian_name, notes).
 
-## Funcionários a Cadastrar
+## O que sera criado
 
-| Cargo | Nome | Área |
-|-------|------|------|
-| **Produtor** | Maryana Mesquita | Produção |
-| **Produtor** | Ana Paula | Produção |
-| **Produtor** | Chelly | Produção |
-| **Produtor** | Rafael | Produção |
-| **Recepcionista** | Yara | Comercial |
-| **Recepcionista** | Ligida | Comercial |
-| **Recepcionista** | Juliana | Comercial |
-| **Recepcionista** | Alice | Comercial |
-| **Recepcionista** | Carol | Comercial |
-| **Editor de Imagem** | Helo | Produção |
-| **Editor de Imagem** | Thales | Produção |
-| **Maquiagem** | Jessica | Produção |
-| **Maquiagem** | Gael | Produção |
-| **Fotógrafa** | Nagila | Produção |
-| **Gerente** | Ramon | Gestão (Todas as áreas) |
-| **Video Maker** | Layne | Produção |
-| **Video Maker** | Augusto | Produção |
+### 1. Novo componente: `StudentProfilePage.tsx`
+Uma pagina completa (nao sheet) acessivel por `/students/:leadId` que mostra:
 
-### Agentes de Relacionamento (tabela `agents`)
+**Cabecalho editavel:**
+- Nome, telefone, email, nome do responsavel (guardian_name), observacoes gerais
+- Botao "Salvar Alteracoes" para gravar no `leads`
+- Botao WhatsApp Web
 
-| Nome |
-|------|
-| Ana Paula |
-| Ana Beatriz |
-| Emilly |
-| Camila |
-| Andressa |
+**Secao: Historico de Cursos (todas as enrollments do lead)**
+- Cards por enrollment mostrando: curso, turma, status, tipo de matricula, influenciador, codigo
+- Grade de 8 aulas (presenca) por enrollment
+- Indicador de certificado emitido ou pendente
+- Botao para emitir certificado (redireciona para /certificates)
+- Select para alterar status da enrollment
 
----
+**Secao: Historico de Alteracoes**
+- Timeline com todas as mudancas de status de todas as enrollments
 
-## Alterações no Banco de Dados
+**Secao: Certificados**
+- Lista de enrollments com `certificate_issued = true` e data de emissao
+- Indicador visual de certificado pendente vs emitido
 
-### 1. Novos valores no enum `team_sector`
+### 2. Atualizar `Students.tsx`
+- Botao "Ver" agora navega para `/students/:leadId` em vez de abrir sheet lateral
+- Manter sheet como opcao rapida (hover/click no nome abre sheet, botao "Perfil Completo" navega)
 
-Setores a adicionar:
-- `maquiagem` - Profissionais de maquiagem
-- `edicao_imagem` - Editores de foto/vídeo
-- `fotografo` - Fotógrafos
-- `gerente` - Gerentes
-- `video_maker` - Produtores de vídeo
+### 3. Rota nova no `App.tsx`
+- Adicionar rota `/students/:leadId` apontando para `StudentProfilePage`
 
-### 2. Novo valor no enum `team_area`
+### 4. Campos editaveis na pagina do aluno
+Dados do `leads` que serao editaveis:
+- `full_name` (nome)
+- `phone` (telefone)
+- `email`
+- `guardian_name` (responsavel)
+- `notes` (observacoes gerais)
 
-- `producao` - Para profissionais do Studio
+Dados do `enrollments` editaveis por enrollment:
+- `status` (via select)
+- `notes` (observacoes da matricula)
+- `student_age` (idade)
 
-### 3. Inserir funcionários na tabela `team_members`
+## Arquivos a criar/modificar
 
-17 registros na tabela `team_members`
+| Arquivo | Acao |
+|---------|------|
+| `src/pages/StudentProfile.tsx` | Novo - pagina completa do aluno |
+| `src/pages/Students.tsx` | Adicionar navegacao para perfil completo |
+| `src/App.tsx` | Adicionar rota `/students/:leadId` |
 
-### 4. Inserir agentes na tabela `agents`
-
-5 registros na tabela `agents`
-
----
-
-## Alterações no Frontend
-
-### Arquivos a Modificar
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/pages/Team.tsx` | Adicionar novos setores (maquiagem, edicao_imagem, etc.) e área (producao) |
-| `src/components/team/AddTeamMemberDialog.tsx` | Adicionar novos setores e área no formulário |
-| `src/components/team/EditTeamMemberDialog.tsx` | Mesmas opções novas |
-
-### Novos Setores no Frontend
-
-```text
-SECTORS:
-  maquiagem → "Maquiagem" (ícone: Brush)
-  edicao_imagem → "Edição de Imagem" (ícone: Image)
-  fotografo → "Fotógrafo(a)" (ícone: Camera)
-  gerente → "Gerente" (ícone: Crown)
-  video_maker → "Video Maker" (ícone: Video)
-```
-
-### Nova Área no Frontend
-
-```text
-AREAS:
-  producao → "Produção" (cor: pink)
-```
-
----
-
-## Estrutura Visual
-
-```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│ EQUIPE                                                                  │
-├─────────────────────────────────────────────────────────────────────────┤
-│ [Todos] [Comercial] [Financeiro] [Acadêmico] [Gestão] [Produção]       │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐    │
-│ │ [MN]         │ │ [AP]         │ │ [CH]         │ │ [RF]         │    │
-│ │ Maryana M.   │ │ Ana Paula    │ │ Chelly       │ │ Rafael       │    │
-│ │ 📹 Produtor  │ │ 📹 Produtor  │ │ 📹 Produtor  │ │ 📹 Produtor  │    │
-│ │ [Produção]   │ │ [Produção]   │ │ [Produção]   │ │ [Produção]   │    │
-│ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘    │
-│                                                                         │
-│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐    │
-│ │ [YA]         │ │ [LG]         │ │ [JU]         │ │ [AL]         │    │
-│ │ Yara         │ │ Ligida       │ │ Juliana      │ │ Alice        │    │
-│ │ 🚪 Recepção  │ │ 🚪 Recepção  │ │ 🚪 Recepção  │ │ 🚪 Recepção  │    │
-│ │ [Comercial]  │ │ [Comercial]  │ │ [Comercial]  │ │ [Comercial]  │    │
-│ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘    │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Ordem de Implementação
-
-1. **Migração SQL** - Adicionar novos valores aos enums
-2. **Migração SQL** - Inserir funcionários em `team_members`
-3. **Migração SQL** - Inserir agentes em `agents`
-4. **Atualizar Team.tsx** - Novos setores e áreas
-5. **Atualizar AddTeamMemberDialog.tsx** - Opções novas
-6. **Atualizar EditTeamMemberDialog.tsx** - Opções novas
-
----
-
-## Resumo Técnico
-
-- **1 migração SQL** com:
-  - 5 novos valores em `team_sector`
-  - 1 novo valor em `team_area`
-  - 17 inserts em `team_members`
-  - 5 inserts em `agents`
-- **3 arquivos frontend** a modificar
-- **22 funcionários** cadastrados no total
+Nenhuma alteracao de banco necessaria - todos os campos ja existem nas tabelas `leads` e `enrollments`.
 

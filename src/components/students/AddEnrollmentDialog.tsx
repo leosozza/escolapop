@@ -726,7 +726,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Lead *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={!!preSelectedLeadId}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione o lead" />

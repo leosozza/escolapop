@@ -694,6 +694,16 @@ export default function StudentProfile() {
           )}
         </CardContent>
       </Card>
+
+      <AddEnrollmentDialog
+        open={isEnrollDialogOpen}
+        onOpenChange={setIsEnrollDialogOpen}
+        preSelectedLeadId={leadId}
+        onSuccess={() => {
+          setIsEnrollDialogOpen(false);
+          queryClient.invalidateQueries({ queryKey: ['student-profile-enrollments', leadId] });
+        }}
+      />
     </div>
   );
 }

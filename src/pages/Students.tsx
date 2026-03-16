@@ -474,10 +474,10 @@ export default function Students() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setSelectedLeadId(enrollment.lead_id)}
+                            onClick={() => navigate(`/students/${enrollment.lead_id}`)}
                           >
                             <Eye className="h-4 w-4 mr-1" />
-                            Ver
+                            Perfil
                           </Button>
                         </div>
                       </TableCell>

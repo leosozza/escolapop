@@ -260,7 +260,7 @@ export function AcademicConversationPanel({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setIsStudentSheetOpen(true)}
+                onClick={() => navigate(`/students/${contact.lead_id}`)}
               >
                 <FileText className="h-4 w-4 mr-1" />
                 Ficha Completa

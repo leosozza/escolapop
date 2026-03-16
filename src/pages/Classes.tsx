@@ -59,11 +59,12 @@ import {
 
 interface ClassStatusCounts {
   em_curso: number;
-  status_aberto: number; // Previously inadimplente
+  status_aberto: number;
   evasao: number;
   trancado: number;
   total: number;
 }
+
 
 interface Class {
   id: string;
@@ -95,24 +96,76 @@ export default function Classes() {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteAdminPassword, setDeleteAdminPassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [selectedRoom, setSelectedRoom] = useState<string>('all');
   const { toast } = useToast();
 
-  const handleDeactivateClass = async () => {
+  const handleDeleteClass = async () => {
     if (!selectedClass) return;
+    const hasStudents = (selectedClass.student_count || 0) > 0;
+
+    if (hasStudents) {
+      // Validate admin password
+      if (!deleteAdminPassword.trim()) {
+        setDeleteError('Digite a senha de administrador');
+        return;
+      }
+      setIsDeleting(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Não autenticado');
+
+        // Try to sign in with current user email + provided password to validate
+        const { error: authError } = await supabase.auth.signInWithPassword({
+          email: user.email!,
+          password: deleteAdminPassword,
+        });
+        if (authError) {
+          setDeleteError('Senha incorreta');
+          setIsDeleting(false);
+          return;
+        }
+
+        // Check if user is admin or gestor
+        const { data: roles } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .in('role', ['admin', 'gestor']);
+
+        if (!roles || roles.length === 0) {
+          setDeleteError('Apenas administradores ou gestores podem excluir turmas com alunos');
+          setIsDeleting(false);
+          return;
+        }
+      } catch {
+        setDeleteError('Erro ao validar credenciais');
+        setIsDeleting(false);
+        return;
+      }
+    }
+
+    setIsDeleting(true);
     try {
-      const { error } = await supabase
-        .from('classes')
-        .update({ is_active: false })
-        .eq('id', selectedClass.id);
+      // Delete enrollments linked to this class first
+      await supabase.from('attendance').delete().eq('class_id', selectedClass.id);
+      await supabase.from('enrollments').update({ class_id: null }).eq('class_id', selectedClass.id);
+      
+      const { error } = await supabase.from('classes').delete().eq('id', selectedClass.id);
       if (error) throw error;
-      toast({ title: 'Turma desativada', description: `${selectedClass.name} foi desativada.` });
+      
+      toast({ title: 'Turma excluída', description: `${selectedClass.name} foi removida.` });
       fetchClasses();
     } catch {
-      toast({ variant: 'destructive', title: 'Erro ao desativar turma' });
+      toast({ variant: 'destructive', title: 'Erro ao excluir turma' });
     } finally {
+      setIsDeleting(false);
       setIsDeleteDialogOpen(false);
+      setDeleteAdminPassword('');
+      setDeleteError('');
     }
   };
 
@@ -283,9 +336,9 @@ export default function Classes() {
                     <Edit className="h-4 w-4 mr-2" />
                     Editar
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); setSelectedClass(classItem); setIsDeleteDialogOpen(true); }}>
+                  <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); setSelectedClass(classItem); setDeleteAdminPassword(''); setDeleteError(''); setIsDeleteDialogOpen(true); }}>
                     <Trash2 className="h-4 w-4 mr-2" />
-                    Desativar
+                    Excluir
                   </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>
@@ -342,6 +395,12 @@ export default function Classes() {
           <div className="flex items-center gap-2 text-sm">
             <MapPin className="h-4 w-4 text-muted-foreground" />
             <span>{classItem.room}</span>
+          </div>
+        )}
+        {classItem.teacher?.full_name && (
+          <div className="flex items-center gap-2 text-sm">
+            <GraduationCap className="h-4 w-4 text-muted-foreground" />
+            <span>Prof. {classItem.teacher.full_name}</span>
           </div>
         )}
       </CardContent>
@@ -687,19 +746,46 @@ export default function Classes() {
         />
       )}
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => { setIsDeleteDialogOpen(open); if (!open) { setDeleteAdminPassword(''); setDeleteError(''); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Desativar turma?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir turma?</AlertDialogTitle>
             <AlertDialogDescription>
-              A turma "{selectedClass?.name}" será desativada. Os alunos permanecerão no sistema.
+              {(selectedClass?.student_count || 0) > 0 ? (
+                <>
+                  A turma "<strong>{selectedClass?.name}</strong>" possui <strong>{selectedClass?.student_count} aluno(s)</strong>. 
+                  Para excluí-la, confirme com a senha de administrador ou gestor. 
+                  Os alunos serão desvinculados da turma mas permanecerão no sistema.
+                </>
+              ) : (
+                <>
+                  A turma "<strong>{selectedClass?.name}</strong>" não possui alunos e será excluída permanentemente.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {(selectedClass?.student_count || 0) > 0 && (
+            <div className="space-y-2 py-2">
+              <label className="text-sm font-medium">Senha de administrador</label>
+              <Input
+                type="password"
+                placeholder="Digite sua senha"
+                value={deleteAdminPassword}
+                onChange={(e) => { setDeleteAdminPassword(e.target.value); setDeleteError(''); }}
+              />
+              {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
+            </div>
+          )}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeactivateClass} className="bg-destructive text-destructive-foreground">
-              Desativar
-            </AlertDialogAction>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteClass} 
+              disabled={isDeleting}
+            >
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Excluir
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

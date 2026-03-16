@@ -1,152 +1,59 @@
 
 
-# Plano: Cadastro de Funcionários
+# Plano: Presença Rápida, Código Agenciado e WhatsApp no Telefone
 
-## Resumo
+## Resumo das Solicitações
 
-Vou adicionar todos os funcionários listados ao sistema. Para isso, preciso:
-1. Adicionar novos cargos (setores) que ainda não existem no banco
-2. Adicionar nova área "Produção" para profissionais do Studio
-3. Inserir todos os 21 funcionários
-4. Atualizar o frontend para exibir os novos cargos
+1. Criar uma ferramenta fixa de "Dar Presença" -- busca por código ou nome, abre detalhes do aluno com suas turmas para marcar presença rapidamente
+2. Remover foto/avatar do perfil do aluno (desnecessário)
+3. Adicionar campo `referral_agent_code` (6-8 dígitos) quando tipo é `modelo_agenciado_maxfama` no AddEnrollmentDialog
+4. Indicar no campo de telefone que o número será usado para WhatsApp, com link direto
 
----
+## Implementação
 
-## Funcionários a Cadastrar
+### A. Página "Presença Rápida" (nova rota `/attendance`)
 
-| Cargo | Nome | Área |
-|-------|------|------|
-| **Produtor** | Maryana Mesquita | Produção |
-| **Produtor** | Ana Paula | Produção |
-| **Produtor** | Chelly | Produção |
-| **Produtor** | Rafael | Produção |
-| **Recepcionista** | Yara | Comercial |
-| **Recepcionista** | Ligida | Comercial |
-| **Recepcionista** | Juliana | Comercial |
-| **Recepcionista** | Alice | Comercial |
-| **Recepcionista** | Carol | Comercial |
-| **Editor de Imagem** | Helo | Produção |
-| **Editor de Imagem** | Thales | Produção |
-| **Maquiagem** | Jessica | Produção |
-| **Maquiagem** | Gael | Produção |
-| **Fotógrafa** | Nagila | Produção |
-| **Gerente** | Ramon | Gestão (Todas as áreas) |
-| **Video Maker** | Layne | Produção |
-| **Video Maker** | Augusto | Produção |
+Criar `src/pages/QuickAttendance.tsx` -- uma página dedicada e simples:
 
-### Agentes de Relacionamento (tabela `agents`)
+- Campo de busca no topo: aceita código de agenciado (6-8 dígitos) ou nome completo
+- Ao digitar e buscar, consulta `enrollments` JOIN `leads` filtrando por `referral_agent_code` ou `leads.full_name`
+- Exibe card do aluno encontrado com: nome, telefone (link WhatsApp), turma(s) ativa(s)
+- Para cada turma, mostra a grade de 8 aulas com botões de presença (presente/falta/justificado)
+- Após marcar, limpa a busca para o próximo aluno (fluxo de recepção rápido)
+- Adicionar link na sidebar do menu Acadêmico
 
-| Nome |
-|------|
-| Ana Paula |
-| Ana Beatriz |
-| Emilly |
-| Camila |
-| Andressa |
+### B. Remover avatar do StudentProfile
 
----
+No `StudentProfile.tsx`, remover o componente `Avatar` do cabeçalho do card de perfil. Manter apenas nome e informações textuais.
 
-## Alterações no Banco de Dados
+### C. Campo `referral_agent_code` para `modelo_agenciado_maxfama`
 
-### 1. Novos valores no enum `team_sector`
+No `AddEnrollmentDialog.tsx`:
+- O campo "Código do Agenciado" aparece atualmente apenas para `indicacao_aluno`
+- Alterar condição para mostrar também quando `enrollment_type === 'modelo_agenciado_maxfama'`
+- Aplicar validação: apenas dígitos, mínimo 6, máximo 8 caracteres
+- Aplicar mesma lógica na aba "Lead Existente"
+- Atualizar label para "Código MaxFama" quando for modelo_agenciado_maxfama
 
-Setores a adicionar:
-- `maquiagem` - Profissionais de maquiagem
-- `edicao_imagem` - Editores de foto/vídeo
-- `fotografo` - Fotógrafos
-- `gerente` - Gerentes
-- `video_maker` - Produtores de vídeo
+### D. Indicação WhatsApp no campo de telefone
 
-### 2. Novo valor no enum `team_area`
+No `PhoneInput` ou nos formulários que usam telefone:
+- Adicionar `FormDescription` abaixo do campo: "Este número será usado para contato via WhatsApp"
+- No `AddEnrollmentDialog`, adicionar ícone do WhatsApp ao lado do label do telefone
+- No `StudentProfile`, ao lado do campo telefone adicionar botão inline que abre WhatsApp Web (já existe no header, reforçar visualmente junto ao campo)
 
-- `producao` - Para profissionais do Studio
+### E. Adicionar rota e sidebar
 
-### 3. Inserir funcionários na tabela `team_members`
+- Nova rota `/attendance` no `App.tsx`
+- Novo item no `AppSidebar.tsx` dentro do grupo Acadêmico: "Presença" com ícone `CheckCircle2`
 
-17 registros na tabela `team_members`
+## Arquivos a Criar/Modificar
 
-### 4. Inserir agentes na tabela `agents`
-
-5 registros na tabela `agents`
-
----
-
-## Alterações no Frontend
-
-### Arquivos a Modificar
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/pages/Team.tsx` | Adicionar novos setores (maquiagem, edicao_imagem, etc.) e área (producao) |
-| `src/components/team/AddTeamMemberDialog.tsx` | Adicionar novos setores e área no formulário |
-| `src/components/team/EditTeamMemberDialog.tsx` | Mesmas opções novas |
-
-### Novos Setores no Frontend
-
-```text
-SECTORS:
-  maquiagem → "Maquiagem" (ícone: Brush)
-  edicao_imagem → "Edição de Imagem" (ícone: Image)
-  fotografo → "Fotógrafo(a)" (ícone: Camera)
-  gerente → "Gerente" (ícone: Crown)
-  video_maker → "Video Maker" (ícone: Video)
-```
-
-### Nova Área no Frontend
-
-```text
-AREAS:
-  producao → "Produção" (cor: pink)
-```
-
----
-
-## Estrutura Visual
-
-```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│ EQUIPE                                                                  │
-├─────────────────────────────────────────────────────────────────────────┤
-│ [Todos] [Comercial] [Financeiro] [Acadêmico] [Gestão] [Produção]       │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐    │
-│ │ [MN]         │ │ [AP]         │ │ [CH]         │ │ [RF]         │    │
-│ │ Maryana M.   │ │ Ana Paula    │ │ Chelly       │ │ Rafael       │    │
-│ │ 📹 Produtor  │ │ 📹 Produtor  │ │ 📹 Produtor  │ │ 📹 Produtor  │    │
-│ │ [Produção]   │ │ [Produção]   │ │ [Produção]   │ │ [Produção]   │    │
-│ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘    │
-│                                                                         │
-│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐    │
-│ │ [YA]         │ │ [LG]         │ │ [JU]         │ │ [AL]         │    │
-│ │ Yara         │ │ Ligida       │ │ Juliana      │ │ Alice        │    │
-│ │ 🚪 Recepção  │ │ 🚪 Recepção  │ │ 🚪 Recepção  │ │ 🚪 Recepção  │    │
-│ │ [Comercial]  │ │ [Comercial]  │ │ [Comercial]  │ │ [Comercial]  │    │
-│ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘    │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Ordem de Implementação
-
-1. **Migração SQL** - Adicionar novos valores aos enums
-2. **Migração SQL** - Inserir funcionários em `team_members`
-3. **Migração SQL** - Inserir agentes em `agents`
-4. **Atualizar Team.tsx** - Novos setores e áreas
-5. **Atualizar AddTeamMemberDialog.tsx** - Opções novas
-6. **Atualizar EditTeamMemberDialog.tsx** - Opções novas
-
----
-
-## Resumo Técnico
-
-- **1 migração SQL** com:
-  - 5 novos valores em `team_sector`
-  - 1 novo valor em `team_area`
-  - 17 inserts em `team_members`
-  - 5 inserts em `agents`
-- **3 arquivos frontend** a modificar
-- **22 funcionários** cadastrados no total
+| Arquivo | Ação |
+|---------|------|
+| `src/pages/QuickAttendance.tsx` | Novo - página de presença rápida |
+| `src/App.tsx` | Adicionar rota `/attendance` |
+| `src/components/layout/AppSidebar.tsx` | Adicionar item "Presença" no menu Acadêmico |
+| `src/components/students/AddEnrollmentDialog.tsx` | Mostrar código para maxfama, validar 6-8 dígitos |
+| `src/pages/StudentProfile.tsx` | Remover avatar, adicionar indicador WhatsApp no telefone |
 

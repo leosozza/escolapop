@@ -45,6 +45,7 @@ import { ACADEMIC_STATUS_CONFIG, type AcademicStatus } from '@/types/database';
 import { format, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
+import { openWhatsAppWeb } from '@/lib/whatsapp';
 
 interface StudentDetailsSheetProps {
   studentId: string | null;

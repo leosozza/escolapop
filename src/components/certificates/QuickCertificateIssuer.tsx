@@ -44,6 +44,8 @@ interface Student {
   id: string;
   full_name: string;
   referral_agent_code?: string | null;
+  enrollment_id: string;
+  course_id: string;
 }
 
 export function QuickCertificateIssuer() {

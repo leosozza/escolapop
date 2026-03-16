@@ -37,6 +37,7 @@ import {
 import { ACADEMIC_STATUS_CONFIG, type AcademicStatus } from '@/types/database';
 import { AddEnrollmentDialog } from '@/components/students/AddEnrollmentDialog';
 import { StudentDetailsSheet } from '@/components/students/StudentDetailsSheet';
+import { QuickAttendancePopover } from '@/components/students/QuickAttendancePopover';
 import { StudentCSVExportButton } from '@/components/students/StudentCSVExportButton';
 import { StudentCSVImportDialog } from '@/components/students/StudentCSVImportDialog';
 import { StudentWebhookSheet } from '@/components/students/StudentWebhookSheet';

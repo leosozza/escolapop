@@ -503,12 +503,6 @@ export function AcademicConversationPanel({
         </ScrollArea>
       </Card>
 
-      <StudentDetailsSheet
-        studentId={contact.lead_id}
-        open={isStudentSheetOpen}
-        onOpenChange={setIsStudentSheetOpen}
-        onUpdate={() => loadEnrollmentData()}
-      />
     </>
   );
 }

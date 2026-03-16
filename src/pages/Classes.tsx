@@ -96,6 +96,9 @@ export default function Classes() {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteAdminPassword, setDeleteAdminPassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [selectedRoom, setSelectedRoom] = useState<string>('all');
   const { toast } = useToast();

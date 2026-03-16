@@ -278,16 +278,16 @@ export default function Classes() {
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-popover">
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); }}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Editar
-                </DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); }}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Excluir
-                </DropdownMenuItem>
-              </DropdownMenuContent>
+                <DropdownMenuContent align="end" className="bg-popover">
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSelectedClass(classItem); setIsEditDialogOpen(true); }}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); setSelectedClass(classItem); setIsDeleteDialogOpen(true); }}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Desativar
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>

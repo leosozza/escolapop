@@ -180,7 +180,7 @@ export default function Classes() {
         .select(`
           *,
           course:courses(name, duration_hours),
-          teacher:profiles!classes_teacher_id_fkey(full_name)
+          teacher:team_members!classes_teacher_id_fkey(full_name)
         `)
         .order('start_date', { ascending: false });
 

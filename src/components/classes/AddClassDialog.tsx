@@ -104,13 +104,15 @@ export function AddClassDialog({ open, onOpenChange, onSuccess }: AddClassDialog
     },
   });
 
-  // Fetch teachers (profiles with professor role)
+  // Fetch academic team members (professors, gerentes, recepção)
   const { data: teachers } = useQuery({
-    queryKey: ['teachers-for-class'],
+    queryKey: ['academic-team-for-class'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('id, user_id, full_name')
+        .from('team_members')
+        .select('id, full_name, sector')
+        .in('sector', ['professor_teatro', 'professor_passarela', 'professor_influencia', 'gerente', 'recepcao'])
+        .eq('is_active', true)
         .order('full_name');
       if (error) throw error;
       return data;

@@ -91,9 +91,14 @@ export function EditClassDialog({ open, onOpenChange, onSuccess, classData }: Ed
   });
 
   const { data: teachers } = useQuery({
-    queryKey: ['teachers-for-class-edit'],
+    queryKey: ['academic-team-for-class-edit'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('profiles').select('id, user_id, full_name').order('full_name');
+      const { data, error } = await supabase
+        .from('team_members')
+        .select('id, full_name, sector')
+        .in('sector', ['professor_teatro', 'professor_passarela', 'professor_influencia', 'gerente', 'recepcao'])
+        .eq('is_active', true)
+        .order('full_name');
       if (error) throw error;
       return data;
     },

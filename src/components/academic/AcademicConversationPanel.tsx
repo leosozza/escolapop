@@ -95,12 +95,12 @@ export function AcademicConversationPanel({
   operatorName,
 }: AcademicConversationPanelProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [notes, setNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [savedNotes, setSavedNotes] = useState('');
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [enrollmentHistory, setEnrollmentHistory] = useState<EnrollmentHistoryRecord[]>([]);
-  const [isStudentSheetOpen, setIsStudentSheetOpen] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState<AttendanceRecord | null>(null);
   const [classId, setClassId] = useState<string | null>(null);
 

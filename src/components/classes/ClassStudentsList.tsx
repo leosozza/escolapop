@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { openWhatsAppWeb } from '@/lib/whatsapp';
 import { toast } from 'sonner';
 import {
   Sheet,
@@ -266,17 +267,12 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
     onUpdate?.();
   };
 
-  const openWhatsApp = (phone: string | null, studentName: string) => {
+  const handleOpenWhatsApp = (phone: string | null, studentName: string) => {
     if (!phone) {
       toast.error('Telefone não cadastrado');
       return;
     }
-    
-    const cleanPhone = phone.replace(/\D/g, '');
-    const message = encodeURIComponent(
-      `Olá ${studentName}! Entramos em contato sobre suas aulas na ${classInfo?.course?.name || 'escola'}.`
-    );
-    window.open(`https://wa.me/55${cleanPhone}?text=${message}`, '_blank');
+    openWhatsAppWeb(phone, `Olá ${studentName}! Entramos em contato sobre suas aulas na ${classInfo?.course?.name || 'escola'}.`);
   };
 
   const getInitials = (name: string) =>
@@ -434,7 +430,7 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => openWhatsApp(student.phone, student.student_name)}
+                          onClick={() => handleOpenWhatsApp(student.phone, student.student_name)}
                           className="shrink-0"
                         >
                           <MessageCircle className="h-4 w-4 mr-1" />

@@ -45,6 +45,7 @@ import { ACADEMIC_STATUS_CONFIG, type AcademicStatus } from '@/types/database';
 import { format, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
+import { openWhatsAppWeb } from '@/lib/whatsapp';
 
 interface StudentDetailsSheetProps {
   studentId: string | null;
@@ -260,10 +261,8 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
     );
   };
 
-  const openWhatsApp = (phone: string, name: string) => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    const message = encodeURIComponent(`Olá ${name}! Entramos em contato sobre suas aulas na escola.`);
-    window.open(`https://wa.me/55${cleanPhone}?text=${message}`, '_blank');
+  const handleOpenWhatsApp = (phone: string, name: string) => {
+    openWhatsAppWeb(phone, `Olá ${name}! Entramos em contato sobre suas aulas na escola.`);
   };
 
   const [selectedLesson, setSelectedLesson] = useState<{
@@ -326,7 +325,7 @@ export function StudentDetailsSheet({ studentId, open, onOpenChange, onUpdate }:
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => openWhatsApp(student.phone, student.full_name)}
+                onClick={() => handleOpenWhatsApp(student.phone, student.full_name)}
               >
                 <MessageCircle className="h-4 w-4 mr-1" />
                 WhatsApp

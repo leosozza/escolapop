@@ -20,7 +20,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { openWhatsApp, getWhatsAppLink } from '@/lib/whatsapp';
+import { openWhatsAppWeb, getWhatsAppWebLink } from '@/lib/whatsapp';
 
 interface AcademicContact {
   id: string;
@@ -67,7 +67,7 @@ export function AcademicConversationPanel({
   const [isSaving, setIsSaving] = useState(false);
 
   const handleOpenWhatsApp = () => {
-    openWhatsApp(
+    openWhatsAppWeb(
       contact.phone,
       `Olá ${contact.full_name}! Aqui é ${operatorName} do departamento acadêmico. Como posso ajudá-lo(a)?`
     );
@@ -121,7 +121,7 @@ export function AcademicConversationPanel({
               <CardTitle className="text-lg">{contact.full_name}</CardTitle>
               <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
                 <a
-                  href={getWhatsAppLink(contact.phone)}
+                  href={getWhatsAppWebLink(contact.phone)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer"
@@ -139,9 +139,9 @@ export function AcademicConversationPanel({
               </div>
             </div>
           </div>
-          <Button onClick={handleOpenWhatsApp} className="gap-2">
+          <Button onClick={handleOpenWhatsApp} className="gap-2 bg-green-600 hover:bg-green-700 text-white">
             <MessageCircle className="h-4 w-4" />
-            Abrir WhatsApp
+            Abrir WhatsApp Web
           </Button>
         </div>
       </CardHeader>

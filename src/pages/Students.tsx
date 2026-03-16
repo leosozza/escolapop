@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { openWhatsAppWeb } from '@/lib/whatsapp';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -222,10 +223,8 @@ export default function Students() {
     );
   };
 
-  const openWhatsApp = (phone: string, name: string) => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    const message = encodeURIComponent(`Olá ${name}! Entramos em contato sobre suas aulas na escola.`);
-    window.open(`https://wa.me/55${cleanPhone}?text=${message}`, '_blank');
+  const handleOpenWhatsApp = (phone: string, name: string) => {
+    openWhatsAppWeb(phone, `Olá ${name}! Entramos em contato sobre suas aulas na escola.`);
   };
 
   return (
@@ -465,7 +464,7 @@ export default function Students() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => openWhatsApp(enrollment.lead!.phone, enrollment.lead!.full_name)}
+                              onClick={() => handleOpenWhatsApp(enrollment.lead!.phone, enrollment.lead!.full_name)}
                             >
                               <MessageCircle className="h-4 w-4" />
                             </Button>

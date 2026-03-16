@@ -86,6 +86,14 @@ const App = () => (
               }
             />
             <Route
+              path="/students/:leadId"
+              element={
+                <AppLayout>
+                  <StudentProfile />
+                </AppLayout>
+              }
+            />
+            <Route
               path="/lms"
               element={
                 <AppLayout>

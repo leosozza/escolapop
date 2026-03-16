@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { AcademicConversationPanel } from '@/components/academic/AcademicConversationPanel';
-import { AddAcademicContactDialog } from '@/components/academic/AddAcademicContactDialog';
+import { AddEnrollmentDialog } from '@/components/students/AddEnrollmentDialog';
 
 const ACADEMIC_TABULATION_CONFIG: Record<string, { label: string; color: string }> = {
   ativo: { label: 'Matriculado', color: 'bg-blue-500' },
@@ -47,7 +47,7 @@ interface AcademicContact {
 
 export default function AcademicSupport() {
   const { toast } = useToast();
-  const { profile, user } = useAuth();
+  const { profile } = useAuth();
   const [contacts, setContacts] = useState<AcademicContact[]>([]);
   const [filteredContacts, setFilteredContacts] = useState<AcademicContact[]>([]);
   const [selectedContact, setSelectedContact] = useState<AcademicContact | null>(null);
@@ -158,10 +158,6 @@ export default function AcademicSupport() {
 
   const handleStatusUpdate = async (enrollmentId: string, newStatus: string) => {
     try {
-      // Find current status for history
-      const currentContact = contacts.find(c => c.id === enrollmentId);
-      const fromStatus = currentContact?.status;
-
       const validStatus = newStatus as 'ativo' | 'em_curso' | 'evasao' | 'concluido' | 'trancado' | 'inadimplente';
       const { error } = await supabase
         .from('enrollments')
@@ -170,15 +166,7 @@ export default function AcademicSupport() {
 
       if (error) throw error;
 
-      // Record in enrollment_history
-      if (fromStatus && fromStatus !== newStatus) {
-        await supabase.from('enrollment_history').insert({
-          enrollment_id: enrollmentId,
-          from_status: fromStatus as any,
-          to_status: newStatus as any,
-          changed_by: user?.id || null,
-        });
-      }
+      // Trigger handles enrollment_history automatically
 
       setContacts((prev) =>
         prev.map((c) => (c.id === enrollmentId ? { ...c, status: newStatus } : c))
@@ -409,7 +397,7 @@ export default function AcademicSupport() {
         )}
       </div>
 
-      <AddAcademicContactDialog
+      <AddEnrollmentDialog
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
         onSuccess={handleContactCreated}

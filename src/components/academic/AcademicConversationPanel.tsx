@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   MessageCircle,
   Phone,
@@ -37,7 +38,6 @@ import { openWhatsAppWeb, getWhatsAppWebLink } from '@/lib/whatsapp';
 import { format, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
-import { StudentDetailsSheet } from '@/components/students/StudentDetailsSheet';
 
 interface AcademicContact {
   id: string;
@@ -95,12 +95,12 @@ export function AcademicConversationPanel({
   operatorName,
 }: AcademicConversationPanelProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [notes, setNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [savedNotes, setSavedNotes] = useState('');
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [enrollmentHistory, setEnrollmentHistory] = useState<EnrollmentHistoryRecord[]>([]);
-  const [isStudentSheetOpen, setIsStudentSheetOpen] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState<AttendanceRecord | null>(null);
   const [classId, setClassId] = useState<string | null>(null);
 
@@ -260,7 +260,7 @@ export function AcademicConversationPanel({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setIsStudentSheetOpen(true)}
+                onClick={() => navigate(`/students/${contact.lead_id}`)}
               >
                 <FileText className="h-4 w-4 mr-1" />
                 Ficha Completa
@@ -503,12 +503,6 @@ export function AcademicConversationPanel({
         </ScrollArea>
       </Card>
 
-      <StudentDetailsSheet
-        studentId={contact.lead_id}
-        open={isStudentSheetOpen}
-        onOpenChange={setIsStudentSheetOpen}
-        onUpdate={() => loadEnrollmentData()}
-      />
     </>
   );
 }

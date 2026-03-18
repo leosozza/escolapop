@@ -37,11 +37,6 @@ export default function Auth() {
     defaultValues: { email: '', password: '' },
   });
 
-  const signupForm = useForm<SignupFormData>({
-    resolver: zodResolver(signupSchema),
-    defaultValues: { fullName: '', email: '', password: '', confirmPassword: '' },
-  });
-
   const handleLogin = async (data: LoginFormData) => {
     setIsLoading(true);
     try {

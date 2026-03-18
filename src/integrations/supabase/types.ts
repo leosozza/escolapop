@@ -1651,6 +1651,11 @@ export type Database = {
         | "evasao"
         | "concluido"
         | "trancado"
+        | "novo_lead"
+        | "lead_nao_matriculado"
+        | "reprovado_faltas"
+        | "ausente"
+        | "formado"
       app_role:
         | "admin"
         | "gestor"
@@ -1660,6 +1665,8 @@ export type Database = {
         | "produtor"
         | "scouter"
         | "aluno"
+        | "agente_matricula"
+        | "supervisor"
       charge_status: "pendente" | "pago" | "cancelado" | "vencido" | "parcial"
       content_type: "video" | "text" | "file" | "quiz"
       course_modality: "presencial" | "online" | "hibrido"
@@ -1853,6 +1860,11 @@ export const Constants = {
         "evasao",
         "concluido",
         "trancado",
+        "novo_lead",
+        "lead_nao_matriculado",
+        "reprovado_faltas",
+        "ausente",
+        "formado",
       ],
       app_role: [
         "admin",
@@ -1863,6 +1875,8 @@ export const Constants = {
         "produtor",
         "scouter",
         "aluno",
+        "agente_matricula",
+        "supervisor",
       ],
       charge_status: ["pendente", "pago", "cancelado", "vencido", "parcial"],
       content_type: ["video", "text", "file", "quiz"],

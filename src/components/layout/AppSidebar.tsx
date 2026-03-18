@@ -338,7 +338,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       {/* Footer com Perfil do Usuário */}
-      <SidebarFooter className="border-t border-sidebar-border">
+      <SidebarFooter className="border-t border-sidebar-border/50 relative z-10">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>

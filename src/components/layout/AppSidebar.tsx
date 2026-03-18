@@ -203,10 +203,10 @@ export function AppSidebar() {
     >
       {/* Background image layer */}
       <div 
-        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-[background-image] duration-500 ease-in-out"
+        className="pointer-events-none absolute inset-0 z-0 bg-cover bg-bottom bg-no-repeat transition-[background-image] duration-500 ease-in-out"
         style={{ backgroundImage: `url(${currentBg})` }}
       />
-      <div className="absolute inset-0 z-0 bg-sidebar/40" />
+      <div className="pointer-events-none absolute inset-0 z-0 bg-sidebar/40" />
       {/* Header com Logo */}
       <SidebarHeader className="border-b border-sidebar-border/50 relative z-10">
         <SidebarMenu>

@@ -86,7 +86,7 @@ export default function Auth() {
             PEPS
           </CardTitle>
           <CardDescription className="text-muted-foreground">
-            Sistema integrado de gestão acadêmica
+            Acesso restrito a colaboradores
           </CardDescription>
         </CardHeader>
         <CardContent>

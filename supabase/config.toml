@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.webhook-students]
 verify_jwt = false
+
+[functions.manage-users]
+verify_jwt = false
+
+[functions.academic-lead-automations]
+verify_jwt = false

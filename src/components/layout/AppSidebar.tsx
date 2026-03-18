@@ -58,6 +58,40 @@ import { ChevronsUpDown } from 'lucide-react';
 import { useNotificationCounts, NotificationCounts } from '@/hooks/useNotificationCounts';
 import { NotificationBadge } from './NotificationBadge';
 
+import sidebarBg1 from '@/assets/sidebar/1.png';
+import sidebarBg2 from '@/assets/sidebar/2.png';
+import sidebarBg3 from '@/assets/sidebar/3.png';
+import sidebarBg4 from '@/assets/sidebar/4.png';
+import sidebarBg5 from '@/assets/sidebar/5.png';
+import sidebarBg6 from '@/assets/sidebar/6.png';
+import sidebarBg7 from '@/assets/sidebar/7.png';
+import sidebarBg8 from '@/assets/sidebar/8.png';
+import sidebarBg9 from '@/assets/sidebar/9.png';
+
+const routeBackgroundMap: Record<string, string> = {
+  '/dashboard': sidebarBg1,
+  '/crm': sidebarBg1,
+  '/appointments': sidebarBg2,
+  '/reception': sidebarBg3,
+  '/studio': sidebarBg4,
+  '/producer-queue': sidebarBg5,
+  '/academic-support': sidebarBg6,
+  '/students': sidebarBg7,
+  '/classes': sidebarBg8,
+  '/courses': sidebarBg8,
+  '/lms': sidebarBg8,
+  '/certificates': sidebarBg8,
+  '/billing': sidebarBg9,
+  '/contracts': sidebarBg9,
+  '/payments': sidebarBg9,
+  '/overdue': sidebarBg9,
+  '/user-management': sidebarBg9,
+  '/team': sidebarBg9,
+  '/reports': sidebarBg9,
+  '/roadmap': sidebarBg9,
+  '/settings': sidebarBg9,
+};
+
 // Mapeamento de rotas para contagem de notificações
 const badgeRouteMap: Record<string, keyof NotificationCounts> = {
   '/crm': 'crm',
@@ -159,15 +193,22 @@ export function AppSidebar() {
     return 'default';
   };
 
+  const currentBg = routeBackgroundMap[location.pathname] || sidebarBg1;
   let globalItemIndex = 0;
 
   return (
     <Sidebar 
       collapsible="icon" 
-      className="border-r-0 transition-all duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]"
+      className="border-r-0 transition-all duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] relative overflow-hidden"
     >
+      {/* Background image layer */}
+      <div 
+        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-[background-image] duration-500 ease-in-out"
+        style={{ backgroundImage: `url(${currentBg})` }}
+      />
+      <div className="absolute inset-0 z-0 bg-sidebar/40" />
       {/* Header com Logo */}
-      <SidebarHeader className="border-b border-sidebar-border">
+      <SidebarHeader className="border-b border-sidebar-border/50 relative z-10">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -202,7 +243,7 @@ export function AppSidebar() {
       </SidebarHeader>
 
       {/* Navegação Principal */}
-      <SidebarContent className="overflow-x-hidden">
+      <SidebarContent className="overflow-x-hidden relative z-10">
         {sidebarGroups.map((group) => (
           <Collapsible
             key={group.title}
@@ -297,7 +338,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       {/* Footer com Perfil do Usuário */}
-      <SidebarFooter className="border-t border-sidebar-border">
+      <SidebarFooter className="border-t border-sidebar-border/50 relative z-10">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
@@ -366,8 +407,7 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarFooter>
 
-      {/* Rail para arrastar/clicar para expandir/colapsar */}
-      <SidebarRail className="transition-opacity duration-200 hover:opacity-100 opacity-50" />
+      <SidebarRail className="transition-opacity duration-200 hover:opacity-100 opacity-50 relative z-10" />
     </Sidebar>
   );
 }

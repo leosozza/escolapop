@@ -60,10 +60,15 @@ interface AcademicConversationPanelProps {
 }
 
 const ACADEMIC_STATUSES = [
+  { value: 'novo_lead', label: 'Novo Lead', description: 'Conversa iniciada, aguardando' },
   { value: 'ativo', label: 'Matriculado', description: 'Aguardando início das aulas' },
   { value: 'em_curso', label: 'Em Curso', description: 'Estudando ativamente' },
+  { value: 'lead_nao_matriculado', label: 'Não Matriculado', description: '48h sem resposta/matrícula' },
+  { value: 'reprovado_faltas', label: 'Reprovado Faltas', description: 'Veio a 1+ aula, 3+ faltas' },
+  { value: 'ausente', label: 'Ausente', description: 'Nunca veio ao curso' },
   { value: 'evasao', label: 'Não Ativo', description: '3+ faltas ou desistência' },
   { value: 'concluido', label: 'Concluído', description: 'Finalizou o curso' },
+  { value: 'formado', label: 'Formado', description: 'Concluiu + certificado' },
   { value: 'trancado', label: 'Trancado', description: 'Solicitou trancamento' },
 ];
 

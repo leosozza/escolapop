@@ -15,8 +15,6 @@ import {
   Headphones,
   MessageSquare,
   Users2,
-  ClipboardCheck,
-  CheckCircle2,
   Award,
   FileText,
   CreditCard,
@@ -25,6 +23,7 @@ import {
   Rocket,
   Receipt,
   Camera,
+  Shield,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -102,6 +101,7 @@ const sidebarGroups = [
   {
     title: 'Gestão',
     items: [
+      { name: 'Gestão de Acessos', href: '/user-management', icon: Shield },
       { name: 'Equipe', href: '/team', icon: Users },
       { name: 'Relatórios', href: '/reports', icon: BarChart3 },
       { name: 'Roadmap', href: '/roadmap', icon: Rocket },

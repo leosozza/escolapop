@@ -8,13 +8,17 @@ import {
   GraduationCap, 
   Camera, 
   Eye, 
-  BookOpen 
+  BookOpen,
+  UserCog,
+  ClipboardCheck,
 } from 'lucide-react';
 
-const roleIcons = {
+const roleIcons: Record<AppRole, any> = {
   admin: Shield,
   gestor: BarChart3,
+  supervisor: UserCog,
   agente_comercial: Handshake,
+  agente_matricula: ClipboardCheck,
   recepcao: DoorOpen,
   professor: GraduationCap,
   produtor: Camera,
@@ -25,7 +29,9 @@ const roleIcons = {
 const roleColors: Record<AppRole, string> = {
   admin: 'bg-destructive/10 text-destructive border-destructive/20',
   gestor: 'bg-warning/10 text-warning border-warning/20',
+  supervisor: 'bg-warning/10 text-warning border-warning/20',
   agente_comercial: 'bg-success/10 text-success border-success/20',
+  agente_matricula: 'bg-info/10 text-info border-info/20',
   recepcao: 'bg-info/10 text-info border-info/20',
   professor: 'bg-primary/10 text-primary border-primary/20',
   produtor: 'bg-secondary/10 text-secondary border-secondary/20',

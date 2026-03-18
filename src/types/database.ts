@@ -7,7 +7,9 @@ export type AppRole =
   | 'professor'
   | 'produtor'
   | 'scouter'
-  | 'aluno';
+  | 'aluno'
+  | 'agente_matricula'
+  | 'supervisor';
 
 export type LeadStatus = 
   | 'lead'
@@ -47,7 +49,12 @@ export type AcademicStatus =
   | 'inadimplente'
   | 'evasao'
   | 'concluido'
-  | 'trancado';
+  | 'trancado'
+  | 'novo_lead'
+  | 'lead_nao_matriculado'
+  | 'reprovado_faltas'
+  | 'ausente'
+  | 'formado';
 
 export type EnrollmentType = 
   | 'modelo_agenciado_maxfama'
@@ -314,7 +321,9 @@ export const COURSE_MODALITY_CONFIG: Record<CourseModality, { label: string; ico
 export const ROLE_CONFIG: Record<AppRole, { label: string; description: string; icon: string }> = {
   admin: { label: 'Administrador', description: 'Acesso total ao sistema', icon: 'Shield' },
   gestor: { label: 'Gestor', description: 'Gerencia equipes e relatórios', icon: 'BarChart3' },
+  supervisor: { label: 'Supervisor', description: 'Supervisiona agentes de agendamento', icon: 'UserCog' },
   agente_comercial: { label: 'Agente Comercial', description: 'Atende leads e fecha vendas', icon: 'Handshake' },
+  agente_matricula: { label: 'Agente de Matrícula', description: 'Departamento de matrículas', icon: 'ClipboardCheck' },
   recepcao: { label: 'Recepção', description: 'Check-in e atendimento presencial', icon: 'DoorOpen' },
   professor: { label: 'Professor', description: 'Ministra aulas e avalia alunos', icon: 'GraduationCap' },
   produtor: { label: 'Produtor', description: 'Gerencia casting e campanhas', icon: 'Camera' },
@@ -323,11 +332,16 @@ export const ROLE_CONFIG: Record<AppRole, { label: string; description: string; 
 };
 
 export const ACADEMIC_STATUS_CONFIG: Record<AcademicStatus, { label: string; color: string; bgColor: string }> = {
-  ativo: { label: 'Ativo', color: 'text-success', bgColor: 'bg-success/10' },
+  novo_lead: { label: 'Novo Lead', color: 'text-info', bgColor: 'bg-info/10' },
+  ativo: { label: 'Matriculado', color: 'text-success', bgColor: 'bg-success/10' },
   em_curso: { label: 'Em Curso', color: 'text-primary', bgColor: 'bg-primary/10' },
   inadimplente: { label: 'Status em Aberto', color: 'text-warning', bgColor: 'bg-warning/10' },
+  lead_nao_matriculado: { label: 'Não Matriculado', color: 'text-destructive', bgColor: 'bg-destructive/10' },
+  reprovado_faltas: { label: 'Reprovado Faltas', color: 'text-orange-500', bgColor: 'bg-orange-500/10' },
+  ausente: { label: 'Ausente', color: 'text-red-400', bgColor: 'bg-red-400/10' },
   evasao: { label: 'Evasão', color: 'text-destructive', bgColor: 'bg-destructive/10' },
   concluido: { label: 'Concluído', color: 'text-info', bgColor: 'bg-info/10' },
+  formado: { label: 'Formado', color: 'text-emerald-600', bgColor: 'bg-emerald-600/10' },
   trancado: { label: 'Trancado', color: 'text-muted-foreground', bgColor: 'bg-muted/50' },
 };
 

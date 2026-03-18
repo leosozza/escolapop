@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Sparkles, Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
+import { Sparkles, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,22 +18,11 @@ const loginSchema = z.object({
   password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
 });
 
-const signupSchema = z.object({
-  fullName: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  email: z.string().email('Email inválido'),
-  password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: 'Senhas não conferem',
-  path: ['confirmPassword'],
-});
-
 type LoginFormData = z.infer<typeof loginSchema>;
-type SignupFormData = z.infer<typeof signupSchema>;
 
 export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -46,11 +35,6 @@ export default function Auth() {
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '' },
-  });
-
-  const signupForm = useForm<SignupFormData>({
-    resolver: zodResolver(signupSchema),
-    defaultValues: { fullName: '', email: '', password: '', confirmPassword: '' },
   });
 
   const handleLogin = async (data: LoginFormData) => {
@@ -69,32 +53,6 @@ export default function Auth() {
         toast({
           title: 'Bem-vindo!',
           description: 'Login realizado com sucesso.',
-        });
-        navigate('/dashboard');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSignup = async (data: SignupFormData) => {
-    setIsLoading(true);
-    try {
-      const { error } = await signUp(data.email, data.password, data.fullName);
-      if (error) {
-        let message = error.message;
-        if (error.message.includes('already registered')) {
-          message = 'Este email já está cadastrado';
-        }
-        toast({
-          variant: 'destructive',
-          title: 'Erro ao cadastrar',
-          description: message,
-        });
-      } else {
-        toast({
-          title: 'Conta criada!',
-          description: 'Você já pode fazer login.',
         });
         navigate('/dashboard');
       }
@@ -128,181 +86,72 @@ export default function Auth() {
             PEPS
           </CardTitle>
           <CardDescription className="text-muted-foreground">
-            Sistema integrado de gestão acadêmica
+            Acesso restrito a colaboradores
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="login">Entrar</TabsTrigger>
-              <TabsTrigger value="signup">Cadastrar</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="login">
-              <Form {...loginForm}>
-                <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
-                  <FormField
-                    control={loginForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input 
-                              placeholder="seu@email.com" 
-                              className="pl-10 bg-white/80" 
-                              {...field} 
-                            />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={loginForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Senha</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input 
-                              type="password" 
-                              placeholder="••••••••" 
-                              className="pl-10 bg-white/80" 
-                              {...field} 
-                            />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button 
-                    type="submit" 
-                    className="w-full bg-gradient-primary hover:opacity-90 shadow-lg" 
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        Entrar
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </>
-                    )}
-                  </Button>
-                </form>
-              </Form>
-            </TabsContent>
-
-            <TabsContent value="signup">
-              <Form {...signupForm}>
-                <form onSubmit={signupForm.handleSubmit(handleSignup)} className="space-y-4">
-                  <FormField
-                    control={signupForm.control}
-                    name="fullName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome completo</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input 
-                              placeholder="Seu nome" 
-                              className="pl-10 bg-white/80" 
-                              {...field} 
-                            />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={signupForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input 
-                              placeholder="seu@email.com" 
-                              className="pl-10 bg-white/80" 
-                              {...field} 
-                            />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={signupForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Senha</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input 
-                              type="password" 
-                              placeholder="••••••••" 
-                              className="pl-10 bg-white/80" 
-                              {...field} 
-                            />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={signupForm.control}
-                    name="confirmPassword"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Confirmar senha</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input 
-                              type="password" 
-                              placeholder="••••••••" 
-                              className="pl-10 bg-white/80" 
-                              {...field} 
-                            />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button 
-                    type="submit" 
-                    className="w-full bg-gradient-primary hover:opacity-90 shadow-lg" 
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        Criar conta
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </>
-                    )}
-                  </Button>
-                </form>
-              </Form>
-            </TabsContent>
-          </Tabs>
+          <Form {...loginForm}>
+            <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
+              <FormField
+                control={loginForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                          placeholder="seu@email.com" 
+                          className="pl-10 bg-white/80" 
+                          {...field} 
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={loginForm.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Senha</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                          type="password" 
+                          placeholder="••••••••" 
+                          className="pl-10 bg-white/80" 
+                          {...field} 
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button 
+                type="submit" 
+                className="w-full bg-gradient-primary hover:opacity-90 shadow-lg" 
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    Entrar
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            </form>
+          </Form>
+          <p className="text-xs text-center text-muted-foreground mt-4">
+            Contas são criadas pelo gestor. Entre em contato caso precise de acesso.
+          </p>
         </CardContent>
       </Card>
     </div>

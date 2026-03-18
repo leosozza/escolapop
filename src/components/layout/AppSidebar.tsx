@@ -102,6 +102,7 @@ const sidebarGroups = [
   {
     title: 'Gestão',
     items: [
+      { name: 'Gestão de Acessos', href: '/user-management', icon: Shield },
       { name: 'Equipe', href: '/team', icon: Users },
       { name: 'Relatórios', href: '/reports', icon: BarChart3 },
       { name: 'Roadmap', href: '/roadmap', icon: Rocket },

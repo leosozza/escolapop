@@ -208,7 +208,7 @@ export function AppSidebar() {
       />
       <div className="absolute inset-0 z-0 bg-sidebar/40" />
       {/* Header com Logo */}
-      <SidebarHeader className="border-b border-sidebar-border">
+      <SidebarHeader className="border-b border-sidebar-border/50 relative z-10">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton

@@ -243,7 +243,7 @@ export function AppSidebar() {
       </SidebarHeader>
 
       {/* Navegação Principal */}
-      <SidebarContent className="overflow-x-hidden">
+      <SidebarContent className="overflow-x-hidden relative z-10">
         {sidebarGroups.map((group) => (
           <Collapsible
             key={group.title}

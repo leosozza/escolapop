@@ -407,8 +407,7 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarFooter>
 
-      {/* Rail para arrastar/clicar para expandir/colapsar */}
-      <SidebarRail className="transition-opacity duration-200 hover:opacity-100 opacity-50" />
+      <SidebarRail className="transition-opacity duration-200 hover:opacity-100 opacity-50 relative z-10" />
     </Sidebar>
   );
 }

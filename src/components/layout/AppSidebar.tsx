@@ -58,6 +58,40 @@ import { ChevronsUpDown } from 'lucide-react';
 import { useNotificationCounts, NotificationCounts } from '@/hooks/useNotificationCounts';
 import { NotificationBadge } from './NotificationBadge';
 
+import sidebarBg1 from '@/assets/sidebar/1.png';
+import sidebarBg2 from '@/assets/sidebar/2.png';
+import sidebarBg3 from '@/assets/sidebar/3.png';
+import sidebarBg4 from '@/assets/sidebar/4.png';
+import sidebarBg5 from '@/assets/sidebar/5.png';
+import sidebarBg6 from '@/assets/sidebar/6.png';
+import sidebarBg7 from '@/assets/sidebar/7.png';
+import sidebarBg8 from '@/assets/sidebar/8.png';
+import sidebarBg9 from '@/assets/sidebar/9.png';
+
+const routeBackgroundMap: Record<string, string> = {
+  '/dashboard': sidebarBg1,
+  '/crm': sidebarBg1,
+  '/appointments': sidebarBg2,
+  '/reception': sidebarBg3,
+  '/studio': sidebarBg4,
+  '/producer-queue': sidebarBg5,
+  '/academic-support': sidebarBg6,
+  '/students': sidebarBg7,
+  '/classes': sidebarBg8,
+  '/courses': sidebarBg8,
+  '/lms': sidebarBg8,
+  '/certificates': sidebarBg8,
+  '/billing': sidebarBg9,
+  '/contracts': sidebarBg9,
+  '/payments': sidebarBg9,
+  '/overdue': sidebarBg9,
+  '/user-management': sidebarBg9,
+  '/team': sidebarBg9,
+  '/reports': sidebarBg9,
+  '/roadmap': sidebarBg9,
+  '/settings': sidebarBg9,
+};
+
 // Mapeamento de rotas para contagem de notificações
 const badgeRouteMap: Record<string, keyof NotificationCounts> = {
   '/crm': 'crm',

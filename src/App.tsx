@@ -225,6 +225,14 @@ const App = () => (
               }
             />
             <Route
+              path="/user-management"
+              element={
+                <AppLayout>
+                  <UserManagement />
+                </AppLayout>
+              }
+            />
+            <Route
               path="/settings"
               element={
                 <AppLayout>

@@ -15,8 +15,6 @@ import {
   Headphones,
   MessageSquare,
   Users2,
-  ClipboardCheck,
-  CheckCircle2,
   Award,
   FileText,
   CreditCard,
@@ -25,6 +23,7 @@ import {
   Rocket,
   Receipt,
   Camera,
+  Shield,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';

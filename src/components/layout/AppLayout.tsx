@@ -41,6 +41,8 @@ const routeNames: Record<string, string> = {
   '/agent-portfolio': 'Portfólio do Agente',
   '/users': 'Usuários',
   '/roadmap': 'Roadmap',
+  '/user-management': 'Gestão de Acessos',
+  '/studio': 'Studio',
 };
 
 const pageVariants = {

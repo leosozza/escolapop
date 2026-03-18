@@ -61,32 +61,6 @@ export default function Auth() {
     }
   };
 
-  const handleSignup = async (data: SignupFormData) => {
-    setIsLoading(true);
-    try {
-      const { error } = await signUp(data.email, data.password, data.fullName);
-      if (error) {
-        let message = error.message;
-        if (error.message.includes('already registered')) {
-          message = 'Este email já está cadastrado';
-        }
-        toast({
-          variant: 'destructive',
-          title: 'Erro ao cadastrar',
-          description: message,
-        });
-      } else {
-        toast({
-          title: 'Conta criada!',
-          description: 'Você já pode fazer login.',
-        });
-        navigate('/dashboard');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div 
       className="min-h-screen flex items-center justify-center p-4 relative"

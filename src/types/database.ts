@@ -316,7 +316,9 @@ export const COURSE_MODALITY_CONFIG: Record<CourseModality, { label: string; ico
 export const ROLE_CONFIG: Record<AppRole, { label: string; description: string; icon: string }> = {
   admin: { label: 'Administrador', description: 'Acesso total ao sistema', icon: 'Shield' },
   gestor: { label: 'Gestor', description: 'Gerencia equipes e relatórios', icon: 'BarChart3' },
+  supervisor: { label: 'Supervisor', description: 'Supervisiona agentes de agendamento', icon: 'UserCog' },
   agente_comercial: { label: 'Agente Comercial', description: 'Atende leads e fecha vendas', icon: 'Handshake' },
+  agente_matricula: { label: 'Agente de Matrícula', description: 'Departamento de matrículas', icon: 'ClipboardCheck' },
   recepcao: { label: 'Recepção', description: 'Check-in e atendimento presencial', icon: 'DoorOpen' },
   professor: { label: 'Professor', description: 'Ministra aulas e avalia alunos', icon: 'GraduationCap' },
   produtor: { label: 'Produtor', description: 'Gerencia casting e campanhas', icon: 'Camera' },

@@ -18,7 +18,9 @@ import { RoleBadge } from './RoleBadge';
 const ALL_ROLES: AppRole[] = [
   'admin',
   'gestor',
+  'supervisor',
   'agente_comercial',
+  'agente_matricula',
   'recepcao',
   'professor',
   'produtor',

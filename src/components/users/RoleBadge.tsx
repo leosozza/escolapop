@@ -8,13 +8,17 @@ import {
   GraduationCap, 
   Camera, 
   Eye, 
-  BookOpen 
+  BookOpen,
+  UserCog,
+  ClipboardCheck,
 } from 'lucide-react';
 
-const roleIcons = {
+const roleIcons: Record<AppRole, any> = {
   admin: Shield,
   gestor: BarChart3,
+  supervisor: UserCog,
   agente_comercial: Handshake,
+  agente_matricula: ClipboardCheck,
   recepcao: DoorOpen,
   professor: GraduationCap,
   produtor: Camera,

@@ -57,6 +57,7 @@ import {
 import { ChevronsUpDown } from 'lucide-react';
 import { useNotificationCounts, NotificationCounts } from '@/hooks/useNotificationCounts';
 import { NotificationBadge } from './NotificationBadge';
+import { SidebarBackground } from './SidebarBackground';
 
 // Mapeamento de rotas para contagem de notificações
 const badgeRouteMap: Record<string, keyof NotificationCounts> = {

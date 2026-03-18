@@ -49,7 +49,12 @@ export type AcademicStatus =
   | 'inadimplente'
   | 'evasao'
   | 'concluido'
-  | 'trancado';
+  | 'trancado'
+  | 'novo_lead'
+  | 'lead_nao_matriculado'
+  | 'reprovado_faltas'
+  | 'ausente'
+  | 'formado';
 
 export type EnrollmentType = 
   | 'modelo_agenciado_maxfama'

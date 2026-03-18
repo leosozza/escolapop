@@ -292,9 +292,12 @@ export default function UserManagement() {
         <AssignRoleDialog
           open={!!roleTarget}
           onOpenChange={(open) => !open && setRoleTarget(null)}
-          userId={roleTarget.user_id}
-          userName={roleTarget.full_name}
-          currentRoles={roleTarget.roles}
+          user={{
+            id: roleTarget.user_id,
+            user_id: roleTarget.user_id,
+            full_name: roleTarget.full_name,
+            roles: roleTarget.roles,
+          }}
           onSuccess={loadData}
         />
       )}

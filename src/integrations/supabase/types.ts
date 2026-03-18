@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          performed_by: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          performed_by: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          performed_by?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       agents: {
         Row: {
           avatar_url: string | null
@@ -965,6 +992,85 @@ export type Database = {
           },
         ]
       }
+      lead_non_enrollment_reasons: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          custom_reason: string | null
+          id: string
+          lead_id: string
+          reason: Database["public"]["Enums"]["non_enrollment_reason"]
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          custom_reason?: string | null
+          id?: string
+          lead_id: string
+          reason: Database["public"]["Enums"]["non_enrollment_reason"]
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          custom_reason?: string | null
+          id?: string
+          lead_id?: string
+          reason?: Database["public"]["Enums"]["non_enrollment_reason"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_non_enrollment_reasons_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_response_tracking: {
+        Row: {
+          alert_24h: boolean | null
+          auto_tabulated: boolean | null
+          created_at: string
+          first_contact_at: string
+          first_response_at: string | null
+          id: string
+          lead_id: string
+          response_time_minutes: number | null
+          updated_at: string
+        }
+        Insert: {
+          alert_24h?: boolean | null
+          auto_tabulated?: boolean | null
+          created_at?: string
+          first_contact_at?: string
+          first_response_at?: string | null
+          id?: string
+          lead_id: string
+          response_time_minutes?: number | null
+          updated_at?: string
+        }
+        Update: {
+          alert_24h?: boolean | null
+          auto_tabulated?: boolean | null
+          created_at?: string
+          first_contact_at?: string
+          first_response_at?: string | null
+          id?: string
+          lead_id?: string
+          response_time_minutes?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_response_tracking_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_sources: {
         Row: {
           color: string | null
@@ -1700,6 +1806,13 @@ export type Database = {
         | "proposta"
         | "matriculado"
         | "perdido"
+      non_enrollment_reason:
+        | "sem_resposta"
+        | "sem_interesse"
+        | "contrato_cancelado"
+        | "sem_disponibilidade"
+        | "distancia"
+        | "outro"
       payment_type:
         | "pix"
         | "cartao_credito"
@@ -1913,6 +2026,14 @@ export const Constants = {
         "proposta",
         "matriculado",
         "perdido",
+      ],
+      non_enrollment_reason: [
+        "sem_resposta",
+        "sem_interesse",
+        "contrato_cancelado",
+        "sem_disponibilidade",
+        "distancia",
+        "outro",
       ],
       payment_type: [
         "pix",

@@ -193,13 +193,20 @@ export function AppSidebar() {
     return 'default';
   };
 
+  const currentBg = routeBackgroundMap[location.pathname] || sidebarBg1;
   let globalItemIndex = 0;
 
   return (
     <Sidebar 
       collapsible="icon" 
-      className="border-r-0 transition-all duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]"
+      className="border-r-0 transition-all duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] relative overflow-hidden"
     >
+      {/* Background image layer */}
+      <div 
+        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-[background-image] duration-500 ease-in-out"
+        style={{ backgroundImage: `url(${currentBg})` }}
+      />
+      <div className="absolute inset-0 z-0 bg-sidebar/40" />
       {/* Header com Logo */}
       <SidebarHeader className="border-b border-sidebar-border">
         <SidebarMenu>

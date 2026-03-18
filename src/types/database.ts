@@ -7,7 +7,9 @@ export type AppRole =
   | 'professor'
   | 'produtor'
   | 'scouter'
-  | 'aluno';
+  | 'aluno'
+  | 'agente_matricula'
+  | 'supervisor';
 
 export type LeadStatus = 
   | 'lead'

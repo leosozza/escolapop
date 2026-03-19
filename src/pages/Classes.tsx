@@ -203,18 +203,29 @@ export default function Classes() {
             .eq('class_id', c.id)
             .not('lead_id', 'is', null);
           
+          // Fetch attendance data for this class
+          const { data: attendanceData } = await supabase
+            .from('attendance')
+            .select('attendance_date, status')
+            .eq('class_id', c.id);
+
+          const uniqueDates = new Set(attendanceData?.map(a => a.attendance_date) || []);
+          const presenteTotal = attendanceData?.filter(a => a.status === 'presente').length || 0;
+
           const statusCounts: ClassStatusCounts = {
             em_curso: 0,
-            status_aberto: 0,
+            agendados: 0,
             evasao: 0,
             trancado: 0,
             total: enrollments?.length || 0,
+            presente_total: presenteTotal,
+            aulas_realizadas: uniqueDates.size,
           };
 
           enrollments?.forEach((e) => {
-            if (e.status === 'em_curso' || e.status === 'ativo') statusCounts.em_curso++;
-            else if (e.status === 'inadimplente') statusCounts.status_aberto++;
-            else if (e.status === 'evasao') statusCounts.evasao++;
+            if (e.status === 'em_curso') statusCounts.em_curso++;
+            else if (e.status === 'ativo') statusCounts.agendados++;
+            else if (e.status === 'evasao' || e.status === 'reprovado_faltas') statusCounts.evasao++;
             else if (e.status === 'trancado') statusCounts.trancado++;
           });
           

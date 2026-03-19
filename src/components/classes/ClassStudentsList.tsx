@@ -329,6 +329,7 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
   if (!classInfo) return null;
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-2xl overflow-hidden flex flex-col">
         <SheetHeader>

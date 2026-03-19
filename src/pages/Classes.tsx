@@ -59,10 +59,12 @@ import {
 
 interface ClassStatusCounts {
   em_curso: number;
-  status_aberto: number;
+  agendados: number;
   evasao: number;
   trancado: number;
   total: number;
+  presente_total: number;
+  aulas_realizadas: number;
 }
 
 

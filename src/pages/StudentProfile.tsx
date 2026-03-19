@@ -48,6 +48,8 @@ import {
   Shield,
   Plus,
   BookOpen,
+  ArrowRightLeft,
+  RefreshCcw,
 } from 'lucide-react';
 import { ACADEMIC_STATUS_CONFIG, type AcademicStatus } from '@/types/database';
 import { format, addWeeks } from 'date-fns';

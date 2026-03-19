@@ -332,13 +332,18 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-2xl overflow-hidden flex flex-col">
         <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
+           <SheetTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
             {classInfo.name}
           </SheetTitle>
           <SheetDescription>
             {classInfo.course?.name} • {students.length} alunos matriculados
           </SheetDescription>
+          <div className="flex gap-2 mt-2">
+            <Button variant="outline" size="sm" className="gap-1" onClick={() => setIsBulkCertOpen(true)}>
+              <Award className="h-4 w-4" /> Certificados em Massa
+            </Button>
+          </div>
         </SheetHeader>
 
         <Separator className="my-4" />

@@ -50,6 +50,7 @@ interface ClassInfo {
   start_date: string;
   schedule: Record<string, string> | null;
   course?: { name: string };
+  course_id?: string;
 }
 
 interface StudentEnrollment {

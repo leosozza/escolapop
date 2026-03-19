@@ -440,15 +440,23 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
                         </div>
 
                         {/* Actions */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleOpenWhatsApp(student.phone, student.student_name)}
-                          className="shrink-0"
-                        >
-                          <MessageCircle className="h-4 w-4 mr-1" />
-                          Mensagem
-                        </Button>
+                        <div className="flex gap-1 shrink-0">
+                          <Button variant="outline" size="sm" onClick={() => handleOpenWhatsApp(student.phone, student.student_name)}>
+                            <MessageCircle className="h-4 w-4" />
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => setTransferDialog({
+                            open: true, enrollmentId: student.enrollment_id,
+                            studentName: student.student_name, mode: 'remanejamento',
+                          })}>
+                            <ArrowRightLeft className="h-4 w-4" />
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => setTransferDialog({
+                            open: true, enrollmentId: student.enrollment_id,
+                            studentName: student.student_name, mode: 'rematricula',
+                          })}>
+                            <RefreshCcw className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
 
                       {/* Session attendance blocks */}

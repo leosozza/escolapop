@@ -138,12 +138,12 @@ export function AppSidebar() {
       {/* Logo */}
       <SidebarHeader className="border-b border-sidebar-border px-4 py-6">
         <Link to="/dashboard" className="flex items-center justify-center">
-          <img
-            src={logoImg}
-            alt="PEP System"
-            className={cn("transition-all duration-300 object-contain",
-            isCollapsed ? 'h-10 w-10 object-contain' : 'h-28 w-auto'
-            )} />
+          
+
+
+
+
+          
         </Link>
       </SidebarHeader>
 

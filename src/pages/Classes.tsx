@@ -59,10 +59,12 @@ import {
 
 interface ClassStatusCounts {
   em_curso: number;
-  status_aberto: number;
+  agendados: number;
   evasao: number;
   trancado: number;
   total: number;
+  presente_total: number;
+  aulas_realizadas: number;
 }
 
 
@@ -201,18 +203,29 @@ export default function Classes() {
             .eq('class_id', c.id)
             .not('lead_id', 'is', null);
           
+          // Fetch attendance data for this class
+          const { data: attendanceData } = await supabase
+            .from('attendance')
+            .select('attendance_date, status')
+            .eq('class_id', c.id);
+
+          const uniqueDates = new Set(attendanceData?.map(a => a.attendance_date) || []);
+          const presenteTotal = attendanceData?.filter(a => a.status === 'presente').length || 0;
+
           const statusCounts: ClassStatusCounts = {
             em_curso: 0,
-            status_aberto: 0,
+            agendados: 0,
             evasao: 0,
             trancado: 0,
             total: enrollments?.length || 0,
+            presente_total: presenteTotal,
+            aulas_realizadas: uniqueDates.size,
           };
 
           enrollments?.forEach((e) => {
-            if (e.status === 'em_curso' || e.status === 'ativo') statusCounts.em_curso++;
-            else if (e.status === 'inadimplente') statusCounts.status_aberto++;
-            else if (e.status === 'evasao') statusCounts.evasao++;
+            if (e.status === 'em_curso') statusCounts.em_curso++;
+            else if (e.status === 'ativo') statusCounts.agendados++;
+            else if (e.status === 'evasao' || e.status === 'reprovado_faltas') statusCounts.evasao++;
             else if (e.status === 'trancado') statusCounts.trancado++;
           });
           
@@ -351,27 +364,38 @@ export default function Classes() {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {/* Status counts grid */}
+        {/* Schedule prominently displayed */}
+        <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+          <div className="flex items-center gap-2 text-sm font-medium text-primary">
+            <Clock className="h-4 w-4" />
+            <span>{formatSchedule(classItem.schedule)}</span>
+          </div>
+        </div>
+
+        {/* Attendance metrics */}
         <div className="grid grid-cols-2 gap-2 p-2 rounded-lg bg-muted/50">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-success" />
+            <span className="text-xs text-muted-foreground">Agendados:</span>
+            <span className="text-xs font-semibold">{classItem.status_counts?.agendados || 0}</span>
+          </div>
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-primary" />
             <span className="text-xs text-muted-foreground">Em Curso:</span>
             <span className="text-xs font-semibold">{classItem.status_counts?.em_curso || 0}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full bg-warning" />
-            <span className="text-xs text-muted-foreground">Status Aberto:</span>
-            <span className="text-xs font-semibold">{classItem.status_counts?.status_aberto || 0}</span>
+            <span className="text-xs text-muted-foreground">% Comparecidos:</span>
+            <span className="text-xs font-semibold">
+              {classItem.status_counts?.total && classItem.status_counts?.aulas_realizadas
+                ? `${Math.round((classItem.status_counts.presente_total / (classItem.status_counts.total * classItem.status_counts.aulas_realizadas)) * 100)}%`
+                : '0%'
+              }
+            </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full bg-destructive" />
-            <span className="text-xs text-muted-foreground">Evasão:</span>
-            <span className="text-xs font-semibold">{classItem.status_counts?.evasao || 0}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full bg-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Trancados:</span>
-            <span className="text-xs font-semibold">{classItem.status_counts?.trancado || 0}</span>
+            <span className="text-xs text-muted-foreground">Aulas:</span>
+            <span className="text-xs font-semibold">{classItem.status_counts?.aulas_realizadas || 0}/{COURSE_WEEKS}</span>
           </div>
         </div>
         
@@ -385,10 +409,6 @@ export default function Classes() {
             {format(new Date(classItem.start_date), 'dd/MM/yyyy', { locale: ptBR })}
             {classItem.end_date && ` → ${format(new Date(classItem.end_date), 'dd/MM/yyyy', { locale: ptBR })}`}
           </span>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <Clock className="h-4 w-4 text-muted-foreground" />
-          <span className="truncate">{formatSchedule(classItem.schedule)}</span>
         </div>
         {classItem.course?.duration_hours && (
           <div className="flex items-center gap-2 text-sm">
@@ -442,20 +462,19 @@ export default function Classes() {
       <td className="p-4">
         <div className="flex items-center gap-3 text-xs">
           <span className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-primary" />
-            {classItem.status_counts?.em_curso || 0}
+            <div className="w-2 h-2 rounded-full bg-success" />
+            {classItem.status_counts?.agendados || 0}
           </span>
           <span className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-warning" />
-            {classItem.status_counts?.status_aberto || 0}
+            <div className="w-2 h-2 rounded-full bg-primary" />
+            {classItem.status_counts?.em_curso || 0}
           </span>
           <span className="flex items-center gap-1">
             <div className="w-2 h-2 rounded-full bg-destructive" />
             {classItem.status_counts?.evasao || 0}
           </span>
-          <span className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-muted-foreground" />
-            {classItem.status_counts?.trancado || 0}
+          <span className="text-muted-foreground">
+            {classItem.status_counts?.aulas_realizadas || 0}/{COURSE_WEEKS} aulas
           </span>
         </div>
       </td>

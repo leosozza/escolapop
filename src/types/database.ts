@@ -54,7 +54,10 @@ export type AcademicStatus =
   | 'lead_nao_matriculado'
   | 'reprovado_faltas'
   | 'ausente'
-  | 'formado';
+  | 'formado'
+  | 'remanejado'
+  | 'rematricula'
+  | 'desistente';
 
 export type EnrollmentType = 
   | 'modelo_agenciado_maxfama'
@@ -343,6 +346,9 @@ export const ACADEMIC_STATUS_CONFIG: Record<AcademicStatus, { label: string; col
   concluido: { label: 'Concluído', color: 'text-info', bgColor: 'bg-info/10' },
   formado: { label: 'Formado', color: 'text-emerald-600', bgColor: 'bg-emerald-600/10' },
   trancado: { label: 'Trancado', color: 'text-muted-foreground', bgColor: 'bg-muted/50' },
+  remanejado: { label: 'Remanejado', color: 'text-violet-600', bgColor: 'bg-violet-600/10' },
+  rematricula: { label: 'Rematrícula', color: 'text-purple-600', bgColor: 'bg-purple-600/10' },
+  desistente: { label: 'Desistente', color: 'text-rose-600', bgColor: 'bg-rose-600/10' },
 };
 
 export const CONTENT_TYPE_CONFIG: Record<ContentType, { label: string; icon: string }> = {

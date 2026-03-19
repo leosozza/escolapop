@@ -1762,6 +1762,9 @@ export type Database = {
         | "reprovado_faltas"
         | "ausente"
         | "formado"
+        | "remanejado"
+        | "rematricula"
+        | "desistente"
       app_role:
         | "admin"
         | "gestor"
@@ -1978,6 +1981,9 @@ export const Constants = {
         "reprovado_faltas",
         "ausente",
         "formado",
+        "remanejado",
+        "rematricula",
+        "desistente",
       ],
       app_role: [
         "admin",

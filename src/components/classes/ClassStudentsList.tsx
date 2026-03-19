@@ -363,7 +363,7 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
                 </div>
                 <div className="flex items-center gap-1">
                   <div className="h-3 w-3 rounded-sm bg-destructive" />
-                  <span>Falta</span>
+                  <span>Falta (automática)</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <div className="h-3 w-3 rounded-sm bg-warning" />
@@ -457,11 +457,12 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
                                     <button
                                       disabled={isSaving}
                                       onClick={() => {
-                                        // Cycle through statuses: none -> presente -> falta -> justificado -> none
+                                        // Only toggle between presente and justificado - falta is automatic
                                         const nextStatus = 
                                           !status ? 'presente' :
-                                          status === 'presente' ? 'falta' :
-                                          status === 'falta' ? 'justificado' : 'presente';
+                                          status === 'presente' ? 'justificado' :
+                                          status === 'justificado' ? 'presente' :
+                                          status === 'falta' ? 'presente' : 'presente';
                                         markAttendance(student.lead_id, student.enrollment_id, date, nextStatus);
                                       }}
                                       className={cn(

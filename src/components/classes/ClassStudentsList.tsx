@@ -470,13 +470,21 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
                                     <button
                                       disabled={isSaving}
                                       onClick={() => {
-                                        // Only toggle between presente and justificado - falta is automatic
-                                        const nextStatus = 
-                                          !status ? 'presente' :
-                                          status === 'presente' ? 'justificado' :
-                                          status === 'justificado' ? 'presente' :
-                                          status === 'falta' ? 'presente' : 'presente';
-                                        markAttendance(student.lead_id, student.enrollment_id, date, nextStatus);
+                                        if (!status || status === 'falta') {
+                                          // First click or click on falta -> presente
+                                          markAttendance(student.lead_id, student.enrollment_id, date, 'presente');
+                                        } else if (status === 'presente') {
+                                          // Click on presente -> open justification dialog
+                                          setJustificationDialog({
+                                            open: true,
+                                            leadId: student.lead_id,
+                                            studentName: student.student_name,
+                                            attendanceDate: dateStr,
+                                          });
+                                        } else if (status === 'justificado') {
+                                          markAttendance(student.lead_id, student.enrollment_id, date, 'presente');
+                                        }
+                                      }
                                       }}
                                       className={cn(
                                         "h-8 w-8 rounded-md flex items-center justify-center text-xs font-medium transition-all",

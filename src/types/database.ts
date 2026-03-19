@@ -54,7 +54,10 @@ export type AcademicStatus =
   | 'lead_nao_matriculado'
   | 'reprovado_faltas'
   | 'ausente'
-  | 'formado';
+  | 'formado'
+  | 'remanejado'
+  | 'rematricula'
+  | 'desistente';
 
 export type EnrollmentType = 
   | 'modelo_agenciado_maxfama'

@@ -79,6 +79,13 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
   const [isSaving, setIsSaving] = useState(false);
   const [classDates, setClassDates] = useState<Date[]>([]);
   const [searchCode, setSearchCode] = useState('');
+  const [justificationDialog, setJustificationDialog] = useState<{
+    open: boolean; leadId: string; studentName: string; attendanceDate: string;
+  }>({ open: false, leadId: '', studentName: '', attendanceDate: '' });
+  const [transferDialog, setTransferDialog] = useState<{
+    open: boolean; enrollmentId: string; studentName: string; mode: 'remanejamento' | 'rematricula';
+  }>({ open: false, enrollmentId: '', studentName: '', mode: 'remanejamento' });
+  const [isBulkCertOpen, setIsBulkCertOpen] = useState(false);
 
   useEffect(() => {
     if (open && classInfo) {

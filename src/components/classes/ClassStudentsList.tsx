@@ -363,7 +363,7 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
                 </div>
                 <div className="flex items-center gap-1">
                   <div className="h-3 w-3 rounded-sm bg-destructive" />
-                  <span>Falta</span>
+                  <span>Falta (automática)</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <div className="h-3 w-3 rounded-sm bg-warning" />

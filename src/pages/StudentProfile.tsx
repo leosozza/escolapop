@@ -48,6 +48,8 @@ import {
   Shield,
   Plus,
   BookOpen,
+  ArrowRightLeft,
+  RefreshCcw,
 } from 'lucide-react';
 import { ACADEMIC_STATUS_CONFIG, type AcademicStatus } from '@/types/database';
 import { format, addWeeks } from 'date-fns';
@@ -55,6 +57,8 @@ import { ptBR } from 'date-fns/locale';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
 import { openWhatsAppWeb } from '@/lib/whatsapp';
 import { AddEnrollmentDialog } from '@/components/students/AddEnrollmentDialog';
+import { TransferClassDialog } from '@/components/students/TransferClassDialog';
+import { AttendanceJustificationDialog } from '@/components/students/AttendanceJustificationDialog';
 
 const ENROLLMENT_TYPE_CONFIG: Record<string, { label: string; color: string }> = {
   modelo_agenciado_maxfama: { label: 'MaxFama', color: 'bg-purple-500 text-white' },
@@ -74,6 +78,18 @@ export default function StudentProfile() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isEnrollDialogOpen, setIsEnrollDialogOpen] = useState(false);
+  const [transferDialog, setTransferDialog] = useState<{
+    open: boolean;
+    enrollmentId: string;
+    classId: string | null;
+    courseId: string;
+    mode: 'remanejamento' | 'rematricula';
+  }>({ open: false, enrollmentId: '', classId: null, courseId: '', mode: 'remanejamento' });
+  const [justificationDialog, setJustificationDialog] = useState<{
+    open: boolean;
+    classId: string;
+    attendanceDate: string;
+  }>({ open: false, classId: '', attendanceDate: '' });
 
   const [editData, setEditData] = useState<{
     full_name: string;
@@ -592,7 +608,14 @@ export default function StudentProfile() {
                           <Button variant="outline" size="sm" className="flex-1" onClick={() => handleMarkAttendance('presente')}>
                             <Check className="h-4 w-4 mr-1" /> Presente
                           </Button>
-                          <Button variant="outline" size="sm" className="flex-1" onClick={() => handleMarkAttendance('justificado')}>
+                          <Button variant="outline" size="sm" className="flex-1" onClick={() => {
+                            setJustificationDialog({
+                              open: true,
+                              classId: selectedLesson.classId,
+                              attendanceDate: selectedLesson.attendanceDate,
+                            });
+                            setSelectedLesson(null);
+                          }}>
                             <AlertCircle className="h-4 w-4 mr-1" /> Justificado
                           </Button>
                         </div>
@@ -608,6 +631,32 @@ export default function StudentProfile() {
                       <Button className="w-full gap-2 bg-success hover:bg-success/90" onClick={() => handleCourseComplete(enrollment)}>
                         <Award className="h-4 w-4" /> Concluir Curso e Emitir Certificado
                       </Button>
+                    )}
+
+                    {/* Transfer buttons */}
+                    {enrollment.class_id && ['ativo', 'em_curso'].includes(enrollment.status) && (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline" size="sm" className="flex-1 gap-1"
+                          onClick={() => setTransferDialog({
+                            open: true, enrollmentId: enrollment.id,
+                            classId: enrollment.class_id, courseId: enrollment.course_id,
+                            mode: 'remanejamento',
+                          })}
+                        >
+                          <ArrowRightLeft className="h-3 w-3" /> Remanejar
+                        </Button>
+                        <Button
+                          variant="outline" size="sm" className="flex-1 gap-1"
+                          onClick={() => setTransferDialog({
+                            open: true, enrollmentId: enrollment.id,
+                            classId: enrollment.class_id, courseId: enrollment.course_id,
+                            mode: 'rematricula',
+                          })}
+                        >
+                          <RefreshCcw className="h-3 w-3" /> Rematricular
+                        </Button>
+                      </div>
                     )}
 
                     {/* Enrollment editable fields */}
@@ -767,9 +816,14 @@ export default function StudentProfile() {
                     Emitido em {e.certificate_issued_at ? format(new Date(e.certificate_issued_at), 'dd/MM/yyyy', { locale: ptBR }) : '—'}
                   </p>
                 </div>
-                <Badge className="bg-success text-success-foreground border-0">
-                  <Check className="h-3 w-3 mr-1" /> Emitido
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="gap-1" onClick={() => openWhatsAppWeb(student.phone, `Olá ${student.full_name}! Segue seu certificado de conclusão do curso ${e.course?.name}. Parabéns! 🎉`)}>
+                    <MessageCircle className="h-3 w-3" /> Enviar WhatsApp
+                  </Button>
+                  <Badge className="bg-success text-success-foreground border-0">
+                    <Check className="h-3 w-3 mr-1" /> Emitido
+                  </Badge>
+                </div>
               </div>
             ))}
             {pendingCertificates.map((e: any) => (
@@ -840,6 +894,32 @@ export default function StudentProfile() {
         onSuccess={() => {
           setIsEnrollDialogOpen(false);
           queryClient.invalidateQueries({ queryKey: ['student-profile-enrollments', leadId] });
+        }}
+      />
+
+      <TransferClassDialog
+        open={transferDialog.open}
+        onOpenChange={(open) => setTransferDialog(prev => ({ ...prev, open }))}
+        enrollmentId={transferDialog.enrollmentId}
+        studentName={student?.full_name || ''}
+        currentClassId={transferDialog.classId}
+        courseId={transferDialog.courseId}
+        mode={transferDialog.mode}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['student-profile-enrollments', leadId] });
+          queryClient.invalidateQueries({ queryKey: ['student-profile-history', leadId] });
+        }}
+      />
+
+      <AttendanceJustificationDialog
+        open={justificationDialog.open}
+        onOpenChange={(open) => setJustificationDialog(prev => ({ ...prev, open }))}
+        studentName={student?.full_name || ''}
+        leadId={leadId || ''}
+        classId={justificationDialog.classId}
+        attendanceDate={justificationDialog.attendanceDate}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['student-profile-attendance', leadId] });
         }}
       />
     </div>

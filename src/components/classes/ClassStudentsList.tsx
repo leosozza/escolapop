@@ -2,6 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { openWhatsAppWeb } from '@/lib/whatsapp';
 import { toast } from 'sonner';
+import { AttendanceJustificationDialog } from '@/components/students/AttendanceJustificationDialog';
+import { TransferClassDialog } from '@/components/students/TransferClassDialog';
+import { BulkCertificateGenerator } from '@/components/certificates/BulkCertificateGenerator';
 import {
   Sheet,
   SheetContent,
@@ -31,6 +34,9 @@ import {
   Loader2,
   Calendar,
   Search,
+  Award,
+  ArrowRightLeft,
+  RefreshCcw,
 } from 'lucide-react';
 import { COURSE_WEEKS, calculateClassDates } from '@/lib/course-schedule-config';
 import { ACADEMIC_STATUS_CONFIG, type AcademicStatus, type EnrollmentType } from '@/types/database';
@@ -44,6 +50,7 @@ interface ClassInfo {
   start_date: string;
   schedule: Record<string, string> | null;
   course?: { name: string };
+  course_id?: string;
 }
 
 interface StudentEnrollment {
@@ -73,6 +80,13 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
   const [isSaving, setIsSaving] = useState(false);
   const [classDates, setClassDates] = useState<Date[]>([]);
   const [searchCode, setSearchCode] = useState('');
+  const [justificationDialog, setJustificationDialog] = useState<{
+    open: boolean; leadId: string; studentName: string; attendanceDate: string;
+  }>({ open: false, leadId: '', studentName: '', attendanceDate: '' });
+  const [transferDialog, setTransferDialog] = useState<{
+    open: boolean; enrollmentId: string; studentName: string; mode: 'remanejamento' | 'rematricula';
+  }>({ open: false, enrollmentId: '', studentName: '', mode: 'remanejamento' });
+  const [isBulkCertOpen, setIsBulkCertOpen] = useState(false);
 
   useEffect(() => {
     if (open && classInfo) {
@@ -316,16 +330,22 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
   if (!classInfo) return null;
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-2xl overflow-hidden flex flex-col">
         <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
+           <SheetTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
             {classInfo.name}
           </SheetTitle>
           <SheetDescription>
             {classInfo.course?.name} • {students.length} alunos matriculados
           </SheetDescription>
+          <div className="flex gap-2 mt-2">
+            <Button variant="outline" size="sm" className="gap-1" onClick={() => setIsBulkCertOpen(true)}>
+              <Award className="h-4 w-4" /> Certificados em Massa
+            </Button>
+          </div>
         </SheetHeader>
 
         <Separator className="my-4" />
@@ -427,15 +447,23 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
                         </div>
 
                         {/* Actions */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleOpenWhatsApp(student.phone, student.student_name)}
-                          className="shrink-0"
-                        >
-                          <MessageCircle className="h-4 w-4 mr-1" />
-                          Mensagem
-                        </Button>
+                        <div className="flex gap-1 shrink-0">
+                          <Button variant="outline" size="sm" onClick={() => handleOpenWhatsApp(student.phone, student.student_name)}>
+                            <MessageCircle className="h-4 w-4" />
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => setTransferDialog({
+                            open: true, enrollmentId: student.enrollment_id,
+                            studentName: student.student_name, mode: 'remanejamento',
+                          })}>
+                            <ArrowRightLeft className="h-4 w-4" />
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => setTransferDialog({
+                            open: true, enrollmentId: student.enrollment_id,
+                            studentName: student.student_name, mode: 'rematricula',
+                          })}>
+                            <RefreshCcw className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
 
                       {/* Session attendance blocks */}
@@ -457,13 +485,20 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
                                     <button
                                       disabled={isSaving}
                                       onClick={() => {
-                                        // Only toggle between presente and justificado - falta is automatic
-                                        const nextStatus = 
-                                          !status ? 'presente' :
-                                          status === 'presente' ? 'justificado' :
-                                          status === 'justificado' ? 'presente' :
-                                          status === 'falta' ? 'presente' : 'presente';
-                                        markAttendance(student.lead_id, student.enrollment_id, date, nextStatus);
+                                        if (!status || status === 'falta') {
+                                          // First click or click on falta -> presente
+                                          markAttendance(student.lead_id, student.enrollment_id, date, 'presente');
+                                        } else if (status === 'presente') {
+                                          // Click on presente -> open justification dialog
+                                          setJustificationDialog({
+                                            open: true,
+                                            leadId: student.lead_id,
+                                            studentName: student.student_name,
+                                            attendanceDate: dateStr,
+                                          });
+                                        } else if (status === 'justificado') {
+                                          markAttendance(student.lead_id, student.enrollment_id, date, 'presente');
+                                        }
                                       }}
                                       className={cn(
                                         "h-8 w-8 rounded-md flex items-center justify-center text-xs font-medium transition-all",
@@ -507,5 +542,43 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
         )}
       </SheetContent>
     </Sheet>
+
+    {classInfo && (
+      <AttendanceJustificationDialog
+        open={justificationDialog.open}
+        onOpenChange={(open) => setJustificationDialog(prev => ({ ...prev, open }))}
+        studentName={justificationDialog.studentName}
+        leadId={justificationDialog.leadId}
+        classId={classInfo.id}
+        attendanceDate={justificationDialog.attendanceDate}
+        onSuccess={() => fetchStudentsAndAttendance()}
+      />
+    )}
+
+    {classInfo && (
+      <TransferClassDialog
+        open={transferDialog.open}
+        onOpenChange={(open) => setTransferDialog(prev => ({ ...prev, open }))}
+        enrollmentId={transferDialog.enrollmentId}
+        studentName={transferDialog.studentName}
+        currentClassId={classInfo.id}
+        courseId={classInfo.course_id || ''}
+        mode={transferDialog.mode}
+        onSuccess={() => { fetchStudentsAndAttendance(); onUpdate?.(); }}
+      />
+    )}
+
+    {classInfo && (
+      <BulkCertificateGenerator
+        open={isBulkCertOpen}
+        onOpenChange={setIsBulkCertOpen}
+        classId={classInfo.id}
+        className={classInfo.name}
+        courseId={classInfo.course_id || ''}
+        courseName={classInfo.course?.name || ''}
+        onSuccess={() => { fetchStudentsAndAttendance(); onUpdate?.(); }}
+      />
+    )}
+    </>
   );
 }

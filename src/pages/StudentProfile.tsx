@@ -891,6 +891,32 @@ export default function StudentProfile() {
           queryClient.invalidateQueries({ queryKey: ['student-profile-enrollments', leadId] });
         }}
       />
+
+      <TransferClassDialog
+        open={transferDialog.open}
+        onOpenChange={(open) => setTransferDialog(prev => ({ ...prev, open }))}
+        enrollmentId={transferDialog.enrollmentId}
+        studentName={student?.full_name || ''}
+        currentClassId={transferDialog.classId}
+        courseId={transferDialog.courseId}
+        mode={transferDialog.mode}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['student-profile-enrollments', leadId] });
+          queryClient.invalidateQueries({ queryKey: ['student-profile-history', leadId] });
+        }}
+      />
+
+      <AttendanceJustificationDialog
+        open={justificationDialog.open}
+        onOpenChange={(open) => setJustificationDialog(prev => ({ ...prev, open }))}
+        studentName={student?.full_name || ''}
+        leadId={leadId || ''}
+        classId={justificationDialog.classId}
+        attendanceDate={justificationDialog.attendanceDate}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['student-profile-attendance', leadId] });
+        }}
+      />
     </div>
   );
 }

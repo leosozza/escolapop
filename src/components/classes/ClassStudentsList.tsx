@@ -2,6 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { openWhatsAppWeb } from '@/lib/whatsapp';
 import { toast } from 'sonner';
+import { AttendanceJustificationDialog } from '@/components/students/AttendanceJustificationDialog';
+import { TransferClassDialog } from '@/components/students/TransferClassDialog';
+import { BulkCertificateGenerator } from '@/components/certificates/BulkCertificateGenerator';
 import {
   Sheet,
   SheetContent,

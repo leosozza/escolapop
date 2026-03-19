@@ -631,6 +631,32 @@ export default function StudentProfile() {
                       </Button>
                     )}
 
+                    {/* Transfer buttons */}
+                    {enrollment.class_id && ['ativo', 'em_curso'].includes(enrollment.status) && (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline" size="sm" className="flex-1 gap-1"
+                          onClick={() => setTransferDialog({
+                            open: true, enrollmentId: enrollment.id,
+                            classId: enrollment.class_id, courseId: enrollment.course_id,
+                            mode: 'remanejamento',
+                          })}
+                        >
+                          <ArrowRightLeft className="h-3 w-3" /> Remanejar
+                        </Button>
+                        <Button
+                          variant="outline" size="sm" className="flex-1 gap-1"
+                          onClick={() => setTransferDialog({
+                            open: true, enrollmentId: enrollment.id,
+                            classId: enrollment.class_id, courseId: enrollment.course_id,
+                            mode: 'rematricula',
+                          })}
+                        >
+                          <RefreshCcw className="h-3 w-3" /> Rematricular
+                        </Button>
+                      </div>
+                    )}
+
                     {/* Enrollment editable fields */}
                     <Separator />
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">

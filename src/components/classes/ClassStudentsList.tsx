@@ -457,11 +457,12 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
                                     <button
                                       disabled={isSaving}
                                       onClick={() => {
-                                        // Cycle through statuses: none -> presente -> falta -> justificado -> none
+                                        // Only toggle between presente and justificado - falta is automatic
                                         const nextStatus = 
                                           !status ? 'presente' :
-                                          status === 'presente' ? 'falta' :
-                                          status === 'falta' ? 'justificado' : 'presente';
+                                          status === 'presente' ? 'justificado' :
+                                          status === 'justificado' ? 'presente' :
+                                          status === 'falta' ? 'presente' : 'presente';
                                         markAttendance(student.lead_id, student.enrollment_id, date, nextStatus);
                                       }}
                                       className={cn(

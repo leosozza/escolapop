@@ -33,6 +33,11 @@ import {
   Eye,
   CheckCircle2,
   MessageCircle,
+  UserX,
+  RefreshCcw,
+  ArrowRightLeft,
+  XCircle,
+  AlertTriangle,
 } from 'lucide-react';
 import { ACADEMIC_STATUS_CONFIG, type AcademicStatus } from '@/types/database';
 import { AddEnrollmentDialog } from '@/components/students/AddEnrollmentDialog';
@@ -77,7 +82,6 @@ interface EnrollmentWithLead {
   attendance_count?: number;
 }
 
-// Tipos de matrícula com cores
 const ENROLLMENT_TYPE_CONFIG: Record<string, { label: string; color: string }> = {
   modelo_agenciado_maxfama: { label: 'MaxFama', color: 'bg-purple-500 text-white' },
   modelo_agenciado_popschool: { label: 'Pop School', color: 'bg-blue-500 text-white' },
@@ -94,7 +98,6 @@ export default function Students() {
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
 
-  // Fetch enrollments with lead data (students are leads now)
   const { data: enrollments, isLoading, refetch } = useQuery({
     queryKey: ['enrollments-leads', searchTerm, statusFilter, courseFilter],
     queryFn: async () => {
@@ -132,7 +135,6 @@ export default function Students() {
 
       const typedData = data as unknown as EnrollmentWithLead[];
 
-      // Fetch attendance counts for each enrollment with a class
       const enrollmentsWithAttendance = await Promise.all(
         typedData.map(async (enrollment) => {
           if (enrollment.class_id && enrollment.lead_id) {
@@ -149,7 +151,6 @@ export default function Students() {
         })
       );
 
-      // Filter by search term on client side
       if (searchTerm) {
         return enrollmentsWithAttendance?.filter(e => 
           e.lead?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -161,7 +162,6 @@ export default function Students() {
     },
   });
 
-  // Fetch courses for filter
   const { data: courses } = useQuery({
     queryKey: ['courses-active'],
     queryFn: async () => {
@@ -175,7 +175,6 @@ export default function Students() {
     },
   });
 
-  // Stats - all enrollment stats using lead_id
   const { data: stats } = useQuery({
     queryKey: ['enrollment-stats-leads'],
     queryFn: async () => {
@@ -189,21 +188,19 @@ export default function Students() {
       const total = allEnrollments?.length || 0;
       const matriculados = allEnrollments?.filter(e => e.status === 'ativo').length || 0;
       const ativos = allEnrollments?.filter(e => e.status === 'em_curso').length || 0;
-      const inadimplentes = allEnrollments?.filter(e => e.status === 'inadimplente').length || 0;
-      const completed = allEnrollments?.filter(e => e.status === 'concluido').length || 0;
-      const dropouts = allEnrollments?.filter(e => e.status === 'evasao').length || 0;
+      const ausentes = allEnrollments?.filter(e => e.status === 'ausente').length || 0;
+      const reprovados = allEnrollments?.filter(e => e.status === 'reprovado_faltas').length || 0;
+      const desistentes = allEnrollments?.filter(e => e.status === 'desistente').length || 0;
+      const rematricula = allEnrollments?.filter(e => e.status === 'rematricula').length || 0;
+      const remanejados = allEnrollments?.filter(e => e.status === 'remanejado').length || 0;
+      const completed = allEnrollments?.filter(e => e.status === 'concluido' || e.status === 'formado').length || 0;
 
-      return { total, matriculados, ativos, inadimplentes, completed, dropouts };
+      return { total, matriculados, ativos, ausentes, reprovados, desistentes, rematricula, remanejados, completed };
     },
   });
 
   const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
   const getStatusBadge = (status: string) => {
@@ -255,56 +252,94 @@ export default function Students() {
           </div>
         </div>
 
-        {/* Stats Cards - Removed inadimplentes for financial team only */}
-        <div className="grid gap-4 md:grid-cols-5">
+        {/* Stats Cards - New KPIs */}
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-4 lg:grid-cols-8">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Matriculados</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats?.matriculados || 0}</div>
-              <p className="text-xs text-muted-foreground">Aguardando início</p>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-success shrink-0" />
+                <div>
+                  <p className="text-xl font-bold">{stats?.matriculados || 0}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Matriculados</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ativos</CardTitle>
-              <GraduationCap className="h-4 w-4 text-success" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-success">{stats?.ativos || 0}</div>
-              <p className="text-xs text-muted-foreground">Em curso</p>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <GraduationCap className="h-4 w-4 text-primary shrink-0" />
+                <div>
+                  <p className="text-xl font-bold text-primary">{stats?.ativos || 0}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Em Curso</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Concluídos</CardTitle>
-              <BookOpen className="h-4 w-4 text-info" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-info">{stats?.completed || 0}</div>
-              <p className="text-xs text-muted-foreground">Formados</p>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <UserX className="h-4 w-4 text-red-400 shrink-0" />
+                <div>
+                  <p className="text-xl font-bold text-red-400">{stats?.ausentes || 0}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Ausentes</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Não Ativos</CardTitle>
-              <TrendingDown className="h-4 w-4 text-destructive" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-destructive">{stats?.dropouts || 0}</div>
-              <p className="text-xs text-muted-foreground">3+ faltas</p>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0" />
+                <div>
+                  <p className="text-xl font-bold text-orange-500">{stats?.reprovados || 0}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Reprov. Faltas</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
-          <Card className="bg-muted/30">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Geral</CardTitle>
-              <Users className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{stats?.total || 0}</div>
-              <p className="text-xs text-muted-foreground">Todos os status</p>
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <XCircle className="h-4 w-4 text-rose-600 shrink-0" />
+                <div>
+                  <p className="text-xl font-bold text-rose-600">{stats?.desistentes || 0}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Desistentes</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <RefreshCcw className="h-4 w-4 text-purple-600 shrink-0" />
+                <div>
+                  <p className="text-xl font-bold text-purple-600">{stats?.rematricula || 0}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Rematrícula</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <ArrowRightLeft className="h-4 w-4 text-violet-600 shrink-0" />
+                <div>
+                  <p className="text-xl font-bold text-violet-600">{stats?.remanejados || 0}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Remanejados</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-info shrink-0" />
+                <div>
+                  <p className="text-xl font-bold text-info">{stats?.completed || 0}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Concluídos</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>

@@ -31,6 +31,9 @@ import {
   Loader2,
   Calendar,
   Search,
+  Award,
+  ArrowRightLeft,
+  RefreshCcw,
 } from 'lucide-react';
 import { COURSE_WEEKS, calculateClassDates } from '@/lib/course-schedule-config';
 import { ACADEMIC_STATUS_CONFIG, type AcademicStatus, type EnrollmentType } from '@/types/database';

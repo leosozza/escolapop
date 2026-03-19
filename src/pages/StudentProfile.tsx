@@ -76,6 +76,18 @@ export default function StudentProfile() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isEnrollDialogOpen, setIsEnrollDialogOpen] = useState(false);
+  const [transferDialog, setTransferDialog] = useState<{
+    open: boolean;
+    enrollmentId: string;
+    classId: string | null;
+    courseId: string;
+    mode: 'remanejamento' | 'rematricula';
+  }>({ open: false, enrollmentId: '', classId: null, courseId: '', mode: 'remanejamento' });
+  const [justificationDialog, setJustificationDialog] = useState<{
+    open: boolean;
+    classId: string;
+    attendanceDate: string;
+  }>({ open: false, classId: '', attendanceDate: '' });
 
   const [editData, setEditData] = useState<{
     full_name: string;

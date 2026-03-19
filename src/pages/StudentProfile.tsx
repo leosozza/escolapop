@@ -606,7 +606,14 @@ export default function StudentProfile() {
                           <Button variant="outline" size="sm" className="flex-1" onClick={() => handleMarkAttendance('presente')}>
                             <Check className="h-4 w-4 mr-1" /> Presente
                           </Button>
-                          <Button variant="outline" size="sm" className="flex-1" onClick={() => handleMarkAttendance('justificado')}>
+                          <Button variant="outline" size="sm" className="flex-1" onClick={() => {
+                            setJustificationDialog({
+                              open: true,
+                              classId: selectedLesson.classId,
+                              attendanceDate: selectedLesson.attendanceDate,
+                            });
+                            setSelectedLesson(null);
+                          }}>
                             <AlertCircle className="h-4 w-4 mr-1" /> Justificado
                           </Button>
                         </div>

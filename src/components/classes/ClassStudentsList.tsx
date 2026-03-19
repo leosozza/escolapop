@@ -492,7 +492,6 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
                                         } else if (status === 'justificado') {
                                           markAttendance(student.lead_id, student.enrollment_id, date, 'presente');
                                         }
-                                      }
                                       }}
                                       className={cn(
                                         "h-8 w-8 rounded-md flex items-center justify-center text-xs font-medium transition-all",

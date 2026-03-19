@@ -362,15 +362,12 @@ export function AcademicConversationPanel({
                           onClick={() => handleMarkAttendance('presente')}>
                           <Check className="h-4 w-4 mr-1" /> Presente
                         </Button>
-                        <Button variant="outline" size="sm" className="flex-1 hover:bg-destructive/10 hover:border-destructive hover:text-destructive"
-                          onClick={() => handleMarkAttendance('falta')}>
-                          <X className="h-4 w-4 mr-1" /> Falta
-                        </Button>
                         <Button variant="outline" size="sm" className="flex-1 hover:bg-warning/10 hover:border-warning hover:text-warning"
                           onClick={() => handleMarkAttendance('justificado')}>
                           <AlertCircle className="h-4 w-4 mr-1" /> Justificado
                         </Button>
                       </div>
+                      <p className="text-xs text-muted-foreground">Falta é registrada automaticamente quando a data passa.</p>
                     </div>
                   )}
                 </div>

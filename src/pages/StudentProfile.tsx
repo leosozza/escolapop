@@ -592,13 +592,11 @@ export default function StudentProfile() {
                           <Button variant="outline" size="sm" className="flex-1" onClick={() => handleMarkAttendance('presente')}>
                             <Check className="h-4 w-4 mr-1" /> Presente
                           </Button>
-                          <Button variant="outline" size="sm" className="flex-1" onClick={() => handleMarkAttendance('falta')}>
-                            <X className="h-4 w-4 mr-1" /> Falta
-                          </Button>
                           <Button variant="outline" size="sm" className="flex-1" onClick={() => handleMarkAttendance('justificado')}>
-                            <AlertCircle className="h-4 w-4 mr-1" /> Just.
+                            <AlertCircle className="h-4 w-4 mr-1" /> Justificado
                           </Button>
                         </div>
+                        <p className="text-xs text-muted-foreground">Falta é registrada automaticamente quando a data da aula passa sem presença.</p>
                         <Button variant="ghost" size="sm" className="w-full" onClick={() => setSelectedLesson(null)}>
                           Cancelar
                         </Button>

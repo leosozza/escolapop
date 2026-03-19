@@ -816,9 +816,14 @@ export default function StudentProfile() {
                     Emitido em {e.certificate_issued_at ? format(new Date(e.certificate_issued_at), 'dd/MM/yyyy', { locale: ptBR }) : '—'}
                   </p>
                 </div>
-                <Badge className="bg-success text-success-foreground border-0">
-                  <Check className="h-3 w-3 mr-1" /> Emitido
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="gap-1" onClick={() => openWhatsAppWeb(student.phone, `Olá ${student.full_name}! Segue seu certificado de conclusão do curso ${e.course?.name}. Parabéns! 🎉`)}>
+                    <MessageCircle className="h-3 w-3" /> Enviar WhatsApp
+                  </Button>
+                  <Badge className="bg-success text-success-foreground border-0">
+                    <Check className="h-3 w-3 mr-1" /> Emitido
+                  </Badge>
+                </div>
               </div>
             ))}
             {pendingCertificates.map((e: any) => (

@@ -540,5 +540,43 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
         )}
       </SheetContent>
     </Sheet>
+
+    {classInfo && (
+      <AttendanceJustificationDialog
+        open={justificationDialog.open}
+        onOpenChange={(open) => setJustificationDialog(prev => ({ ...prev, open }))}
+        studentName={justificationDialog.studentName}
+        leadId={justificationDialog.leadId}
+        classId={classInfo.id}
+        attendanceDate={justificationDialog.attendanceDate}
+        onSuccess={() => fetchStudentsAndAttendance()}
+      />
+    )}
+
+    {classInfo && (
+      <TransferClassDialog
+        open={transferDialog.open}
+        onOpenChange={(open) => setTransferDialog(prev => ({ ...prev, open }))}
+        enrollmentId={transferDialog.enrollmentId}
+        studentName={transferDialog.studentName}
+        currentClassId={classInfo.id}
+        courseId={classInfo.course_id || ''}
+        mode={transferDialog.mode}
+        onSuccess={() => { fetchStudentsAndAttendance(); onUpdate?.(); }}
+      />
+    )}
+
+    {classInfo && (
+      <BulkCertificateGenerator
+        open={isBulkCertOpen}
+        onOpenChange={setIsBulkCertOpen}
+        classId={classInfo.id}
+        className={classInfo.name}
+        courseId={classInfo.course_id || ''}
+        courseName={classInfo.course?.name || ''}
+        onSuccess={() => { fetchStudentsAndAttendance(); onUpdate?.(); }}
+      />
+    )}
+    </>
   );
 }

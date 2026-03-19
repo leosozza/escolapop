@@ -410,10 +410,6 @@ export default function Classes() {
             {classItem.end_date && ` → ${format(new Date(classItem.end_date), 'dd/MM/yyyy', { locale: ptBR })}`}
           </span>
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          <Clock className="h-4 w-4 text-muted-foreground" />
-          <span className="truncate">{formatSchedule(classItem.schedule)}</span>
-        </div>
         {classItem.course?.duration_hours && (
           <div className="flex items-center gap-2 text-sm">
             <Timer className="h-4 w-4 text-muted-foreground" />

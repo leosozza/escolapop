@@ -109,9 +109,9 @@ export function BulkCertificateGenerator({
     }
   };
 
-  useState(() => {
+  useEffect(() => {
     if (open) fetchData();
-  });
+  }, [open]);
 
   const renderElementContent = (element: TextElement, studentName: string): string => {
     switch (element.type) {

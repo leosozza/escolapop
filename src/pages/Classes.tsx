@@ -466,20 +466,19 @@ export default function Classes() {
       <td className="p-4">
         <div className="flex items-center gap-3 text-xs">
           <span className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-primary" />
-            {classItem.status_counts?.em_curso || 0}
+            <div className="w-2 h-2 rounded-full bg-success" />
+            {classItem.status_counts?.agendados || 0}
           </span>
           <span className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-warning" />
-            {classItem.status_counts?.status_aberto || 0}
+            <div className="w-2 h-2 rounded-full bg-primary" />
+            {classItem.status_counts?.em_curso || 0}
           </span>
           <span className="flex items-center gap-1">
             <div className="w-2 h-2 rounded-full bg-destructive" />
             {classItem.status_counts?.evasao || 0}
           </span>
-          <span className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-muted-foreground" />
-            {classItem.status_counts?.trancado || 0}
+          <span className="text-muted-foreground">
+            {classItem.status_counts?.aulas_realizadas || 0}/{COURSE_WEEKS} aulas
           </span>
         </div>
       </td>

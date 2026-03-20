@@ -1801,6 +1801,86 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_messages: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          direction: string
+          error_message: string | null
+          id: string
+          lead_id: string | null
+          media_url: string | null
+          message_type: string
+          phone: string
+          status: string | null
+          wuzapi_message_id: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          direction?: string
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          media_url?: string | null
+          message_type?: string
+          phone: string
+          status?: string | null
+          wuzapi_message_id?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          direction?: string
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          media_url?: string | null
+          message_type?: string
+          phone?: string
+          status?: string | null
+          wuzapi_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_session: {
+        Row: {
+          id: string
+          last_check_at: string | null
+          last_error: string | null
+          phone_number: string | null
+          qr_code: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          last_check_at?: string | null
+          last_error?: string | null
+          phone_number?: string | null
+          qr_code?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          last_check_at?: string | null
+          last_error?: string | null
+          phone_number?: string | null
+          qr_code?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

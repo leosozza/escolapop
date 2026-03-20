@@ -116,10 +116,13 @@ Deno.serve(async (req) => {
         const { name, connectionType } = params;
         if (!name) return json({ error: "name is required" }, 400);
 
-        // Create user in WuzAPI
+        // Generate a unique token for this instance
+        const generatedToken = crypto.randomUUID().replace(/-/g, "");
+
+        // Create user in WuzAPI with explicit token
         const res = await adminFetch("/admin/users", {
           method: "POST",
-          body: JSON.stringify({ name }),
+          body: JSON.stringify({ name, token: generatedToken }),
         });
 
         if (!res.ok) {
@@ -127,8 +130,8 @@ Deno.serve(async (req) => {
         }
 
         const wuzapiUser = res.data?.data || res.data;
-        const token = wuzapiUser?.token || wuzapiUser?.Token;
-        const userId = wuzapiUser?.id || wuzapiUser?.Id;
+        const token = wuzapiUser?.token || generatedToken;
+        const userId = wuzapiUser?.id;
 
         // Save instance to DB
         const { data: instance, error: insertError } = await supabase
@@ -147,17 +150,19 @@ Deno.serve(async (req) => {
           return json({ error: "Failed to save instance", details: insertError.message }, 500);
         }
 
-        // Auto-configure webhook
-        const webhookUrl = `${SUPABASE_URL}/functions/v1/whatsapp-webhook`;
-        await instanceFetch(token, "/webhook", {
-          method: "POST",
-          body: JSON.stringify({
-            webhook: webhookUrl,
-            events: ["Message", "ReadReceipt", "Connected", "Disconnected"],
-          }),
-        });
+        // Auto-configure webhook using the instance token
+        if (token) {
+          const webhookUrl = `${SUPABASE_URL}/functions/v1/whatsapp-webhook`;
+          await instanceFetch(token, "/webhook", {
+            method: "POST",
+            body: JSON.stringify({
+              webhook: webhookUrl,
+              events: ["Message", "ReadReceipt", "Connected", "Disconnected"],
+            }),
+          });
+        }
 
-        return json({ success: true, instance: { id: instance.id, name, token } });
+        return json({ success: true, instance: { id: instance.id, name } });
       }
 
       case "delete-instance": {

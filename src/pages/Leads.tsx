@@ -326,14 +326,11 @@ export default function Leads() {
         />
       )}
 
-      {selectedLead && (
-        <ScheduleLeadDialog
-          open={isScheduleOpen}
-          onOpenChange={setIsScheduleOpen}
-          lead={selectedLead}
-          onSuccess={fetchLeads}
-        />
-      )}
+      <ScheduleLeadDialog
+        open={isScheduleOpen}
+        onOpenChange={setIsScheduleOpen}
+        onSuccess={fetchLeads}
+      />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>

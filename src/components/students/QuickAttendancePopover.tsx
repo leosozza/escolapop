@@ -23,7 +23,7 @@ import { Search, Check, X, AlertCircle, MessageCircle, User, GraduationCap } fro
 import { format, addWeeks } from 'date-fns';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
 import { ACADEMIC_STATUS_CONFIG, type AcademicStatus } from '@/types/database';
-import { openWhatsAppWeb } from '@/lib/whatsapp';
+import { useNavigate } from 'react-router-dom';
 
 interface AttendanceRecord {
   lesson_number: number;

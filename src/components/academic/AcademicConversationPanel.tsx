@@ -206,10 +206,7 @@ export function AcademicConversationPanel({
   };
 
   const handleOpenWhatsApp = () => {
-    openWhatsAppWeb(
-      contact.phone,
-      `Olá ${contact.full_name}! Aqui é ${operatorName} do departamento acadêmico. Como posso ajudá-lo(a)?`
-    );
+    navigate('/whatsapp');
   };
 
   const saveNote = async () => {

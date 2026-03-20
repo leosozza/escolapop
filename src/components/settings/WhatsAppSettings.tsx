@@ -35,6 +35,9 @@ export function WhatsAppSettings() {
   const [creating, setCreating] = useState(false);
   const [accessDialogInstance, setAccessDialogInstance] = useState<Instance | null>(null);
   const [copied, setCopied] = useState(false);
+  const [diagInstance, setDiagInstance] = useState<string | null>(null);
+  const [diagLogs, setDiagLogs] = useState<string[]>([]);
+  const [diagLoading, setDiagLoading] = useState(false);
 
   const canManage = hasRole('admin') || hasRole('gestor');
   const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;

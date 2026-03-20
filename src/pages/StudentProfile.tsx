@@ -397,7 +397,7 @@ export default function StudentProfile() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => openWhatsAppWeb(student.phone, `Olá ${student.full_name}!`)}
+          onClick={() => navigate('/whatsapp')}
         >
           <MessageCircle className="h-4 w-4 mr-1" />
           WhatsApp

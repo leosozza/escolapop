@@ -56,6 +56,7 @@ const ENROLLMENT_TYPES = [
 const newStudentSchema = z.object({
   full_name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   phone: z.string().min(10, 'Telefone deve ter pelo menos 10 dígitos').regex(/^\d+$/, 'Apenas números são permitidos'),
+  guardian_name: z.string().optional(),
   course_id: z.string().min(1, 'Selecione um curso'),
   class_id: z.string().min(1, 'Selecione uma turma'),
   enrollment_type: z.string().min(1, 'Selecione o tipo de matrícula'),

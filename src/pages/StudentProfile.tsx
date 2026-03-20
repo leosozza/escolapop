@@ -105,7 +105,7 @@ export default function StudentProfile() {
     attendanceDate: string;
   } | null>(null);
 
-  // Fetch lead/student data
+  // Fetch lead/contact data
   const { data: student, isLoading } = useQuery({
     queryKey: ['student-profile', leadId],
     queryFn: async () => {
@@ -124,6 +124,22 @@ export default function StudentProfile() {
           notes: data.notes || '',
         });
       }
+      return data;
+    },
+    enabled: !!leadId,
+  });
+
+  // Fetch student records linked to this lead
+  const { data: studentRecords } = useQuery({
+    queryKey: ['student-records', leadId],
+    queryFn: async () => {
+      if (!leadId) return [];
+      const { data, error } = await supabase
+        .from('students')
+        .select('*')
+        .eq('lead_id', leadId)
+        .eq('is_active', true);
+      if (error) throw error;
       return data;
     },
     enabled: !!leadId,

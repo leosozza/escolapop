@@ -62,21 +62,19 @@ const sidebarGroups = [
   items: [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'CRM', href: '/crm', icon: UserPlus },
-  { name: 'Atendimentos', href: '/academic-support', icon: Headphones },
   { name: 'Recepção', href: '/reception', icon: DoorOpen },
   { name: 'Agendamento', href: '/appointments', icon: Calendar },
   { name: 'Studio', href: '/studio', icon: Camera }]
-
 },
 {
   title: 'Acadêmico',
   items: [
+  { name: 'Atendimento Matrícula', href: '/academic-support', icon: Headphones },
   { name: 'Alunos', href: '/students', icon: Users },
   { name: 'Turmas', href: '/classes', icon: Users2 },
   { name: 'Cursos', href: '/courses', icon: GraduationCap },
   { name: 'Aulas (LMS)', href: '/lms', icon: BookOpen },
   { name: 'Certificados', href: '/certificates', icon: Award }]
-
 },
 {
   title: 'Financeiro',
@@ -85,7 +83,6 @@ const sidebarGroups = [
   { name: 'Contratos', href: '/contracts', icon: FileText },
   { name: 'Pagamentos', href: '/payments', icon: CreditCard },
   { name: 'Inadimplência', href: '/overdue', icon: AlertTriangle }]
-
 },
 {
   title: 'Gestão',
@@ -95,7 +92,6 @@ const sidebarGroups = [
   { name: 'Relatórios', href: '/reports', icon: BarChart3 },
   { name: 'Roadmap', href: '/roadmap', icon: Rocket },
   { name: 'Configurações', href: '/settings', icon: Settings }]
-
 }];
 
 

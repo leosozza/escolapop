@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Wifi, WifiOff, QrCode, RefreshCcw, Loader2, Copy, CheckCircle2, Plus, Trash2, Users, Shield } from 'lucide-react';
+import { Wifi, WifiOff, QrCode, RefreshCcw, Loader2, Copy, CheckCircle2, Plus, Trash2, Users, Shield, Bug, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';

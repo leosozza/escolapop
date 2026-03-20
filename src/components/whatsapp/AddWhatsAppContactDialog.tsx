@@ -132,10 +132,9 @@ export function AddWhatsAppContactDialog({
         full_name: modelName.trim(),
         guardian_name: guardianName.trim() || null,
         phone: phone.replace(/\D/g, ''),
-        assigned_agent_id: agentId,
         external_id: externalCode.trim() || null,
         external_source: externalCode ? 'bitrix' : null,
-        status: 'agendado',
+        status: 'lead',
         source: 'whatsapp',
       });
 

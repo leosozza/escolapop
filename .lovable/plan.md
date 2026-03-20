@@ -1,77 +1,71 @@
 
 
-# Plano: Perfil do Aluno Completo + Integração de Dados
+# Plano: Varredura Completa e Finalização do Projeto
 
 ## Problemas Identificados
 
-1. **Perfil do aluno incompleto**: Faltam campos de Idade e Código MaxFama no card principal do perfil.
-2. **Join incorreto (ainda presente)**: `StudentProfile.tsx` linhas 142 e 216 ainda usam `profiles!classes_teacher_id_fkey` em vez de `team_members!classes_teacher_id_fkey`.
-3. **Botão de gerar certificado ausente**: Não existe botão direto no perfil para gerar certificado de cursos concluídos.
-4. **Dados da matrícula não refletem no perfil**: Quando o `AddEnrollmentDialog` cria o aluno, salva `student_age` e `referral_agent_code` no enrollment mas não no lead, então o perfil não exibe idade nem código.
+Após análise completa de todas as rotas, páginas, componentes e fluxos do sistema, identifiquei os seguintes problemas:
 
-## O que será feito
+### 1. Dados Hardcoded (Sem Conexão com o Banco)
+- **Reports.tsx**: Todos os KPIs são números fixos (247 leads, 89 agendamentos, 38% conversão, R$89.450 receita, etc). Nenhum dado vem do banco de dados. O gráfico "Funil de Vendas" mostra apenas placeholder "Gráficos serão implementados em breve".
 
-### 1. Completar o card de informações do perfil
-Adicionar ao card principal em `StudentProfile.tsx`:
-- **Idade**: Campo editável que puxa do enrollment mais recente (ou permite edição manual)
-- **Código MaxFama**: Exibir o `referral_agent_code` do enrollment ativo (somente leitura, vem da matrícula)
-- **Observações gerais**: Já existe
+### 2. Botões/Ações Sem Funcionalidade
+- **Contracts.tsx** (linhas 275-292): "Ver detalhes", "Editar", "Marcar como assinado" e "Cancelar" no dropdown não possuem `onClick` — clicam e nada acontece.
+- **Contracts.tsx** (linha 146-149): Botão "Novo Contrato" não tem `onClick`.
+- **Overdue.tsx** (linhas 132-135): "Enviar Cobranças em Massa" não tem ação.
+- **Overdue.tsx** (linhas 266-275): Botões de telefone, email e "Cobrar" não têm ação funcional.
+- **Reports.tsx** (linha 51): Botão "Exportar" não tem ação.
+- **Leads.tsx** (linha 260): "Agendar" no dropdown sem `onClick`.
+- **AppLayout.tsx** (linhas 104-109): Barra de busca global no header não funciona (input sem estado nem ação).
 
-### 2. Corrigir joins com teacher
-Em `StudentProfile.tsx`, trocar os 2 joins de `profiles!classes_teacher_id_fkey` por `team_members!classes_teacher_id_fkey` (linhas 142 e 216).
+### 3. Joins/Queries Incorretos
+- **Overdue.tsx** (linha 60): Usa `profiles!enrollments_student_id_fkey` para buscar dados do aluno. O `student_id` em enrollments referencia `auth.users`, mas os alunos são leads, não usuários. O join deveria ser `lead:leads!enrollments_lead_id_fkey(full_name, phone)`.
 
-### 3. Melhorar aba de cursos matriculados
-Reorganizar a seção de enrollments para mostrar claramente:
-- Status atual de cada curso (badge colorido)
-- Aulas assistidas / total com barra de progresso (já existe)
-- Turma e professor
-- Tipo de matrícula e código
+### 4. Página Órfã
+- **Index.tsx**: Página genérica "Welcome to Your Blank App" — nunca acessível (/ redireciona para /dashboard), mas código desnecessário.
+- **AgentPortfolio.tsx** e **ProducerQueue.tsx**: Estão nas rotas mas não no sidebar — possíveis páginas órfãs.
 
-### 4. Adicionar botão "Gerar Certificado" por curso concluído
-Para cada enrollment com status `concluido` e `certificate_issued = false`, exibir um botão "Gerar Certificado" que navega para `/certificates` com os dados pré-preenchidos. Já existe a função `handleCourseComplete` mas precisa de um botão explícito na seção de histórico.
+### 5. Inconsistências de Nomenclatura
+- **AppLayout.tsx** (linha 25): Rota `/academic-support` tem título "Atendimentos" mas no sidebar é "Atendimento Matrícula".
 
-### 5. Seção de Histórico de Modificações
-Já existe a query de `enrollment_history`. Melhorar a exibição para incluir:
-- Trocas de turma (remanejamento)
-- Rematrículas
-- Mudanças de status com data e horário
+---
 
-### 6. Integrar dados do AddEnrollmentDialog
-No `AddEnrollmentDialog`, ao criar um novo aluno, também salvar `guardian_name` no lead (adicionar campo ao formulário se não existir). Garantir que ao criar a matrícula via Atendimento, os dados fluam corretamente para o perfil.
+## O que Será Feito
 
-## Arquivos a modificar
+### Bloco A: Corrigir Dados Reais nos Relatórios
+- Refatorar `Reports.tsx` para buscar dados reais do banco (contagem de leads, agendamentos, matrículas, taxa de conversão, alunos ativos, presença, valores financeiros, contagem de equipe).
+- Substituir o placeholder do gráfico por um gráfico real usando Recharts (funil de vendas com dados reais).
+
+### Bloco B: Conectar Todas as Ações Desconectadas
+- **Contracts.tsx**: Implementar ações "Marcar como assinado" e "Cancelar" com mutations reais. Adicionar toast de confirmação. O botão "Novo Contrato" permanece desabilitado com tooltip (contratos são criados via matrícula).
+- **Overdue.tsx**: Conectar botão de telefone ao WhatsApp (`openWhatsAppWeb`). Botão "Cobrar" abre WhatsApp com mensagem de cobrança pré-formatada.
+- **Leads.tsx**: Conectar "Agendar" para abrir `ScheduleLeadDialog`.
+
+### Bloco C: Corrigir Query da Inadimplência
+- **Overdue.tsx**: Trocar o join de `profiles!enrollments_student_id_fkey` para `lead:leads!enrollments_lead_id_fkey(full_name, phone)` para exibir corretamente os dados dos alunos.
+
+### Bloco D: Remover Busca Global Inativa
+- **AppLayout.tsx**: Remover a barra de busca global no header que não funciona, ou substituir por navegação rápida.
+
+### Bloco E: Corrigir Nomenclatura
+- **AppLayout.tsx**: Alterar título de `/academic-support` de "Atendimentos" para "Atendimento Matrícula".
+
+### Bloco F: Limpar Código Morto
+- **Index.tsx**: Substituir conteúdo pelo redirect (já existe no App.tsx, mas manter o arquivo limpo).
+
+---
+
+## Arquivos a Modificar
 
 | Arquivo | Ação |
 |---------|------|
-| `src/pages/StudentProfile.tsx` | Corrigir joins (2x), adicionar campos idade/código ao card, botão certificado por curso concluído, melhorar histórico |
-| `src/components/students/AddEnrollmentDialog.tsx` | Adicionar campo `guardian_name` ao formulário de novo aluno para sincronizar com o lead |
+| `src/pages/Reports.tsx` | Buscar dados reais + gráfico Recharts |
+| `src/pages/Contracts.tsx` | Implementar ações do dropdown |
+| `src/pages/Overdue.tsx` | Corrigir join + conectar botões WhatsApp |
+| `src/pages/Leads.tsx` | Conectar ação "Agendar" |
+| `src/components/layout/AppLayout.tsx` | Corrigir título + remover busca inativa |
+| `src/pages/Index.tsx` | Limpar |
 
-## Detalhes técnicos
-
-**Correção de joins em StudentProfile.tsx:**
-```
-// Linha 142 e 216: trocar
-profiles!classes_teacher_id_fkey(full_name)
-// por
-team_members!classes_teacher_id_fkey(full_name)
-```
-
-**Campos no card do perfil (novo layout):**
-```text
-┌─────────────────────────────────────────────┐
-│ Nome Completo       │ Telefone (WhatsApp)   │
-│ Responsável         │ Idade (do enrollment) │
-│ Código MaxFama      │ Tipo de Matrícula     │
-│ Observações Gerais (colspan 2)              │
-│ [Matricular Aluno em Novo Curso]            │
-└─────────────────────────────────────────────┘
-```
-
-**Botão Certificado** na seção de cursos concluídos:
-```typescript
-// Para cada enrollment concluído sem certificado
-<Button onClick={() => navigate('/certificates', { state: { studentName, courseName, completionDate } })}>
-  Gerar Certificado
-</Button>
-```
+## Estimativa
+Aproximadamente 6 arquivos editados. Sem migrações de banco necessárias.
 

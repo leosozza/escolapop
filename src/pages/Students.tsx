@@ -48,38 +48,22 @@ import { StudentCSVImportDialog } from '@/components/students/StudentCSVImportDi
 import { StudentWebhookSheet } from '@/components/students/StudentWebhookSheet';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
 
-interface EnrollmentWithLead {
+interface StudentWithEnrollments {
   id: string;
   lead_id: string;
-  course_id: string;
-  class_id: string | null;
-  status: string;
-  enrolled_at: string;
-  progress_percentage: number | null;
-  enrollment_type?: string | null;
-  influencer_name?: string | null;
-  referral_agent_code?: string | null;
-  student_age?: number | null;
-  course: {
-    id: string;
-    name: string;
-  } | null;
+  full_name: string;
+  age: number | null;
+  guardian_name: string | null;
+  referral_agent_code: string | null;
+  enrollment_type: string | null;
+  influencer_name: string | null;
+  is_active: boolean;
   lead: {
     id: string;
     full_name: string;
     phone: string;
     email: string | null;
   } | null;
-  class: {
-    id: string;
-    name: string;
-    start_date: string;
-    end_date: string | null;
-    teacher: {
-      full_name: string;
-    } | null;
-  } | null;
-  attendance_count?: number;
 }
 
 const ENROLLMENT_TYPE_CONFIG: Record<string, { label: string; color: string }> = {

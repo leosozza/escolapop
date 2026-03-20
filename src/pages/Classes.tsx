@@ -88,6 +88,13 @@ interface Class {
 
 type ViewMode = 'cards' | 'list';
 
+function safeFormatDate(dateStr: string | null | undefined, fmt = 'dd/MM/yyyy'): string {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T12:00:00');
+  if (isNaN(d.getTime())) return '-';
+  return format(d, fmt, { locale: ptBR });
+}
+
 export default function Classes() {
   const [classes, setClasses] = useState<Class[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -406,8 +413,8 @@ export default function Classes() {
         <div className="flex items-center gap-2 text-sm">
           <Calendar className="h-4 w-4 text-muted-foreground" />
           <span>
-            {format(new Date(classItem.start_date), 'dd/MM/yyyy', { locale: ptBR })}
-            {classItem.end_date && ` → ${format(new Date(classItem.end_date), 'dd/MM/yyyy', { locale: ptBR })}`}
+            {safeFormatDate(classItem.start_date)}
+            {classItem.end_date && ` → ${safeFormatDate(classItem.end_date)}`}
           </span>
         </div>
         {classItem.course?.duration_hours && (
@@ -447,7 +454,7 @@ export default function Classes() {
       <td className="p-4">
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm">{format(new Date(classItem.start_date), 'dd/MM/yyyy', { locale: ptBR })}</span>
+          <span className="text-sm">{safeFormatDate(classItem.start_date)}</span>
         </div>
       </td>
       <td className="p-4">

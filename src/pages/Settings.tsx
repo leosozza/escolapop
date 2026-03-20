@@ -1,8 +1,9 @@
-import { User, Plug } from 'lucide-react';
+import { User, Plug, MessageCircle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProfileSettings } from '@/components/settings/ProfileSettings';
 import { WebhookSettings } from '@/components/settings/WebhookSettings';
+import { WhatsAppSettings } from '@/components/settings/WhatsAppSettings';
 
 export default function Settings() {
   const { hasRole } = useAuth();
@@ -10,7 +11,6 @@ export default function Settings() {
 
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl">
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
         <p className="text-muted-foreground">
@@ -18,7 +18,6 @@ export default function Settings() {
         </p>
       </div>
 
-      {/* Tabs */}
       <Tabs defaultValue="profile" className="w-full">
         <TabsList className="mb-6">
           <TabsTrigger value="profile" className="gap-2">
@@ -26,10 +25,16 @@ export default function Settings() {
             Meu Perfil
           </TabsTrigger>
           {canAccessIntegrations && (
-            <TabsTrigger value="integrations" className="gap-2">
-              <Plug className="h-4 w-4" />
-              Integrações
-            </TabsTrigger>
+            <>
+              <TabsTrigger value="integrations" className="gap-2">
+                <Plug className="h-4 w-4" />
+                Integrações
+              </TabsTrigger>
+              <TabsTrigger value="whatsapp" className="gap-2">
+                <MessageCircle className="h-4 w-4" />
+                WhatsApp
+              </TabsTrigger>
+            </>
           )}
         </TabsList>
 
@@ -38,9 +43,14 @@ export default function Settings() {
         </TabsContent>
 
         {canAccessIntegrations && (
-          <TabsContent value="integrations">
-            <WebhookSettings />
-          </TabsContent>
+          <>
+            <TabsContent value="integrations">
+              <WebhookSettings />
+            </TabsContent>
+            <TabsContent value="whatsapp">
+              <WhatsAppSettings />
+            </TabsContent>
+          </>
         )}
       </Tabs>
     </div>

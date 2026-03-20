@@ -804,6 +804,7 @@ export type Database = {
           status: Database["public"]["Enums"]["academic_status"]
           student_age: number | null
           student_id: string | null
+          student_record_id: string | null
           updated_at: string
         }
         Insert: {
@@ -830,6 +831,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["academic_status"]
           student_age?: number | null
           student_id?: string | null
+          student_record_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -856,6 +858,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["academic_status"]
           student_age?: number | null
           student_id?: string | null
+          student_record_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -878,6 +881,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrollments_student_record_id_fkey"
+            columns: ["student_record_id"]
+            isOneToOne: false
+            referencedRelation: "students"
             referencedColumns: ["id"]
           },
         ]
@@ -1574,6 +1584,59 @@ export type Database = {
           youtube_channel?: string | null
         }
         Relationships: []
+      }
+      students: {
+        Row: {
+          age: number | null
+          created_at: string | null
+          enrollment_type: string | null
+          full_name: string
+          guardian_name: string | null
+          id: string
+          influencer_name: string | null
+          is_active: boolean | null
+          lead_id: string
+          notes: string | null
+          referral_agent_code: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          age?: number | null
+          created_at?: string | null
+          enrollment_type?: string | null
+          full_name: string
+          guardian_name?: string | null
+          id?: string
+          influencer_name?: string | null
+          is_active?: boolean | null
+          lead_id: string
+          notes?: string | null
+          referral_agent_code?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          age?: number | null
+          created_at?: string | null
+          enrollment_type?: string | null
+          full_name?: string
+          guardian_name?: string | null
+          id?: string
+          influencer_name?: string | null
+          is_active?: boolean | null
+          lead_id?: string
+          notes?: string | null
+          referral_agent_code?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "students_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       studio_sessions: {
         Row: {

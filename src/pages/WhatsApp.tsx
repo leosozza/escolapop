@@ -130,32 +130,34 @@ const WhatsApp = () => {
 
   const fetchContacts = async () => {
     try {
+      // Fetch all messages ordered by most recent to build phone->lastMessage map
+      const { data: lastMessages } = await supabase
+        .from('whatsapp_messages')
+        .select('phone, content, created_at, direction')
+        .order('created_at', { ascending: false })
+        .limit(1000);
+
+      // Build map: cleaned phone (last 8 digits) -> last message info
+      const messageMap = new Map<string, { content: string | null; created_at: string; direction: string; rawPhone: string }>();
+      const phonesWithMessages = new Set<string>();
+      if (lastMessages) {
+        for (const msg of lastMessages) {
+          const cleanPhone = msg.phone.replace(/\D/g, '').slice(-8);
+          if (!messageMap.has(cleanPhone)) {
+            messageMap.set(cleanPhone, { ...msg, rawPhone: msg.phone });
+          }
+          phonesWithMessages.add(cleanPhone);
+        }
+      }
+
       // Fetch leads
       const { data: leads, error } = await supabase
         .from('leads')
         .select('id, full_name, guardian_name, phone, email, source, status, external_id, external_source, notes, created_at, updated_at, assigned_agent_id')
         .order('updated_at', { ascending: false })
-        .limit(200);
-
-      if (error) throw error;
-
-      // Fetch last message per phone
-      const { data: lastMessages } = await supabase
-        .from('whatsapp_messages')
-        .select('phone, content, created_at, direction')
-        .order('created_at', { ascending: false })
         .limit(500);
 
-      // Build a map of phone -> last message
-      const messageMap = new Map<string, { content: string | null; created_at: string; direction: string }>();
-      if (lastMessages) {
-        for (const msg of lastMessages) {
-          const cleanPhone = msg.phone.replace(/\D/g, '').slice(-8);
-          if (!messageMap.has(cleanPhone)) {
-            messageMap.set(cleanPhone, msg);
-          }
-        }
-      }
+      if (error) throw error;
 
       const contactsWithMessages: WhatsAppContact[] = (leads || []).map(lead => {
         const cleanPhone = lead.phone.replace(/\D/g, '').slice(-8);
@@ -164,10 +166,11 @@ const WhatsApp = () => {
           ...lead,
           last_message: lastMsg?.content || null,
           last_message_at: lastMsg?.created_at || null,
+          _hasConversation: phonesWithMessages.has(cleanPhone),
         };
-      });
+      }) as (WhatsAppContact & { _hasConversation: boolean })[];
 
-      // Sort: contacts with recent messages first, then by updated_at
+      // Sort: contacts with recent messages first
       contactsWithMessages.sort((a, b) => {
         const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
         const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;

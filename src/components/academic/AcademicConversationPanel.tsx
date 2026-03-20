@@ -274,9 +274,15 @@ export function AcademicConversationPanel({
                 <FileText className="h-4 w-4 mr-1" />
                 Ficha Completa
               </Button>
-              <Button onClick={handleOpenWhatsApp} className="gap-2 bg-green-600 hover:bg-green-700 text-white">
-                <MessageCircle className="h-4 w-4" />
-                Abrir WhatsApp Web
+              <WhatsAppStatusIndicator />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleOpenWhatsApp}
+                className="gap-1"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                WhatsApp Web
               </Button>
             </div>
           </div>

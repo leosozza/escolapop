@@ -454,7 +454,7 @@ export default function Classes() {
       <td className="p-4">
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm">{format(new Date(classItem.start_date), 'dd/MM/yyyy', { locale: ptBR })}</span>
+          <span className="text-sm">{safeFormatDate(classItem.start_date)}</span>
         </div>
       </td>
       <td className="p-4">

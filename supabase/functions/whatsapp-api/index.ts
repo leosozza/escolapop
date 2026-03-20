@@ -448,18 +448,24 @@ Deno.serve(async (req) => {
         });
         console.log("connect response:", JSON.stringify(res.data).slice(0, 300));
 
-        if (res.ok) {
-          await updateInstance(instanceId, { status: "connecting", last_error: null });
+        const alreadyConnected = res.data?.error === "already connected" || res.data?.error === "already logged in";
+
+        if (res.ok || alreadyConnected) {
+          const newStatus = alreadyConnected ? "connected" : "connecting";
+          await updateInstance(instanceId, { status: newStatus, last_error: null, ...(alreadyConnected ? { qr_code: null } : {}) });
 
           // Auto-configure webhook on connect
           const webhookUrl = `${SUPABASE_URL}/functions/v1/whatsapp-webhook`;
-          await instanceFetch(inst.wuzapi_token, "/webhook", {
+          const whRes = await instanceFetch(inst.wuzapi_token, "/webhook", {
             method: "POST",
             body: JSON.stringify({
               webhook: webhookUrl,
               events: ["Message", "ReadReceipt", "Connected", "Disconnected"],
             }),
           });
+          console.log("Webhook config after connect:", JSON.stringify(whRes.data).slice(0, 200));
+
+          return json({ success: true, alreadyConnected, data: res.data });
         } else {
           await updateInstance(instanceId, { 
             status: "disconnected", 

@@ -94,6 +94,7 @@ const WhatsApp = () => {
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | undefined>();
   const [instances, setInstances] = useState<{ id: string; name: string; status: string }[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showAllContacts, setShowAllContacts] = useState(false);
 
   // Notes editing
   const [isEditingNotes, setIsEditingNotes] = useState(false);
@@ -129,32 +130,34 @@ const WhatsApp = () => {
 
   const fetchContacts = async () => {
     try {
+      // Fetch all messages ordered by most recent to build phone->lastMessage map
+      const { data: lastMessages } = await supabase
+        .from('whatsapp_messages')
+        .select('phone, content, created_at, direction')
+        .order('created_at', { ascending: false })
+        .limit(1000);
+
+      // Build map: cleaned phone (last 8 digits) -> last message info
+      const messageMap = new Map<string, { content: string | null; created_at: string; direction: string; rawPhone: string }>();
+      const phonesWithMessages = new Set<string>();
+      if (lastMessages) {
+        for (const msg of lastMessages) {
+          const cleanPhone = msg.phone.replace(/\D/g, '').slice(-8);
+          if (!messageMap.has(cleanPhone)) {
+            messageMap.set(cleanPhone, { ...msg, rawPhone: msg.phone });
+          }
+          phonesWithMessages.add(cleanPhone);
+        }
+      }
+
       // Fetch leads
       const { data: leads, error } = await supabase
         .from('leads')
         .select('id, full_name, guardian_name, phone, email, source, status, external_id, external_source, notes, created_at, updated_at, assigned_agent_id')
         .order('updated_at', { ascending: false })
-        .limit(200);
-
-      if (error) throw error;
-
-      // Fetch last message per phone
-      const { data: lastMessages } = await supabase
-        .from('whatsapp_messages')
-        .select('phone, content, created_at, direction')
-        .order('created_at', { ascending: false })
         .limit(500);
 
-      // Build a map of phone -> last message
-      const messageMap = new Map<string, { content: string | null; created_at: string; direction: string }>();
-      if (lastMessages) {
-        for (const msg of lastMessages) {
-          const cleanPhone = msg.phone.replace(/\D/g, '').slice(-8);
-          if (!messageMap.has(cleanPhone)) {
-            messageMap.set(cleanPhone, msg);
-          }
-        }
-      }
+      if (error) throw error;
 
       const contactsWithMessages: WhatsAppContact[] = (leads || []).map(lead => {
         const cleanPhone = lead.phone.replace(/\D/g, '').slice(-8);
@@ -163,10 +166,11 @@ const WhatsApp = () => {
           ...lead,
           last_message: lastMsg?.content || null,
           last_message_at: lastMsg?.created_at || null,
+          _hasConversation: phonesWithMessages.has(cleanPhone),
         };
-      });
+      }) as (WhatsAppContact & { _hasConversation: boolean })[];
 
-      // Sort: contacts with recent messages first, then by updated_at
+      // Sort: contacts with recent messages first
       contactsWithMessages.sort((a, b) => {
         const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
         const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
@@ -184,17 +188,22 @@ const WhatsApp = () => {
     }
   };
 
-  const filteredContacts = searchQuery
-    ? contacts.filter(c => {
-        const q = searchQuery.toLowerCase();
-        return (
-          c.full_name.toLowerCase().includes(q) ||
-          c.phone.includes(q) ||
-          c.guardian_name?.toLowerCase().includes(q) ||
-          c.external_id?.toLowerCase().includes(q)
-        );
-      })
-    : contacts;
+  const filteredContacts = contacts.filter(c => {
+    // Filter by conversation unless showAll is toggled or searching
+    const hasConv = !!(c as any)._hasConversation;
+    if (!showAllContacts && !searchQuery && !hasConv) return false;
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      return (
+        c.full_name.toLowerCase().includes(q) ||
+        c.phone.includes(q) ||
+        c.guardian_name?.toLowerCase().includes(q) ||
+        c.external_id?.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
 
   const handleStatusChange = async (contactId: string, newStatus: LeadStatus) => {
     try {
@@ -279,14 +288,25 @@ const WhatsApp = () => {
             </Select>
           )}
 
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar contato..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="pl-9 h-9 text-sm"
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar contato..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="pl-9 h-9 text-sm"
+              />
+            </div>
+            <Button
+              size="sm"
+              variant={showAllContacts ? 'secondary' : 'ghost'}
+              className="h-9 px-2 shrink-0"
+              onClick={() => setShowAllContacts(!showAllContacts)}
+              title={showAllContacts ? 'Mostrando todos' : 'Mostrar todos os contatos'}
+            >
+              <Users className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 

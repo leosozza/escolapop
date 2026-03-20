@@ -291,7 +291,7 @@ Deno.serve(async (req) => {
 
     const connectRes = await instanceFetch(token, "/session/connect", {
       method: "POST",
-      body: JSON.stringify({ Subscribe: ["Message", "ReadReceipt", "Connected", "Disconnected"], Immediate: true }),
+      body: JSON.stringify({ Subscribe: ["Message", "Receipt", "ReadReceipt", "ChatPresence", "Connected", "Disconnected"], Immediate: true }),
     });
     
     // "already connected" is a success state

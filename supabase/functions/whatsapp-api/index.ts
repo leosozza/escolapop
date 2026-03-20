@@ -403,13 +403,36 @@ Deno.serve(async (req) => {
         const inst = await resolveInstanceAuth(instanceId);
         if (!inst?.wuzapi_token) return json({ error: "Instance not found" }, 404);
 
+        // First check if already connected — no QR needed
+        const statusCheck = await instanceFetch(inst.wuzapi_token, "/session/status", { method: "GET" });
+        const statusInfo = readStatus(statusCheck.data?.data);
+        if (statusInfo.connected && statusInfo.loggedIn) {
+          await syncInstanceState(instanceId, statusCheck.data?.data);
+          return json({ alreadyConnected: true, message: "Sessão já está autenticada. QR Code não é necessário." });
+        }
+
+        // Also check if status response itself contains a QR code
+        if (statusInfo.qrcode) {
+          await updateInstance(instanceId, { qr_code: statusInfo.qrcode, status: "waiting_qr" });
+          return json({ QRCode: statusInfo.qrcode });
+        }
+
         console.log("get-qr token:", inst.wuzapi_token.slice(0, 8));
         const res = await instanceFetch(inst.wuzapi_token, "/session/qr", { method: "GET" });
-        console.log("get-qr response status:", res.status, "has QR:", !!res.data?.data?.QRCode);
+        const qrCode = res.data?.data?.QRCode || res.data?.data?.qrcode || null;
+        console.log("get-qr response status:", res.status, "has QR:", !!qrCode);
         
-        if (res.ok && res.data?.data?.QRCode) {
-          await updateInstance(instanceId, { qr_code: res.data.data.QRCode, status: "waiting_qr" });
+        if (res.ok && qrCode) {
+          await updateInstance(instanceId, { qr_code: qrCode, status: "waiting_qr" });
+          return json({ QRCode: qrCode });
         }
+
+        // "already logged in" means connected
+        if (res.data?.error === "already logged in") {
+          await updateInstance(instanceId, { status: "connected", last_error: null, qr_code: null });
+          return json({ alreadyConnected: true, message: "Sessão já está autenticada." });
+        }
+
         return json(res.data?.data || res.data);
       }
 

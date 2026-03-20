@@ -39,6 +39,9 @@ import { openWhatsAppWeb, getWhatsAppWebLink } from '@/lib/whatsapp';
 import { format, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
+import { WhatsAppChatInput } from '@/components/whatsapp/WhatsAppChatInput';
+import { WhatsAppMessageList } from '@/components/whatsapp/WhatsAppMessageList';
+import { WhatsAppStatusIndicator } from '@/components/whatsapp/WhatsAppStatusIndicator';
 
 interface AcademicContact {
   id: string;

@@ -294,7 +294,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
       // Clear pending state
       setPendingSubmit(null);
 
-      // 1. Criar o lead (sem email)
+      // 1. Criar o lead (sem email) - marcado como acadêmico
       const { data: leadData, error: leadError } = await supabase
         .from('leads')
         .insert({
@@ -304,7 +304,8 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
           source: 'indicacao' as const,
           status: 'matriculado' as const,
           notes: values.notes || null,
-        })
+          origin_sector: 'academico',
+        } as never)
         .select('id')
         .single();
 
@@ -325,11 +326,21 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
       if (values.influencer_name) enrollmentData.influencer_name = values.influencer_name;
       if (values.referral_agent_code) enrollmentData.referral_agent_code = values.referral_agent_code;
 
-      const { error: enrollmentError } = await supabase
+      const { data: enrollmentResult, error: enrollmentError } = await supabase
         .from('enrollments')
-        .insert(enrollmentData as never);
+        .insert(enrollmentData as never)
+        .select('id')
+        .single();
 
       if (enrollmentError) throw enrollmentError;
+
+      // Inserir na tabela de junção class_enrollments
+      if (values.class_id && enrollmentResult) {
+        await supabase.from('class_enrollments').insert({
+          class_id: values.class_id,
+          enrollment_id: enrollmentResult.id,
+        });
+      }
 
       toast.success('Matrícula realizada!', {
         description: `${values.full_name} foi matriculado com sucesso. ${COURSE_WEEKS} aulas agendadas.`,
@@ -387,9 +398,17 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
       if (values.referral_agent_code) enrollmentData.referral_agent_code = values.referral_agent_code;
       if (values.student_age) enrollmentData.student_age = values.student_age;
 
-      const { error } = await supabase
+      // Marcar lead como acadêmico
+      await supabase
+        .from('leads')
+        .update({ origin_sector: 'academico' } as never)
+        .eq('id', values.lead_id);
+
+      const { data: enrollmentResult, error } = await supabase
         .from('enrollments')
-        .insert(enrollmentData as never);
+        .insert(enrollmentData as never)
+        .select('id')
+        .single();
 
       if (error) {
         if (error.code === '23505') {
@@ -398,6 +417,14 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
           throw error;
         }
         return;
+      }
+
+      // Inserir na tabela de junção class_enrollments
+      if (values.class_id && enrollmentResult) {
+        await supabase.from('class_enrollments').insert({
+          class_id: values.class_id,
+          enrollment_id: enrollmentResult.id,
+        });
       }
 
       toast.success('Matrícula realizada!', {

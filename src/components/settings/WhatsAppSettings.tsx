@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Wifi, WifiOff, QrCode, RefreshCcw, Loader2, Copy, CheckCircle2, Plus, Trash2, Users, Shield } from 'lucide-react';
+import { Wifi, WifiOff, QrCode, RefreshCcw, Loader2, Copy, CheckCircle2, Plus, Trash2, Users, Shield, Bug, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -21,6 +22,7 @@ interface Instance {
   phone_number: string | null;
   qr_code: string | null;
   last_error: string | null;
+  wuzapi_token: string | null;
   updated_at: string;
 }
 
@@ -34,6 +36,9 @@ export function WhatsAppSettings() {
   const [creating, setCreating] = useState(false);
   const [accessDialogInstance, setAccessDialogInstance] = useState<Instance | null>(null);
   const [copied, setCopied] = useState(false);
+  const [diagInstance, setDiagInstance] = useState<string | null>(null);
+  const [diagLogs, setDiagLogs] = useState<string[]>([]);
+  const [diagLoading, setDiagLoading] = useState(false);
 
   const canManage = hasRole('admin') || hasRole('gestor');
   const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;
@@ -143,6 +148,77 @@ export function WhatsAppSettings() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleDiagnostic = async (inst: Instance) => {
+    setDiagInstance(inst.id);
+    setDiagLogs([]);
+    setDiagLoading(true);
+    const logs: string[] = [];
+    const log = (msg: string) => { logs.push(`[${new Date().toLocaleTimeString()}] ${msg}`); setDiagLogs([...logs]); };
+
+    try {
+      log(`Iniciando diagnóstico da instância "${inst.name}" (${inst.id})`);
+      log(`Tipo de conexão: ${inst.connection_type}`);
+      log(`Status atual no banco: ${inst.status}`);
+      log(`Telefone: ${inst.phone_number || 'não definido'}`);
+      log(`Último erro: ${inst.last_error || 'nenhum'}`);
+      log(`Token WuzAPI: ${inst.wuzapi_token ? inst.wuzapi_token.slice(0, 8) + '...' : 'AUSENTE'}`);
+
+      // 1. Check status
+      log('--- Verificando status da sessão na WuzAPI...');
+      const { data: statusData, error: statusErr } = await supabase.functions.invoke('whatsapp-api', {
+        body: { action: 'check-status', instanceId: inst.id },
+      });
+      if (statusErr) {
+        log(`❌ Erro ao verificar status: ${statusErr.message}`);
+      } else {
+        log(`✅ Resposta status: connected=${statusData?.connected}`);
+        if (statusData?.details) {
+          log(`   Detalhes: ${JSON.stringify(statusData.details).slice(0, 300)}`);
+        }
+      }
+
+      // 2. Try connect if disconnected
+      if (!statusData?.connected) {
+        log('--- Tentando conectar...');
+        const { data: connectData, error: connectErr } = await supabase.functions.invoke('whatsapp-api', {
+          body: { action: 'connect', instanceId: inst.id },
+        });
+        if (connectErr) {
+          log(`❌ Erro ao conectar: ${connectErr.message}`);
+        } else {
+          log(`✅ Resposta connect: ${JSON.stringify(connectData).slice(0, 300)}`);
+        }
+
+        // 3. Try QR
+        log('--- Solicitando QR Code...');
+        await new Promise(r => setTimeout(r, 1500));
+        const { data: qrData, error: qrErr } = await supabase.functions.invoke('whatsapp-api', {
+          body: { action: 'get-qr', instanceId: inst.id },
+        });
+        if (qrErr) {
+          log(`❌ Erro ao obter QR: ${qrErr.message}`);
+        } else if (qrData?.QRCode) {
+          log(`✅ QR Code recebido (${qrData.QRCode.length} chars)`);
+        } else {
+          log(`⚠️ QR Code não disponível: ${JSON.stringify(qrData).slice(0, 200)}`);
+        }
+      }
+
+      // 4. Webhook config check
+      log(`--- Webhook URL configurada: ${webhookUrl}`);
+      log('Diagnóstico concluído.');
+    } catch (err) {
+      log(`❌ Erro geral: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setDiagLoading(false);
+    }
+  };
+
+  const copyDiagLogs = () => {
+    navigator.clipboard.writeText(diagLogs.join('\n'));
+    toast.success('Logs copiados para a área de transferência!');
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -250,6 +326,10 @@ export function WhatsAppSettings() {
 
                     {canManage && (
                       <>
+                        <Button variant="outline" size="sm" onClick={() => handleDiagnostic(inst)} disabled={loading || diagLoading}>
+                          {diagLoading && diagInstance === inst.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Bug className="h-3.5 w-3.5 mr-1" />}
+                          Diagnóstico
+                        </Button>
                         <Button variant="outline" size="sm" onClick={() => setAccessDialogInstance(inst)}>
                           <Users className="h-3.5 w-3.5 mr-1" />
                           Acessos
@@ -261,6 +341,29 @@ export function WhatsAppSettings() {
                       </>
                     )}
                   </div>
+
+                  {/* Diagnostic Logs Panel */}
+                  {diagInstance === inst.id && diagLogs.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-muted-foreground">Logs de Diagnóstico</span>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={copyDiagLogs}>
+                            <Copy className="h-3 w-3 mr-1" />
+                            Copiar
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => { setDiagInstance(null); setDiagLogs([]); }}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                      <ScrollArea className="h-48 rounded border bg-muted/50 p-3">
+                        <pre className="text-xs font-mono whitespace-pre-wrap text-foreground/80">
+                          {diagLogs.join('\n')}
+                        </pre>
+                      </ScrollArea>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );

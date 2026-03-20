@@ -248,10 +248,43 @@ Deno.serve(async (req) => {
     };
   };
 
+  // Helper: case-insensitive field reader for WuzAPI responses
+  const readStatus = (data: Record<string, unknown> | null | undefined) => {
+    if (!data) return { connected: false, loggedIn: false, qrcode: null as string | null, jid: null as string | null };
+    const connected = (data.connected ?? data.Connected ?? false) as boolean;
+    const loggedIn = (data.loggedIn ?? data.LoggedIn ?? false) as boolean;
+    const qrcode = (data.qrcode ?? data.QRCode ?? data.qr_code ?? null) as string | null;
+    const jid = (data.jid ?? data.JID ?? null) as string | null;
+    return { connected, loggedIn, qrcode, jid };
+  };
+
+  // Helper: sync instance state from WuzAPI status response
+  const syncInstanceState = async (instanceId: string, statusData: Record<string, unknown> | null) => {
+    const { connected, loggedIn, jid } = readStatus(statusData);
+    const phone = normalizeRemotePhone(jid);
+    const updates: Record<string, unknown> = {
+      last_check_at: new Date().toISOString(),
+    };
+    if (connected && loggedIn) {
+      updates.status = "connected";
+      updates.last_error = null;
+      updates.qr_code = null;
+    } else if (connected && !loggedIn) {
+      updates.status = "waiting_qr";
+    } else {
+      updates.status = "disconnected";
+    }
+    if (phone) updates.phone_number = phone;
+    await updateInstance(instanceId, updates);
+    return { connected, loggedIn };
+  };
+
   // Helper: auto-reconnect for an instance
   const ensureConnected = async (instanceId: string, token: string): Promise<boolean> => {
     const statusRes = await instanceFetch(token, "/session/status", { method: "GET" });
-    if (statusRes.ok && statusRes.data?.data?.Connected) {
+    const { connected, loggedIn } = readStatus(statusRes.data?.data);
+    
+    if (connected && loggedIn) {
       await updateInstance(instanceId, { status: "connected", last_error: null, last_check_at: new Date().toISOString() });
       return true;
     }
@@ -260,12 +293,15 @@ Deno.serve(async (req) => {
       method: "POST",
       body: JSON.stringify({ Subscribe: ["Message", "ReadReceipt", "Connected", "Disconnected"], Immediate: true }),
     });
-    if (connectRes.ok) {
-      await updateInstance(instanceId, { status: "connecting", last_error: null, last_check_at: new Date().toISOString() });
+    
+    // "already connected" is a success state
+    const alreadyConnected = connectRes.data?.error === "already connected" || connectRes.data?.error === "already logged in";
+    if (connectRes.ok || alreadyConnected) {
+      await updateInstance(instanceId, { status: alreadyConnected ? "connected" : "connecting", last_error: null, last_check_at: new Date().toISOString() });
       return true;
     }
 
-    const errorMsg = connectRes.data?.message || "Failed to reconnect";
+    const errorMsg = connectRes.data?.error || connectRes.data?.message || "Failed to reconnect";
     await updateInstance(instanceId, { status: "disconnected", last_error: errorMsg, last_check_at: new Date().toISOString() });
     return false;
   };
@@ -358,13 +394,8 @@ Deno.serve(async (req) => {
         const res = await instanceFetch(inst.wuzapi_token, "/session/status", { method: "GET" });
         console.log("check-status response:", JSON.stringify(res.data).slice(0, 300));
         
-        const connected = res.ok && res.data?.data?.Connected;
-        await updateInstance(instanceId, {
-          status: connected ? "connected" : "disconnected",
-          last_check_at: new Date().toISOString(),
-          last_error: connected ? null : (res.data?.error || res.data?.data?.message || null),
-        });
-        return json({ connected, details: res.data });
+        const { connected, loggedIn } = await syncInstanceState(instanceId, res.data?.data);
+        return json({ connected: connected && loggedIn, details: res.data });
       }
 
       case "get-qr": {
@@ -372,13 +403,36 @@ Deno.serve(async (req) => {
         const inst = await resolveInstanceAuth(instanceId);
         if (!inst?.wuzapi_token) return json({ error: "Instance not found" }, 404);
 
+        // First check if already connected — no QR needed
+        const statusCheck = await instanceFetch(inst.wuzapi_token, "/session/status", { method: "GET" });
+        const statusInfo = readStatus(statusCheck.data?.data);
+        if (statusInfo.connected && statusInfo.loggedIn) {
+          await syncInstanceState(instanceId, statusCheck.data?.data);
+          return json({ alreadyConnected: true, message: "Sessão já está autenticada. QR Code não é necessário." });
+        }
+
+        // Also check if status response itself contains a QR code
+        if (statusInfo.qrcode) {
+          await updateInstance(instanceId, { qr_code: statusInfo.qrcode, status: "waiting_qr" });
+          return json({ QRCode: statusInfo.qrcode });
+        }
+
         console.log("get-qr token:", inst.wuzapi_token.slice(0, 8));
         const res = await instanceFetch(inst.wuzapi_token, "/session/qr", { method: "GET" });
-        console.log("get-qr response status:", res.status, "has QR:", !!res.data?.data?.QRCode);
+        const qrCode = res.data?.data?.QRCode || res.data?.data?.qrcode || null;
+        console.log("get-qr response status:", res.status, "has QR:", !!qrCode);
         
-        if (res.ok && res.data?.data?.QRCode) {
-          await updateInstance(instanceId, { qr_code: res.data.data.QRCode, status: "waiting_qr" });
+        if (res.ok && qrCode) {
+          await updateInstance(instanceId, { qr_code: qrCode, status: "waiting_qr" });
+          return json({ QRCode: qrCode });
         }
+
+        // "already logged in" means connected
+        if (res.data?.error === "already logged in") {
+          await updateInstance(instanceId, { status: "connected", last_error: null, qr_code: null });
+          return json({ alreadyConnected: true, message: "Sessão já está autenticada." });
+        }
+
         return json(res.data?.data || res.data);
       }
 
@@ -394,18 +448,24 @@ Deno.serve(async (req) => {
         });
         console.log("connect response:", JSON.stringify(res.data).slice(0, 300));
 
-        if (res.ok) {
-          await updateInstance(instanceId, { status: "connecting", last_error: null });
+        const alreadyConnected = res.data?.error === "already connected" || res.data?.error === "already logged in";
+
+        if (res.ok || alreadyConnected) {
+          const newStatus = alreadyConnected ? "connected" : "connecting";
+          await updateInstance(instanceId, { status: newStatus, last_error: null, ...(alreadyConnected ? { qr_code: null } : {}) });
 
           // Auto-configure webhook on connect
           const webhookUrl = `${SUPABASE_URL}/functions/v1/whatsapp-webhook`;
-          await instanceFetch(inst.wuzapi_token, "/webhook", {
+          const whRes = await instanceFetch(inst.wuzapi_token, "/webhook", {
             method: "POST",
             body: JSON.stringify({
               webhook: webhookUrl,
               events: ["Message", "ReadReceipt", "Connected", "Disconnected"],
             }),
           });
+          console.log("Webhook config after connect:", JSON.stringify(whRes.data).slice(0, 200));
+
+          return json({ success: true, alreadyConnected, data: res.data });
         } else {
           await updateInstance(instanceId, { 
             status: "disconnected", 

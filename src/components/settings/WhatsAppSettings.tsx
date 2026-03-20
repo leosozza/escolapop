@@ -177,30 +177,40 @@ export function WhatsAppSettings() {
         }
       }
 
-      // 2. Try connect if disconnected
-      if (!statusData?.connected) {
+      // 2. If already connected, skip connect/QR steps
+      if (statusData?.connected) {
+        log('✅ Instância já está conectada e autenticada!');
+        log('ℹ️ QR Code não é necessário porque a sessão já está ativa.');
+      } else {
+        // 2b. Try connect if disconnected
         log('--- Tentando conectar...');
         const { data: connectData, error: connectErr } = await supabase.functions.invoke('whatsapp-api', {
           body: { action: 'connect', instanceId: inst.id },
         });
         if (connectErr) {
           log(`❌ Erro ao conectar: ${connectErr.message}`);
+        } else if (connectData?.alreadyConnected) {
+          log('✅ Instância já estava conectada (confirmado pela WuzAPI).');
         } else {
           log(`✅ Resposta connect: ${JSON.stringify(connectData).slice(0, 300)}`);
         }
 
-        // 3. Try QR
-        log('--- Solicitando QR Code...');
-        await new Promise(r => setTimeout(r, 1500));
-        const { data: qrData, error: qrErr } = await supabase.functions.invoke('whatsapp-api', {
-          body: { action: 'get-qr', instanceId: inst.id },
-        });
-        if (qrErr) {
-          log(`❌ Erro ao obter QR: ${qrErr.message}`);
-        } else if (qrData?.QRCode) {
-          log(`✅ QR Code recebido (${qrData.QRCode.length} chars)`);
-        } else {
-          log(`⚠️ QR Code não disponível: ${JSON.stringify(qrData).slice(0, 200)}`);
+        // 3. Try QR only if not already connected
+        if (!connectData?.alreadyConnected) {
+          log('--- Solicitando QR Code...');
+          await new Promise(r => setTimeout(r, 1500));
+          const { data: qrData, error: qrErr } = await supabase.functions.invoke('whatsapp-api', {
+            body: { action: 'get-qr', instanceId: inst.id },
+          });
+          if (qrErr) {
+            log(`❌ Erro ao obter QR: ${qrErr.message}`);
+          } else if (qrData?.alreadyConnected) {
+            log(`✅ ${qrData.message || 'Sessão já autenticada, QR não necessário.'}`);
+          } else if (qrData?.QRCode) {
+            log(`✅ QR Code recebido (${qrData.QRCode.length} chars)`);
+          } else {
+            log(`⚠️ QR Code não disponível: ${JSON.stringify(qrData).slice(0, 200)}`);
+          }
         }
       }
 

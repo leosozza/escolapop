@@ -448,6 +448,26 @@ export default function StudentProfile() {
                 placeholder="Nome do responsável (se menor)"
               />
             </div>
+            <div className="space-y-2">
+              <Label className="text-sm">Idade</Label>
+              <p className="text-sm text-muted-foreground pt-1">
+                {enrollments?.[0]?.student_age ? `${enrollments[0].student_age} anos` : '—'}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm">Código MaxFama</Label>
+              <p className="text-sm text-muted-foreground pt-1">
+                {enrollments?.find(e => e.referral_agent_code)?.referral_agent_code || '—'}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm">Tipo de Matrícula</Label>
+              <p className="text-sm text-muted-foreground pt-1">
+                {enrollments?.[0]?.enrollment_type
+                  ? ENROLLMENT_TYPE_CONFIG[enrollments[0].enrollment_type]?.label || enrollments[0].enrollment_type
+                  : '—'}
+              </p>
+            </div>
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="notes">Observações Gerais</Label>
               <Textarea

@@ -72,7 +72,7 @@ export function AddAcademicContactDialog({
 
   const createContactMutation = useMutation({
     mutationFn: async () => {
-      // First create the lead
+      // First create the lead (contato)
       const { data: lead, error: leadError } = await supabase
         .from('leads')
         .insert({
@@ -80,19 +80,33 @@ export function AddAcademicContactDialog({
           phone: phone.replace(/\D/g, ''),
           status: 'matriculado',
           source: 'presencial',
+          origin_sector: 'academico',
         })
         .select()
         .single();
 
       if (leadError) throw leadError;
 
-      // Then create the enrollment
+      // Create student record
+      const { data: studentData, error: studentError } = await supabase
+        .from('students')
+        .insert({
+          lead_id: lead.id,
+          full_name: fullName,
+        } as never)
+        .select('id')
+        .single();
+
+      if (studentError) throw studentError;
+
+      // Then create the enrollment linked to both
       const { error: enrollmentError } = await supabase.from('enrollments').insert({
         lead_id: lead.id,
+        student_record_id: studentData.id,
         course_id: courseId,
         class_id: classId || null,
         status: 'ativo',
-      });
+      } as never);
 
       if (enrollmentError) throw enrollmentError;
 

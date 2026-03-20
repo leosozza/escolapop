@@ -397,17 +397,40 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
   const onSubmitExistingLead = async (values: ExistingLeadFormValues) => {
     setIsSubmitting(true);
     try {
-      // Update lead status to matriculado and set agent if provided
-      const leadUpdate: Record<string, unknown> = { status: 'matriculado' as const };
-      // agent_id from agents table is not compatible with assigned_agent_id FK (auth.users)
-      
+      // Update lead status to matriculado
       await supabase
         .from('leads')
-        .update(leadUpdate)
+        .update({ status: 'matriculado' as const, origin_sector: 'academico' } as never)
         .eq('id', values.lead_id);
+
+      // Get lead name for student record
+      const { data: leadInfo } = await supabase
+        .from('leads')
+        .select('full_name, guardian_name')
+        .eq('id', values.lead_id)
+        .single();
+
+      // Create student record
+      const { data: studentData, error: studentError } = await supabase
+        .from('students')
+        .insert({
+          lead_id: values.lead_id,
+          full_name: leadInfo?.full_name || 'Aluno',
+          age: values.student_age || null,
+          guardian_name: leadInfo?.guardian_name || null,
+          referral_agent_code: values.referral_agent_code || null,
+          enrollment_type: values.enrollment_type || null,
+          influencer_name: values.influencer_name || null,
+          notes: values.notes || null,
+        } as never)
+        .select('id')
+        .single();
+
+      if (studentError) throw studentError;
 
       const enrollmentData: Record<string, unknown> = {
         lead_id: values.lead_id,
+        student_record_id: studentData.id,
         course_id: values.course_id,
         class_id: values.class_id,
         notes: values.notes || null,
@@ -419,12 +442,6 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
       if (values.influencer_name) enrollmentData.influencer_name = values.influencer_name;
       if (values.referral_agent_code) enrollmentData.referral_agent_code = values.referral_agent_code;
       if (values.student_age) enrollmentData.student_age = values.student_age;
-
-      // Marcar lead como acadêmico
-      await supabase
-        .from('leads')
-        .update({ origin_sector: 'academico' } as never)
-        .eq('id', values.lead_id);
 
       const { data: enrollmentResult, error } = await supabase
         .from('enrollments')

@@ -120,25 +120,33 @@ Deno.serve(async (req) => {
         const generatedToken = crypto.randomUUID().replace(/-/g, "");
 
         // Create user in WuzAPI with explicit token
+        console.log("Creating WuzAPI user:", name, "with token:", generatedToken.slice(0, 8));
         const res = await adminFetch("/admin/users", {
           method: "POST",
           body: JSON.stringify({ name, token: generatedToken }),
         });
 
+        console.log("WuzAPI create response:", JSON.stringify(res.data).slice(0, 500));
+
         if (!res.ok) {
           return json({ error: "Failed to create WuzAPI user", details: res.data }, 500);
         }
 
-        const wuzapiUser = res.data?.data || res.data;
+        // WuzAPI returns data as array: { code: 200, data: [{ id: 1, name: "...", token: "..." }] }
+        // or as object: { data: { id: 1, ... } }
+        const rawData = res.data?.data;
+        const wuzapiUser = Array.isArray(rawData) ? rawData[0] : rawData;
         const token = wuzapiUser?.token || generatedToken;
         const userId = wuzapiUser?.id;
+
+        console.log("Parsed user:", { token: token?.slice(0, 8), userId });
 
         // Save instance to DB
         const { data: instance, error: insertError } = await supabase
           .from("whatsapp_instances")
           .insert({
             name,
-            wuzapi_user_id: String(userId),
+            wuzapi_user_id: userId != null ? String(userId) : null,
             wuzapi_token: token,
             connection_type: connectionType || "qrcode",
             status: "disconnected",
@@ -153,13 +161,14 @@ Deno.serve(async (req) => {
         // Auto-configure webhook using the instance token
         if (token) {
           const webhookUrl = `${SUPABASE_URL}/functions/v1/whatsapp-webhook`;
-          await instanceFetch(token, "/webhook", {
+          const whRes = await instanceFetch(token, "/webhook", {
             method: "POST",
             body: JSON.stringify({
               webhook: webhookUrl,
               events: ["Message", "ReadReceipt", "Connected", "Disconnected"],
             }),
           });
+          console.log("Webhook config response:", JSON.stringify(whRes.data).slice(0, 200));
         }
 
         return json({ success: true, instance: { id: instance.id, name } });
@@ -194,12 +203,15 @@ Deno.serve(async (req) => {
         const inst = await getInstanceToken(instanceId);
         if (!inst?.wuzapi_token) return json({ error: "Instance not found" }, 404);
 
+        console.log("check-status token:", inst.wuzapi_token.slice(0, 8), "user:", inst.wuzapi_user_id);
         const res = await instanceFetch(inst.wuzapi_token, "/session/status", { method: "GET" });
+        console.log("check-status response:", JSON.stringify(res.data).slice(0, 300));
+        
         const connected = res.ok && res.data?.data?.Connected;
         await updateInstance(instanceId, {
           status: connected ? "connected" : "disconnected",
           last_check_at: new Date().toISOString(),
-          last_error: connected ? null : (res.data?.data?.message || null),
+          last_error: connected ? null : (res.data?.error || res.data?.data?.message || null),
         });
         return json({ connected, details: res.data });
       }
@@ -209,7 +221,10 @@ Deno.serve(async (req) => {
         const inst = await getInstanceToken(instanceId);
         if (!inst?.wuzapi_token) return json({ error: "Instance not found" }, 404);
 
+        console.log("get-qr token:", inst.wuzapi_token.slice(0, 8));
         const res = await instanceFetch(inst.wuzapi_token, "/session/qr", { method: "GET" });
+        console.log("get-qr response status:", res.status, "has QR:", !!res.data?.data?.QRCode);
+        
         if (res.ok && res.data?.data?.QRCode) {
           await updateInstance(instanceId, { qr_code: res.data.data.QRCode, status: "waiting_qr" });
         }
@@ -221,10 +236,12 @@ Deno.serve(async (req) => {
         const inst = await getInstanceToken(instanceId);
         if (!inst?.wuzapi_token) return json({ error: "Instance not found" }, 404);
 
+        console.log("connect token:", inst.wuzapi_token.slice(0, 8), "user:", inst.wuzapi_user_id);
         const res = await instanceFetch(inst.wuzapi_token, "/session/connect", {
           method: "POST",
           body: JSON.stringify({ Subscribe: ["Message", "ReadReceipt", "Connected", "Disconnected"], Immediate: true }),
         });
+        console.log("connect response:", JSON.stringify(res.data).slice(0, 300));
 
         if (res.ok) {
           await updateInstance(instanceId, { status: "connecting", last_error: null });
@@ -237,6 +254,11 @@ Deno.serve(async (req) => {
               webhook: webhookUrl,
               events: ["Message", "ReadReceipt", "Connected", "Disconnected"],
             }),
+          });
+        } else {
+          await updateInstance(instanceId, { 
+            status: "disconnected", 
+            last_error: res.data?.error || res.data?.raw || "Falha ao conectar" 
           });
         }
         return json(res.data);

@@ -1,0 +1,1 @@
+DELETE FROM whatsapp_instances WHERE wuzapi_user_id = 'undefined' OR wuzapi_user_id IS NULL;

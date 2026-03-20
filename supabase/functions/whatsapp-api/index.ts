@@ -274,13 +274,13 @@ Deno.serve(async (req) => {
         }
 
         const formattedPhone = phone.replace(/\D/g, "");
-        const jid = formattedPhone.startsWith("55")
-          ? `${formattedPhone}@s.whatsapp.net`
-          : `55${formattedPhone}@s.whatsapp.net`;
+        const phoneNumber = formattedPhone.startsWith("55")
+          ? formattedPhone
+          : `55${formattedPhone}`;
 
         const res = await instanceFetch(inst.wuzapi_token, "/chat/send/text", {
           method: "POST",
-          body: JSON.stringify({ Phone: jid, Body: message }),
+          body: JSON.stringify({ Phone: phoneNumber, Body: message }),
         });
 
         const msgStatus = res.ok ? "sent" : "failed";

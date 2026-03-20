@@ -49,6 +49,7 @@ export default function Leads() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
+  const [isScheduleOpen, setIsScheduleOpen] = useState(false);
   const { toast } = useToast();
   const { isAdmin } = useAuth();
 

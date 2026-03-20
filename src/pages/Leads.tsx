@@ -37,6 +37,7 @@ import { LEAD_STATUS_CONFIG, LEAD_SOURCE_CONFIG } from '@/types/database';
 import { AddLeadDialog } from '@/components/crm/AddLeadDialog';
 import { LeadDetailsSheet } from '@/components/leads/LeadDetailsSheet';
 import { EditLeadDialog } from '@/components/leads/EditLeadDialog';
+import { ScheduleLeadDialog } from '@/components/appointments/ScheduleLeadDialog';
 
 export default function Leads() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -48,6 +49,7 @@ export default function Leads() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
+  const [isScheduleOpen, setIsScheduleOpen] = useState(false);
   const { toast } = useToast();
   const { isAdmin } = useAuth();
 
@@ -256,7 +258,10 @@ export default function Leads() {
                           <Edit className="h-4 w-4 mr-2" />
                           Editar
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => {
+                          setSelectedLead(lead);
+                          setIsScheduleOpen(true);
+                        }}>
                           <CalendarPlus className="h-4 w-4 mr-2" />
                           Agendar
                         </DropdownMenuItem>
@@ -320,6 +325,12 @@ export default function Leads() {
           onSuccess={fetchLeads}
         />
       )}
+
+      <ScheduleLeadDialog
+        open={isScheduleOpen}
+        onOpenChange={setIsScheduleOpen}
+        onSuccess={fetchLeads}
+      />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>

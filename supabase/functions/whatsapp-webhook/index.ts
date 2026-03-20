@@ -19,6 +19,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
+    console.log("Webhook received:", JSON.stringify(body).slice(0, 500));
 
     // Validate webhook secret if provided
     const webhookSecret = req.headers.get("x-webhook-secret");
@@ -30,25 +31,22 @@ Deno.serve(async (req) => {
     }
 
     const eventType = body.event || body.type;
+    const instanceJid = body.instance || "";
+    const instancePhone = instanceJid.replace(/@s\.whatsapp\.net$/, "").replace(/\..*$/, "");
 
-    // Helper: find instance by JID or token in the payload
+    // Helper: find instance by JID/phone from the webhook payload
     const findInstanceId = async (): Promise<string | null> => {
-      // WuzAPI may include the instance JID in the payload
-      const jid = body.Info?.Sender || body.instance || body.jid || "";
-      const phone = jid.replace("@s.whatsapp.net", "").replace("@g.us", "");
-
-      if (phone) {
-        // Try to find instance by phone_number
+      if (instancePhone) {
         const { data } = await supabase
           .from("whatsapp_instances")
           .select("id")
-          .or(`phone_number.eq.${phone},phone_number.like.%${phone.slice(-8)}%`)
+          .or(`phone_number.eq.${instancePhone},phone_number.like.%${instancePhone.slice(-8)}%`)
           .limit(1)
           .maybeSingle();
         if (data) return data.id;
       }
 
-      // Fallback: use the first active instance
+      // Fallback: first connected instance
       const { data: firstInstance } = await supabase
         .from("whatsapp_instances")
         .select("id")
@@ -59,9 +57,10 @@ Deno.serve(async (req) => {
       return firstInstance?.id || null;
     };
 
-    if (eventType === "message" || body.Info?.MessageSource) {
-      const message = body.Message || body;
-      const sender = body.Info?.Sender || body.sender || "";
+    // ============ MESSAGE EVENTS ============
+    if (eventType === "Message") {
+      const msgData = body.data || {};
+      const sender = msgData.sender || msgData.Info?.Sender || "";
       const phone = sender.replace("@s.whatsapp.net", "").replace("@g.us", "");
 
       if (!phone) {
@@ -72,7 +71,28 @@ Deno.serve(async (req) => {
 
       const instanceId = await findInstanceId();
 
-      // Find matching lead
+      // Extract message content — WuzAPI format
+      const message = msgData.message || msgData.Message || {};
+      const content =
+        message.conversation ||
+        message.extendedTextMessage?.text ||
+        message.imageMessage?.caption ||
+        message.documentMessage?.title ||
+        message.Conversation ||
+        message.ExtendedTextMessage?.Text ||
+        message.ImageMessage?.Caption ||
+        message.DocumentMessage?.Title ||
+        "[Mídia recebida]";
+
+      const messageType = (message.imageMessage || message.ImageMessage)
+        ? "image"
+        : (message.documentMessage || message.DocumentMessage)
+          ? "document"
+          : (message.audioMessage || message.AudioMessage)
+            ? "audio"
+            : "text";
+
+      // Find matching lead by phone
       const cleanPhone = phone.replace(/^55/, "");
       const { data: lead } = await supabase
         .from("leads")
@@ -81,49 +101,35 @@ Deno.serve(async (req) => {
         .limit(1)
         .maybeSingle();
 
-      const content =
-        message.Conversation ||
-        message.ExtendedTextMessage?.Text ||
-        message.ImageMessage?.Caption ||
-        message.DocumentMessage?.Title ||
-        "[Mídia recebida]";
-
-      const messageType = message.ImageMessage
-        ? "image"
-        : message.DocumentMessage
-          ? "document"
-          : message.AudioMessage
-            ? "audio"
-            : "text";
-
       await supabase.from("whatsapp_messages").insert({
         phone,
         content,
         lead_id: lead?.id || null,
         direction: "inbound",
         message_type: messageType,
-        wuzapi_message_id: body.Info?.Id || null,
+        wuzapi_message_id: msgData.id || msgData.Info?.Id || null,
         status: "received",
         instance_id: instanceId,
       });
+
+      console.log("Message saved from:", phone, "content:", content.slice(0, 50));
 
       return new Response(JSON.stringify({ ok: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Session status events — update instance status
-    if (eventType === "disconnected" || eventType === "LoggedOut" ||
-        eventType === "connected" || eventType === "Ready") {
+    // ============ STATUS EVENTS ============
+    if (eventType === "Connected" || eventType === "Disconnected" ||
+        eventType === "LoggedOut" || eventType === "Ready" ||
+        eventType === "connected" || eventType === "disconnected") {
 
-      const isConnected = eventType === "connected" || eventType === "Ready";
+      const isConnected = eventType === "Connected" || eventType === "Ready" || eventType === "connected";
       const newStatus = isConnected ? "connected" : "disconnected";
 
-      // Try to identify which instance this event belongs to
-      const jid = body.jid || body.JID || "";
-      const instancePhone = jid.replace("@s.whatsapp.net", "");
+      console.log("Status event:", eventType, "instance:", instancePhone, "→", newStatus);
 
-      // Update matching instance or fallback to all
+      // Update matching instance
       if (instancePhone) {
         const { data: inst } = await supabase
           .from("whatsapp_instances")
@@ -142,7 +148,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Also update legacy whatsapp_session for backward compatibility
+      // Legacy whatsapp_session compatibility
       const { data: existing } = await supabase
         .from("whatsapp_session")
         .select("id")
@@ -160,6 +166,11 @@ Deno.serve(async (req) => {
       } else {
         await supabase.from("whatsapp_session").insert(sessionData);
       }
+    }
+
+    // ============ READ RECEIPT ============
+    if (eventType === "ReadReceipt") {
+      console.log("Read receipt received");
     }
 
     return new Response(JSON.stringify({ ok: true }), {

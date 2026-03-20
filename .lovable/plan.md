@@ -1,26 +1,23 @@
 
 
-# Plano: Filtrar Contatos por Conversas Existentes
+# Plano: Remover Toda Lógica de "Abrir WhatsApp Web"
 
-## Problema
+## O que será feito
 
-A página `/whatsapp` lista **todos os leads** (até 200), incluindo contatos que nunca tiveram nenhuma conversa no WhatsApp. Isso polui a lista e dificulta o atendimento.
+Remover todas as referências a `openWhatsAppWeb` e `getWhatsAppWebLink` do sistema, já que agora todo atendimento WhatsApp é feito pela página `/whatsapp` integrada.
 
-## Solução
+## Arquivos a Modificar
 
-Mudar a lógica de `fetchContacts` para mostrar **apenas contatos que possuem mensagens** na tabela `whatsapp_messages`. Em vez de buscar leads e depois cruzar com mensagens, inverter: buscar telefones distintos com mensagens e então carregar os leads correspondentes.
+| Arquivo | Ação |
+|---------|------|
+| `src/pages/WhatsApp.tsx` | Remover botão "Abrir WhatsApp Web" do header do chat, remover import |
+| `src/components/academic/AcademicConversationPanel.tsx` | Remover botão "WhatsApp Web" e imports relacionados |
+| `src/components/whatsapp/WhatsAppContactPanel.tsx` | Remover `handleOpenWhatsApp` e import |
+| `src/components/students/StudentDetailsSheet.tsx` | Substituir botão WhatsApp por link para `/whatsapp` ou remover |
+| `src/pages/StudentProfile.tsx` | Substituir 3 botões WhatsApp por navegação para `/whatsapp` |
+| `src/pages/Overdue.tsx` | Substituir botão de cobrança WhatsApp por navegação para `/whatsapp` |
+| `src/components/classes/ClassStudentsList.tsx` | Remover referência a `openWhatsAppWeb` |
+| `src/lib/whatsapp.ts` | Remover funções `openWhatsAppWeb` e `getWhatsAppWebLink` |
 
-## Mudança em `src/pages/WhatsApp.tsx`
-
-Na função `fetchContacts`:
-
-1. Buscar telefones distintos com mensagens em `whatsapp_messages` (agrupado por phone, com última mensagem e timestamp)
-2. Para cada telefone com mensagem, buscar o lead correspondente na tabela `leads` pelo phone
-3. Manter o botão "+" para iniciar conversa com novo contato (que aparecerá na lista após a primeira mensagem)
-4. Adicionar um botão/toggle "Todos os contatos" para quem quiser ver a lista completa de leads (sem conversa)
-
-Fluxo simplificado:
-- Por padrão: só contatos com conversa (mensagens existentes)
-- Toggle "Todos": mostra todos os leads como hoje
-- Busca: funciona em ambos os modos
+Em páginas como StudentProfile e Overdue, onde o botão WhatsApp tinha contexto (enviar mensagem de cobrança, certificado), o botão será mantido mas redirecionará para `/whatsapp` com o contato pré-selecionado via query param ou simplesmente abrirá a página `/whatsapp`.
 

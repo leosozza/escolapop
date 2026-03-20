@@ -203,12 +203,15 @@ Deno.serve(async (req) => {
         const inst = await getInstanceToken(instanceId);
         if (!inst?.wuzapi_token) return json({ error: "Instance not found" }, 404);
 
+        console.log("check-status token:", inst.wuzapi_token.slice(0, 8), "user:", inst.wuzapi_user_id);
         const res = await instanceFetch(inst.wuzapi_token, "/session/status", { method: "GET" });
+        console.log("check-status response:", JSON.stringify(res.data).slice(0, 300));
+        
         const connected = res.ok && res.data?.data?.Connected;
         await updateInstance(instanceId, {
           status: connected ? "connected" : "disconnected",
           last_check_at: new Date().toISOString(),
-          last_error: connected ? null : (res.data?.data?.message || null),
+          last_error: connected ? null : (res.data?.error || res.data?.data?.message || null),
         });
         return json({ connected, details: res.data });
       }
@@ -218,7 +221,10 @@ Deno.serve(async (req) => {
         const inst = await getInstanceToken(instanceId);
         if (!inst?.wuzapi_token) return json({ error: "Instance not found" }, 404);
 
+        console.log("get-qr token:", inst.wuzapi_token.slice(0, 8));
         const res = await instanceFetch(inst.wuzapi_token, "/session/qr", { method: "GET" });
+        console.log("get-qr response status:", res.status, "has QR:", !!res.data?.data?.QRCode);
+        
         if (res.ok && res.data?.data?.QRCode) {
           await updateInstance(instanceId, { qr_code: res.data.data.QRCode, status: "waiting_qr" });
         }
@@ -230,10 +236,12 @@ Deno.serve(async (req) => {
         const inst = await getInstanceToken(instanceId);
         if (!inst?.wuzapi_token) return json({ error: "Instance not found" }, 404);
 
+        console.log("connect token:", inst.wuzapi_token.slice(0, 8), "user:", inst.wuzapi_user_id);
         const res = await instanceFetch(inst.wuzapi_token, "/session/connect", {
           method: "POST",
           body: JSON.stringify({ Subscribe: ["Message", "ReadReceipt", "Connected", "Disconnected"], Immediate: true }),
         });
+        console.log("connect response:", JSON.stringify(res.data).slice(0, 300));
 
         if (res.ok) {
           await updateInstance(instanceId, { status: "connecting", last_error: null });
@@ -246,6 +254,11 @@ Deno.serve(async (req) => {
               webhook: webhookUrl,
               events: ["Message", "ReadReceipt", "Connected", "Disconnected"],
             }),
+          });
+        } else {
+          await updateInstance(instanceId, { 
+            status: "disconnected", 
+            last_error: res.data?.error || res.data?.raw || "Falha ao conectar" 
           });
         }
         return json(res.data);

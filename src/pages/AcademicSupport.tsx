@@ -127,6 +127,7 @@ export default function AcademicSupport() {
         .from('leads')
         .select('id, full_name, phone, created_at, updated_at')
         .eq('status', 'lead')
+        .eq('origin_sector' as any, 'academico')
         .order('created_at', { ascending: false });
 
       // Fetch response tracking data

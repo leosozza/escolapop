@@ -117,7 +117,7 @@ export default function Students() {
           student_age,
           course:courses(id, name),
           lead:leads!enrollments_lead_id_fkey(id, full_name, phone, email),
-          class:classes(id, name, start_date, end_date, teacher:profiles!classes_teacher_id_fkey(full_name))
+          class:classes(id, name, start_date, end_date, teacher:team_members!classes_teacher_id_fkey(full_name))
         `)
         .not('lead_id', 'is', null)
         .order('enrolled_at', { ascending: false });

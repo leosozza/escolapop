@@ -1,75 +1,26 @@
 
 
-# Plano: Página WhatsApp Web-Like para Atendimento
+# Plano: Filtrar Contatos por Conversas Existentes
 
 ## Problema
 
-A página `/whatsapp` usa `WhatsAppContactPanel` que, ao selecionar um contato, mostra `WhatsAppConversation` — um painel de **dados do contato** (notas, status, info). Não exibe mensagens reais nem permite enviar. Os componentes `WhatsAppMessageList` e `WhatsAppChatInput` existem mas não são usados nessa página.
+A página `/whatsapp` lista **todos os leads** (até 200), incluindo contatos que nunca tiveram nenhuma conversa no WhatsApp. Isso polui a lista e dificulta o atendimento.
 
 ## Solução
 
-Redesenhar a página `/whatsapp` como um layout estilo WhatsApp Web:
+Mudar a lógica de `fetchContacts` para mostrar **apenas contatos que possuem mensagens** na tabela `whatsapp_messages`. Em vez de buscar leads e depois cruzar com mensagens, inverter: buscar telefones distintos com mensagens e então carregar os leads correspondentes.
 
-```text
-┌──────────────┬─────────────────────────────────────┐
-│  Sidebar     │  Chat Area                          │
-│  ─────────── │  ┌─────────────────────────────────┐│
-│  [Search]    │  │ Header: Nome + Status + Info btn ││
-│  [Instance]  │  ├─────────────────────────────────┤│
-│              │  │                                 ││
-│  Contact 1 ● │  │  Message bubbles (realtime)     ││
-│  Contact 2   │  │  ...                            ││
-│  Contact 3   │  │                                 ││
-│              │  ├─────────────────────────────────┤│
-│              │  │ [Input box]            [Send]   ││
-│              │  └─────────────────────────────────┘│
-└──────────────┴─────────────────────────────────────┘
-```
+## Mudança em `src/pages/WhatsApp.tsx`
 
-## O que será feito
+Na função `fetchContacts`:
 
-### 1. Reescrever `src/pages/WhatsApp.tsx`
-Layout completo com 3 zonas:
-- **Sidebar esquerda** (~350px): busca, seletor de instância (dropdown com instâncias que o usuário tem acesso), lista de contatos com preview da última mensagem e timestamp
-- **Área de chat central**: header do contato (avatar, nome, telefone, status badge), `WhatsAppMessageList` ocupando toda a altura, `WhatsAppChatInput` fixo no fundo
-- **Painel de info** (opcional, toggle): dados do contato, tabulação, notas — conteúdo atual do `WhatsAppConversation`
+1. Buscar telefones distintos com mensagens em `whatsapp_messages` (agrupado por phone, com última mensagem e timestamp)
+2. Para cada telefone com mensagem, buscar o lead correspondente na tabela `leads` pelo phone
+3. Manter o botão "+" para iniciar conversa com novo contato (que aparecerá na lista após a primeira mensagem)
+4. Adicionar um botão/toggle "Todos os contatos" para quem quiser ver a lista completa de leads (sem conversa)
 
-### 2. Refatorar lista de contatos
-- Buscar leads **com** a última mensagem de cada um (subquery ou join em `whatsapp_messages`)
-- Ordenar por última mensagem (contatos com conversa recente primeiro)
-- Incluir todos os status (não filtrar matriculados — WhatsApp atende todos)
-- Mostrar preview da última mensagem truncada + hora
-- Indicador de mensagens não lidas (mensagens inbound sem resposta)
-
-### 3. Integrar instância automaticamente
-- Ao abrir a página, buscar instâncias com acesso do usuário (`whatsapp_instance_access`)
-- Se houver apenas 1, selecionar automaticamente
-- Se houver múltiplas, mostrar dropdown no topo do sidebar
-- A instância selecionada é passada para `WhatsAppChatInput`
-
-### 4. Chat com realtime
-- `WhatsAppMessageList` já tem realtime — será usado diretamente
-- Background estilo WhatsApp (pattern sutil ou cor `bg-[#e5ddd5]` / dark mode `bg-[#0b141a]`)
-- Bolhas verdes (outbound) e brancas (inbound) — já existem no componente
-
-### 5. Header do chat
-- Avatar com iniciais, nome, telefone
-- Badge de status do lead
-- Botão "Info" que abre/fecha painel lateral com dados do contato
-- Botão fallback "Abrir no WhatsApp Web"
-- Indicador de conexão da instância
-
-## Arquivos a Modificar
-
-| Arquivo | Ação |
-|---------|------|
-| `src/pages/WhatsApp.tsx` | Reescrever completamente — layout WhatsApp Web |
-| `src/components/whatsapp/WhatsAppContactPanel.tsx` | Não mais usado pela página WhatsApp (mantido para outros usos) |
-| `src/components/whatsapp/WhatsAppConversation.tsx` | Extrair info do contato para um componente `WhatsAppContactInfo` reutilizável |
-
-Componentes existentes reutilizados sem alteração:
-- `WhatsAppMessageList` (chat bubbles + realtime)
-- `WhatsAppChatInput` (input + envio via API)
-- `WhatsAppStatusIndicator` (indicador de conexão)
-- `AddWhatsAppContactDialog` (adicionar contato)
+Fluxo simplificado:
+- Por padrão: só contatos com conversa (mensagens existentes)
+- Toggle "Todos": mostra todos os leads como hoje
+- Busca: funciona em ambos os modos
 

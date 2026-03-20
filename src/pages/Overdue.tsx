@@ -38,6 +38,7 @@ export default function Overdue() {
   const [payments, setPayments] = useState<OverduePayment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchOverduePayments();

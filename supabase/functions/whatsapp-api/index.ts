@@ -248,10 +248,43 @@ Deno.serve(async (req) => {
     };
   };
 
+  // Helper: case-insensitive field reader for WuzAPI responses
+  const readStatus = (data: Record<string, unknown> | null | undefined) => {
+    if (!data) return { connected: false, loggedIn: false, qrcode: null as string | null, jid: null as string | null };
+    const connected = (data.connected ?? data.Connected ?? false) as boolean;
+    const loggedIn = (data.loggedIn ?? data.LoggedIn ?? false) as boolean;
+    const qrcode = (data.qrcode ?? data.QRCode ?? data.qr_code ?? null) as string | null;
+    const jid = (data.jid ?? data.JID ?? null) as string | null;
+    return { connected, loggedIn, qrcode, jid };
+  };
+
+  // Helper: sync instance state from WuzAPI status response
+  const syncInstanceState = async (instanceId: string, statusData: Record<string, unknown> | null) => {
+    const { connected, loggedIn, jid } = readStatus(statusData);
+    const phone = normalizeRemotePhone(jid);
+    const updates: Record<string, unknown> = {
+      last_check_at: new Date().toISOString(),
+    };
+    if (connected && loggedIn) {
+      updates.status = "connected";
+      updates.last_error = null;
+      updates.qr_code = null;
+    } else if (connected && !loggedIn) {
+      updates.status = "waiting_qr";
+    } else {
+      updates.status = "disconnected";
+    }
+    if (phone) updates.phone_number = phone;
+    await updateInstance(instanceId, updates);
+    return { connected, loggedIn };
+  };
+
   // Helper: auto-reconnect for an instance
   const ensureConnected = async (instanceId: string, token: string): Promise<boolean> => {
     const statusRes = await instanceFetch(token, "/session/status", { method: "GET" });
-    if (statusRes.ok && statusRes.data?.data?.Connected) {
+    const { connected, loggedIn } = readStatus(statusRes.data?.data);
+    
+    if (connected && loggedIn) {
       await updateInstance(instanceId, { status: "connected", last_error: null, last_check_at: new Date().toISOString() });
       return true;
     }
@@ -260,12 +293,15 @@ Deno.serve(async (req) => {
       method: "POST",
       body: JSON.stringify({ Subscribe: ["Message", "ReadReceipt", "Connected", "Disconnected"], Immediate: true }),
     });
-    if (connectRes.ok) {
-      await updateInstance(instanceId, { status: "connecting", last_error: null, last_check_at: new Date().toISOString() });
+    
+    // "already connected" is a success state
+    const alreadyConnected = connectRes.data?.error === "already connected" || connectRes.data?.error === "already logged in";
+    if (connectRes.ok || alreadyConnected) {
+      await updateInstance(instanceId, { status: alreadyConnected ? "connected" : "connecting", last_error: null, last_check_at: new Date().toISOString() });
       return true;
     }
 
-    const errorMsg = connectRes.data?.message || "Failed to reconnect";
+    const errorMsg = connectRes.data?.error || connectRes.data?.message || "Failed to reconnect";
     await updateInstance(instanceId, { status: "disconnected", last_error: errorMsg, last_check_at: new Date().toISOString() });
     return false;
   };

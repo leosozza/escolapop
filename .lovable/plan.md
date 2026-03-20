@@ -1,89 +1,90 @@
 
 
-# Plano: WhatsApp Multi-Instância com Permissões de Acesso
+# Plano: Corrigir Integração WhatsApp WuzAPI
 
-## Contexto
+## Problemas Identificados
 
-A WuzAPI suporta múltiplas instâncias (cada "user" na API = uma instância com seu próprio token, número WhatsApp e webhook). Atualmente o sistema trata como sessão única. Precisamos:
+### 1. Endpoints WuzAPI incorretos na Edge Function
+A documentação WuzAPI mostra que:
+- `POST /chat/send/text` espera `Phone` como **número simples** (ex: `5491155553935`), **sem** o sufixo `@s.whatsapp.net`
+- O código atual em `whatsapp-api` (linha 278) adiciona `@s.whatsapp.net` ao número antes de enviar — isso está **errado** segundo a doc
 
-1. Gerenciar múltiplas instâncias (criar, conectar via QR ou oficial, desconectar, excluir)
-2. Controlar quais usuários do sistema podem acessar cada instância
-3. Configurar webhook automaticamente ao criar a instância
-
-## Arquitetura
-
-```text
-Admin cria instância → POST /admin/users (WuzAPI)
-  → Salva na tabela whatsapp_instances (token, nome, tipo)
-  → Configura webhook automaticamente: POST /webhook
-  → Conecta: POST /session/connect
-  → Exibe QR: GET /session/qr
-
-Permissões:
-  whatsapp_instance_access (instance_id, user_id)
-  → Operador só vê/usa instâncias que tem acesso
+### 2. Webhook recebendo formato diferente do esperado
+A documentação mostra que o webhook WuzAPI envia no formato:
+```json
+{
+  "event": "Message",
+  "instance": "5491155553934.0:53@s.whatsapp.net",
+  "data": {
+    "id": "3EB0ABCD...",
+    "pushName": "Nome",
+    "sender": "5491199999999@s.whatsapp.net",
+    "message": { "conversation": "Olá" }
+  }
+}
 ```
+Mas o código do webhook (linhas 62-65) procura por `body.Info?.MessageSource`, `body.Message`, `body.Info?.Sender` — que é o formato **antigo** do whatsmeow, não o formato atual do WuzAPI. O webhook vai ignorar todas as mensagens recebidas.
 
-## Migração SQL
+### 3. Webhook de status também com formato errado
+Eventos de conexão vêm como `{ "event": "Connected", "instance": "..." }`, mas o código (linhas 116-117) procura `eventType === "connected"` (minúsculo) e `"Ready"` — deveria ser `"Connected"` e `"Disconnected"` (maiúsculo).
 
-1. **Criar tabela `whatsapp_instances`** (substitui `whatsapp_session` como entidade principal):
-   - `id`, `name` (nome da instância), `wuzapi_user_id` (ID do user na WuzAPI), `wuzapi_token` (token gerado), `connection_type` (qrcode/oficial), `status` (disconnected/connecting/connected), `phone_number`, `qr_code`, `last_error`, `last_check_at`, `created_by`, `created_at`, `updated_at`
+### 4. Configuração do webhook na instância usa `POST /webhook` com body incorreto
+O campo correto é `webhook` e `events` (que está certo), mas o endpoint usa o **token da instância** (header `token`), o que está correto.
 
-2. **Criar tabela `whatsapp_instance_access`** (permissões):
-   - `id`, `instance_id` (FK → whatsapp_instances), `user_id` (FK → auth.users), `created_at`
-   - RLS: admin/gestor pode gerenciar; staff pode ler apenas instâncias que têm acesso
+### 5. `check-status` parseia resposta incorretamente
+O código (linha 198) verifica `res.data?.data?.Connected` — segundo a doc, a resposta é `{ code: 200, data: { Connected: true, LoggedIn: true } }`, então `res.data.data.Connected` está correto se o JSON parse funciona bem.
 
-3. **Atualizar `whatsapp_messages`**: adicionar coluna `instance_id` (FK → whatsapp_instances) para saber por qual instância a mensagem foi enviada/recebida
+## O que será feito
 
-## Edge Function `whatsapp-api` — Refatoração
+### Edge Function `whatsapp-api`
+1. **Corrigir `send-text`**: Enviar `Phone` como número puro sem `@s.whatsapp.net`
+2. **Corrigir `send-document`**: Mesmo fix — número sem JID suffix
 
-Adicionar novas ações:
-- `create-instance`: Chama `POST /admin/users` com `WUZAPI_ADMIN_TOKEN`, salva na tabela `whatsapp_instances`, configura webhook automaticamente via `POST /webhook`
-- `delete-instance`: Chama `DELETE /admin/users/{id}/full`, remove da tabela
-- `list-instances`: Lista instâncias da WuzAPI via `GET /admin/users`
+### Edge Function `whatsapp-webhook`
+1. **Reescrever parser de mensagens** para o formato correto do WuzAPI:
+   - Evento `"Message"`: dados em `body.data` (não `body.Info`/`body.Message`)
+   - Sender em `body.data.sender`, conteúdo em `body.data.message.conversation`
+   - Instance ID em `body.instance`
+2. **Corrigir eventos de status**: `"Connected"` e `"Disconnected"` (maiúsculo)
+3. **Melhorar identificação da instância**: usar `body.instance` (JID da instância) para encontrar qual `whatsapp_instance` corresponde, buscando pelo `wuzapi_user_id` ou `phone_number`
 
-Ações existentes (`connect`, `get-qr`, `check-status`, `disconnect`, `send-text`, `send-document`) passam a receber `instanceId` como parâmetro para identificar qual instância usar. O token da instância é buscado na tabela `whatsapp_instances` e usado no header `token` (em vez do `WUZAPI_ADMIN_TOKEN`).
-
-A configuração do webhook é automática: ao criar a instância, a Edge Function faz `POST /webhook` com a URL do `whatsapp-webhook` e eventos `["Message", "ReadReceipt", "Connected", "Disconnected"]`.
-
-## Edge Function `whatsapp-webhook` — Ajuste
-
-Ao receber mensagem, identificar a instância pelo campo `instance` do payload (que contém o JID da instância). Buscar na tabela `whatsapp_instances` pelo `phone_number` e salvar o `instance_id` na mensagem.
-
-## UI — Nova Página de Gestão de Instâncias
-
-Refatorar `WhatsAppSettings.tsx` para:
-
-1. **Lista de instâncias**: Cards mostrando cada instância com nome, número, status (badge colorido), tipo de conexão
-2. **Botão "Nova Instância"**: Dialog para criar — campos: nome da instância, tipo (QR Code / Oficial)
-3. **Ações por instância**: Conectar, Desconectar, Ver QR Code, Gerenciar Acessos, Excluir
-4. **Dialog "Gerenciar Acessos"**: Lista de usuários do sistema com checkboxes para conceder/revogar acesso à instância
-
-## Permissões no Frontend
-
-- Apenas `admin` e `gestor` podem criar/excluir instâncias e gerenciar acessos
-- Operadores com acesso a uma instância podem: ver status, enviar mensagens, ver conversas
-- No painel de conversa WhatsApp, mostrar selector de instância (apenas as que o operador tem acesso)
-
-## Arquivos a Criar/Modificar
+## Arquivos a Modificar
 
 | Arquivo | Ação |
 |---------|------|
-| Migração SQL | Criar `whatsapp_instances`, `whatsapp_instance_access`, adicionar `instance_id` em `whatsapp_messages` |
-| `supabase/functions/whatsapp-api/index.ts` | Refatorar para multi-instância (create/delete/list + token por instância) |
-| `supabase/functions/whatsapp-webhook/index.ts` | Identificar instância pelo payload |
-| `src/components/settings/WhatsAppSettings.tsx` | Refatorar para gerenciar múltiplas instâncias |
-| `src/components/settings/WhatsAppInstanceAccessDialog.tsx` | Criar — gerenciar permissões por instância |
-| `src/components/whatsapp/WhatsAppConversation.tsx` | Adicionar selector de instância |
-| `src/components/academic/AcademicConversationPanel.tsx` | Usar instância com acesso para enviar |
-| `src/types/database.ts` | Adicionar tipos WhatsAppInstance e WhatsAppInstanceAccess |
+| `supabase/functions/whatsapp-api/index.ts` | Remover `@s.whatsapp.net` do Phone em send-text e send-document |
+| `supabase/functions/whatsapp-webhook/index.ts` | Reescrever para formato correto do WuzAPI |
 
-## Fluxo Completo
+## Detalhes técnicos
 
-1. Admin acessa Settings → WhatsApp → clica "Nova Instância"
-2. Escolhe nome e tipo (QR Code ou Oficial) → sistema cria user na WuzAPI + salva localmente
-3. Webhook é configurado automaticamente (sem ação manual)
-4. Admin clica "Conectar" → exibe QR Code → escaneia com celular
-5. Admin vai em "Gerenciar Acessos" → seleciona quais operadores podem usar esta instância
-6. Operador abre conversa → vê apenas instâncias que tem acesso → envia/recebe mensagens pela instância selecionada
+**send-text fix (whatsapp-api linha 277-283):**
+```typescript
+// Antes (ERRADO):
+const jid = formattedPhone.startsWith("55")
+  ? `${formattedPhone}@s.whatsapp.net`
+  : `55${formattedPhone}@s.whatsapp.net`;
+body: JSON.stringify({ Phone: jid, Body: message })
+
+// Depois (CORRETO):
+const phoneNumber = formattedPhone.startsWith("55")
+  ? formattedPhone
+  : `55${formattedPhone}`;
+body: JSON.stringify({ Phone: phoneNumber, Body: message })
+```
+
+**webhook rewrite — formato correto:**
+```typescript
+// Formato real do WuzAPI:
+// { event: "Message", instance: "55...@s.whatsapp.net", data: { sender: "55...@s.whatsapp.net", message: { conversation: "text" } } }
+
+if (eventType === "Message") {
+  const sender = body.data?.sender || "";
+  const phone = sender.replace("@s.whatsapp.net", "");
+  const content = body.data?.message?.conversation
+    || body.data?.message?.extendedTextMessage?.text
+    || body.data?.message?.imageMessage?.caption
+    || "[Mídia recebida]";
+  // ... save to whatsapp_messages
+}
+```
 

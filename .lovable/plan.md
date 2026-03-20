@@ -1,48 +1,83 @@
 
 
-# Plano: Atualizar Roadmap com Status Real do Projeto
+# Plano: Criar Tabela de Alunos Separada dos Leads
 
-## O que está desatualizado
+## Problema
 
-O roadmap atual não reflete as funcionalidades implementadas nas últimas iterações. Vários itens marcados como "planned" ou "in-progress" já foram concluídos.
+Atualmente, alunos e leads/contatos são a mesma entidade na tabela `leads`. Porém, um contato (lead) pode ter 2 ou mais filhos — cada um sendo um aluno diferente. O modelo atual não suporta isso: `enrollments.lead_id` aponta para o contato, mas não identifica qual filho é o aluno.
 
-## Atualizações por Fase
+## Solução
 
-### Fase 2 — Gestão de Alunos (manter 100%)
-- Adicionar features: Remanejamento, Rematrícula, Dashboard de Alunos (KPIs), Justificativa de Presença
+Criar uma tabela `students` que representa o aluno individual, vinculado a um contato (`lead_id`). A tabela `enrollments` passará a referenciar `student_id` (da nova tabela `students`) em vez de usar o `lead_id` diretamente como identificador do aluno.
 
-### Fase 5 — Gestão Acadêmica (manter 100%)
-- Adicionar features: Atendimento Matrícula (dashboard completo), Automação 24h/48h, Tabulações pós-matrícula (ausente, reprovado_faltas, formado), Certificado em massa, Transferência de turma
+```text
+leads (contato/responsável)
+  └── students (aluno 1 - filho)
+        └── enrollments (matrícula no curso)
+  └── students (aluno 2 - filho)
+        └── enrollments (matrícula no curso)
+```
 
-### Fase 6 — Financeiro → marcar **completed** (100%)
-- Relatórios Financeiros agora funcionam via Reports.tsx com dados reais do banco
+## Migração SQL
 
-### Fase 7 — Integrações Básicas → marcar **completed** (100%)
-- Adicionar: Gestão de Acessos (criar login/senha internamente), Edge Functions (manage-users, academic-lead-automations)
+```sql
+-- Tabela de alunos
+CREATE TABLE public.students (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  lead_id uuid NOT NULL REFERENCES public.leads(id) ON DELETE CASCADE,
+  full_name text NOT NULL,
+  age integer,
+  guardian_name text,
+  referral_agent_code text,
+  enrollment_type text,
+  influencer_name text,
+  notes text,
+  is_active boolean DEFAULT true,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
 
-### Fase 8 — Integrações Avançadas → atualizar para **in-progress** (20%)
-- WhatsApp links já funcionam (openWhatsAppWeb) em vários módulos — marcar como "in-progress"
-- Resto continua planned
+ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
 
-### Fase 10 — Dashboards Executivos → atualizar para **in-progress** (40%)
-- Gráficos de Funil: **completed** (Recharts em Reports.tsx)
-- Relatórios de Conversão: **completed** (dados reais)
-- Export CSV: **completed** (Reports.tsx)
-- Forecast/Evasão: planned
+-- RLS
+CREATE POLICY "Staff can manage students" ON public.students FOR ALL USING (is_staff(auth.uid()));
+CREATE POLICY "Staff can view students" ON public.students FOR SELECT USING (is_staff(auth.uid()));
 
-### Nova Fase a considerar: Gestão de Acessos e Permissões
-- Já implementado: UserManagement, CreateUserDialog, ResetPasswordDialog, manage-users edge function, roles por área
-- Poderia ser incorporado na Fase 7 ou ser feature destacada
+-- Adicionar referência na enrollments
+ALTER TABLE public.enrollments ADD COLUMN student_record_id uuid REFERENCES public.students(id);
 
-## Arquivo a modificar
+-- Migrar dados existentes: criar um student para cada lead com enrollment
+INSERT INTO public.students (lead_id, full_name, age, referral_agent_code, influencer_name)
+SELECT DISTINCT ON (e.lead_id) 
+  e.lead_id, l.full_name, e.student_age, e.referral_agent_code, e.influencer_name
+FROM public.enrollments e
+JOIN public.leads l ON l.id = e.lead_id
+WHERE e.lead_id IS NOT NULL;
+
+-- Vincular enrollments existentes ao student criado
+UPDATE public.enrollments e
+SET student_record_id = s.id
+FROM public.students s
+WHERE s.lead_id = e.lead_id;
+```
+
+## Arquivos a Modificar
 
 | Arquivo | Ação |
 |---------|------|
-| `src/pages/Roadmap.tsx` | Atualizar array `roadmapPhases` com status corretos, novas features e percentuais reais |
+| Migração SQL | Criar tabela `students`, migrar dados |
+| `src/components/students/AddEnrollmentDialog.tsx` | Ao matricular, criar registro em `students` e vincular ao enrollment |
+| `src/pages/Students.tsx` | Query principal busca `students` com join em `leads` e `enrollments` |
+| `src/pages/StudentProfile.tsx` | Carregar dados do `student` + `lead` (contato) separadamente |
+| `src/components/academic/AddAcademicContactDialog.tsx` | Criar student ao matricular |
+| `src/types/database.ts` | Adicionar tipo Student |
 
-## Resumo dos novos números
-- Fases concluídas: 7 (era 5)
-- Fases em progresso: 2 (era 2, mas diferentes)
-- Fases planejadas: 3 (era 5)
-- Progresso geral: ~65% (era ~52%)
+## Fluxo Após Mudança
+
+1. Lead é criado (contato/responsável) com nome, telefone, email
+2. Ao matricular, cria-se um **student** vinculado ao lead (com nome do aluno, idade, etc.)
+3. O enrollment referencia o `student_record_id`
+4. Um mesmo lead pode ter N students (filhos)
+5. Página de Alunos lista `students` (não leads)
+6. Perfil do aluno mostra dados do student + dados do contato (lead pai)
 

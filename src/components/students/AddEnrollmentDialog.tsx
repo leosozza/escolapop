@@ -302,6 +302,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
         .insert({
           full_name: values.full_name,
           phone: values.phone,
+          guardian_name: values.guardian_name || null,
           course_interest_id: values.course_id,
           source: 'indicacao' as const,
           status: 'matriculado' as const,

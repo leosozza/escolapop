@@ -296,7 +296,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
       // Clear pending state
       setPendingSubmit(null);
 
-      // 1. Criar o lead (sem email) - marcado como acadêmico
+      // 1. Criar o lead (contato/responsável) - marcado como acadêmico
       const { data: leadData, error: leadError } = await supabase
         .from('leads')
         .insert({
@@ -314,9 +314,28 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
 
       if (leadError) throw leadError;
 
-      // 2. Criar a matrícula usando o lead_id - class_id é obrigatório
+      // 2. Criar o registro de aluno na tabela students
+      const { data: studentData, error: studentError } = await supabase
+        .from('students')
+        .insert({
+          lead_id: leadData.id,
+          full_name: values.full_name,
+          age: values.student_age,
+          guardian_name: values.guardian_name || null,
+          referral_agent_code: values.referral_agent_code || null,
+          enrollment_type: values.enrollment_type || null,
+          influencer_name: values.influencer_name || null,
+          notes: values.notes || null,
+        } as never)
+        .select('id')
+        .single();
+
+      if (studentError) throw studentError;
+
+      // 3. Criar a matrícula vinculada ao student
       const enrollmentData: Record<string, unknown> = {
         lead_id: leadData.id,
+        student_record_id: studentData.id,
         course_id: values.course_id,
         class_id: values.class_id,
         notes: values.notes || null,

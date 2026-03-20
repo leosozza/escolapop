@@ -82,6 +82,42 @@ export default function Students() {
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
 
+  // Fetch students from the students table
+  const { data: studentsList, isLoading: studentsLoading } = useQuery({
+    queryKey: ['students-list', searchTerm],
+    queryFn: async () => {
+      let query = supabase
+        .from('students')
+        .select(`
+          id,
+          lead_id,
+          full_name,
+          age,
+          guardian_name,
+          referral_agent_code,
+          enrollment_type,
+          influencer_name,
+          is_active,
+          lead:leads!students_lead_id_fkey(id, full_name, phone, email)
+        `)
+        .eq('is_active', true)
+        .order('full_name');
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      if (searchTerm) {
+        return (data as unknown as StudentWithEnrollments[])?.filter(s =>
+          s.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          s.lead?.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }
+
+      return data as unknown as StudentWithEnrollments[];
+    },
+  });
+
+  // Fetch enrollments for display
   const { data: enrollments, isLoading, refetch } = useQuery({
     queryKey: ['enrollments-leads', searchTerm, statusFilter, courseFilter],
     queryFn: async () => {
@@ -90,6 +126,7 @@ export default function Students() {
         .select(`
           id,
           lead_id,
+          student_record_id,
           course_id,
           class_id,
           status,
@@ -117,7 +154,7 @@ export default function Students() {
       const { data, error } = await query;
       if (error) throw error;
 
-      const typedData = data as unknown as EnrollmentWithLead[];
+      const typedData = data as unknown as any[];
 
       const enrollmentsWithAttendance = await Promise.all(
         typedData.map(async (enrollment) => {

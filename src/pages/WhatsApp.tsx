@@ -3,8 +3,6 @@ import {
   MessageCircle,
   Search,
   Plus,
-  Phone,
-  ExternalLink,
   Info,
   X,
   Users,

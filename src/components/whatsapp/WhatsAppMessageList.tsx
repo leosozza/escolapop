@@ -79,7 +79,7 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
   }
 
   return (
-    <ScrollArea className="flex-1 max-h-[400px]">
+    <ScrollArea className="flex-1 h-full">
       <div className="space-y-2 p-3">
         {messages.map((msg) => {
           const isOutbound = msg.direction === 'outbound';

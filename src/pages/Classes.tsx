@@ -413,8 +413,8 @@ export default function Classes() {
         <div className="flex items-center gap-2 text-sm">
           <Calendar className="h-4 w-4 text-muted-foreground" />
           <span>
-            {format(new Date(classItem.start_date), 'dd/MM/yyyy', { locale: ptBR })}
-            {classItem.end_date && ` → ${format(new Date(classItem.end_date), 'dd/MM/yyyy', { locale: ptBR })}`}
+            {safeFormatDate(classItem.start_date)}
+            {classItem.end_date && ` → ${safeFormatDate(classItem.end_date)}`}
           </span>
         </div>
         {classItem.course?.duration_hours && (

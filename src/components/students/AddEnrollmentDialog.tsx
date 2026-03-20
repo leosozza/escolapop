@@ -102,6 +102,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
     defaultValues: {
       full_name: '',
       phone: '',
+      guardian_name: '',
       course_id: '',
       class_id: '',
       enrollment_type: '',

@@ -1,118 +1,75 @@
 
-# Plano: Corrigir o Fluxo Real de Conexão WhatsApp/WuzAPI
 
-## Diagnóstico do problema atual
+# Plano: Página WhatsApp Web-Like para Atendimento
 
-Pelos logs, a instância **já está conectada de verdade na WuzAPI**, mas o sistema local está interpretando isso errado:
+## Problema
 
-- `check-status` retorna payload com `data.connected=true` e `data.loggedIn=true`
-- o código atual em `whatsapp-api` lê **apenas** `data.Connected` / `data.LoggedIn` (maiúsculo)
-- resultado: `connected` vira `undefined`, a tabela fica como `disconnected`, e a UI tenta conectar de novo sem necessidade
+A página `/whatsapp` usa `WhatsAppContactPanel` que, ao selecionar um contato, mostra `WhatsAppConversation` — um painel de **dados do contato** (notas, status, info). Não exibe mensagens reais nem permite enviar. Os componentes `WhatsAppMessageList` e `WhatsAppChatInput` existem mas não são usados nessa página.
 
-Isso explica exatamente o comportamento atual:
+## Solução
 
-```text
-WuzAPI real: conectado
-Banco/UI local: desconectado
-Botão: tenta reconectar
-Resposta da API: "already connected" / "already logged in"
-UI: trata como erro
-```
-
-## O que vou ajustar
-
-### 1. Normalizar a leitura do status da WuzAPI
-No `supabase/functions/whatsapp-api/index.ts` vou criar uma leitura tolerante para os dois formatos:
-
-- `Connected` ou `connected`
-- `LoggedIn` ou `loggedIn`
-- `QRCode` ou `qrcode`
-- `jid` para preencher/atualizar `phone_number`
-
-Isso será aplicado em:
-- `check-status`
-- `ensureConnected`
-- `connect`
-- `get-qr`
-
-### 2. Tratar “already connected” e “already logged in” como estado válido
-Hoje o fluxo marca isso como erro. Vou mudar para:
-
-- `already connected` => atualizar instância para `connected`
-- `already logged in` => atualizar instância para `connected` e limpar QR antigo
-- só marcar erro real quando a sessão estiver de fato indisponível
-
-### 3. Ajustar o estado salvo no banco
-A tabela `whatsapp_instances` deve refletir o estado real:
-
-- `connected` quando a sessão estiver autenticada
-- `waiting_qr` quando houver QR disponível e ainda não autenticada
-- `disconnected` apenas quando realmente não houver sessão ativa
-
-Também vou:
-- salvar `phone_number` a partir do `jid`
-- limpar `last_error` quando a instância estiver saudável
-- limpar `qr_code` quando a sessão já estiver conectada
-
-### 4. Corrigir a lógica da tela de Configurações
-No `src/components/settings/WhatsAppSettings.tsx` vou ajustar:
-
-- `handleDiagnostic` para mostrar claramente:
-  - conectado
-  - aguardando QR
-  - já autenticado, então QR não se aplica
-- parar de tentar `connect` se `check-status` já indicar sessão ativa
-- parar de mostrar “QR não disponível” como falha quando a resposta real for “already logged in”
-- mostrar mensagem coerente, por exemplo:
-  - “Instância já está conectada”
-  - “QR só é exibido quando a sessão ainda não foi autenticada”
-
-### 5. Revisar o envio de mensagens
-O helper `ensureConnected` hoje também depende da leitura errada de `Connected`. Isso pode quebrar o envio no atendimento mesmo com a instância online.
-
-Vou corrigir esse helper para que:
-- mensagens sejam enviadas normalmente quando a instância já estiver conectada
-- a reconexão automática só rode quando realmente necessário
-
-### 6. Validar a configuração automática do webhook
-Os logs mostram resposta de webhook com valor vazio em alguns momentos. Ao revisar o fluxo, vou incluir uma checagem pós-configuração para confirmar se o webhook foi realmente persistido, evitando uma instância “conectada” mas sem receber eventos.
-
-## Resultado esperado após a correção
-
-Para a instância atual, o comportamento correto deve ficar assim:
+Redesenhar a página `/whatsapp` como um layout estilo WhatsApp Web:
 
 ```text
-check-status → connected=true, loggedIn=true
-↓
-banco atualizado para status=connected
-↓
-card da instância mostra "Conectado"
-↓
-botão "Conectar" some
-↓
-botão QR deixa de ser tratado como obrigatório
-↓
-atendimento pode usar a instância normalmente
+┌──────────────┬─────────────────────────────────────┐
+│  Sidebar     │  Chat Area                          │
+│  ─────────── │  ┌─────────────────────────────────┐│
+│  [Search]    │  │ Header: Nome + Status + Info btn ││
+│  [Instance]  │  ├─────────────────────────────────┤│
+│              │  │                                 ││
+│  Contact 1 ● │  │  Message bubbles (realtime)     ││
+│  Contact 2   │  │  ...                            ││
+│  Contact 3   │  │                                 ││
+│              │  ├─────────────────────────────────┤│
+│              │  │ [Input box]            [Send]   ││
+│              │  └─────────────────────────────────┘│
+└──────────────┴─────────────────────────────────────┘
 ```
 
-E o diagnóstico deve passar a informar algo como:
+## O que será feito
 
-```text
-Instância conectada e autenticada.
-QR Code não é necessário porque a sessão já está ativa.
-```
+### 1. Reescrever `src/pages/WhatsApp.tsx`
+Layout completo com 3 zonas:
+- **Sidebar esquerda** (~350px): busca, seletor de instância (dropdown com instâncias que o usuário tem acesso), lista de contatos com preview da última mensagem e timestamp
+- **Área de chat central**: header do contato (avatar, nome, telefone, status badge), `WhatsAppMessageList` ocupando toda a altura, `WhatsAppChatInput` fixo no fundo
+- **Painel de info** (opcional, toggle): dados do contato, tabulação, notas — conteúdo atual do `WhatsAppConversation`
 
-## Arquivos a modificar
+### 2. Refatorar lista de contatos
+- Buscar leads **com** a última mensagem de cada um (subquery ou join em `whatsapp_messages`)
+- Ordenar por última mensagem (contatos com conversa recente primeiro)
+- Incluir todos os status (não filtrar matriculados — WhatsApp atende todos)
+- Mostrar preview da última mensagem truncada + hora
+- Indicador de mensagens não lidas (mensagens inbound sem resposta)
+
+### 3. Integrar instância automaticamente
+- Ao abrir a página, buscar instâncias com acesso do usuário (`whatsapp_instance_access`)
+- Se houver apenas 1, selecionar automaticamente
+- Se houver múltiplas, mostrar dropdown no topo do sidebar
+- A instância selecionada é passada para `WhatsAppChatInput`
+
+### 4. Chat com realtime
+- `WhatsAppMessageList` já tem realtime — será usado diretamente
+- Background estilo WhatsApp (pattern sutil ou cor `bg-[#e5ddd5]` / dark mode `bg-[#0b141a]`)
+- Bolhas verdes (outbound) e brancas (inbound) — já existem no componente
+
+### 5. Header do chat
+- Avatar com iniciais, nome, telefone
+- Badge de status do lead
+- Botão "Info" que abre/fecha painel lateral com dados do contato
+- Botão fallback "Abrir no WhatsApp Web"
+- Indicador de conexão da instância
+
+## Arquivos a Modificar
 
 | Arquivo | Ação |
-|---|---|
-| `supabase/functions/whatsapp-api/index.ts` | Corrigir parser de status, reconexão, QR e tratamento de estados já conectados |
-| `src/components/settings/WhatsAppSettings.tsx` | Corrigir diagnóstico e mensagens da UI |
-| `src/components/whatsapp/WhatsAppStatusIndicator.tsx` | Validar se o indicador reflete corretamente o status após a sincronização |
+|---------|------|
+| `src/pages/WhatsApp.tsx` | Reescrever completamente — layout WhatsApp Web |
+| `src/components/whatsapp/WhatsAppContactPanel.tsx` | Não mais usado pela página WhatsApp (mantido para outros usos) |
+| `src/components/whatsapp/WhatsAppConversation.tsx` | Extrair info do contato para um componente `WhatsAppContactInfo` reutilizável |
 
-## Observação importante
+Componentes existentes reutilizados sem alteração:
+- `WhatsAppMessageList` (chat bubbles + realtime)
+- `WhatsAppChatInput` (input + envio via API)
+- `WhatsAppStatusIndicator` (indicador de conexão)
+- `AddWhatsAppContactDialog` (adicionar contato)
 
-Não parece ser um problema de credencial neste momento. O log mostra que a instância responde com sucesso e já possui `jid`/telefone preenchido. O erro principal agora é de **interpretação do estado**, não de autenticação real.
-
-## Sem migração
-Essa correção pode ser feita sem nova tabela ou migração de banco.

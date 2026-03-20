@@ -329,9 +329,9 @@ Deno.serve(async (req) => {
         if (!isConnected) return json({ error: "WhatsApp disconnected" }, 503);
 
         const docPhone = phone.replace(/\D/g, "");
-        const docJid = docPhone.startsWith("55")
-          ? `${docPhone}@s.whatsapp.net`
-          : `55${docPhone}@s.whatsapp.net`;
+        const docPhoneNumber = docPhone.startsWith("55")
+          ? docPhone
+          : `55${docPhone}`;
 
         const res = await instanceFetch(inst.wuzapi_token, "/chat/send/document", {
           method: "POST",

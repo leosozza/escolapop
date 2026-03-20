@@ -258,7 +258,10 @@ export default function Leads() {
                           <Edit className="h-4 w-4 mr-2" />
                           Editar
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => {
+                          setSelectedLead(lead);
+                          setIsScheduleOpen(true);
+                        }}>
                           <CalendarPlus className="h-4 w-4 mr-2" />
                           Agendar
                         </DropdownMenuItem>

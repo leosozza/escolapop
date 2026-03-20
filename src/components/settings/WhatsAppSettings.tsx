@@ -22,6 +22,7 @@ interface Instance {
   phone_number: string | null;
   qr_code: string | null;
   last_error: string | null;
+  wuzapi_token: string | null;
   updated_at: string;
 }
 

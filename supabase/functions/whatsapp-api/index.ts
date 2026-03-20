@@ -586,6 +586,35 @@ Deno.serve(async (req) => {
         return json({ success: res.ok, data: res.data }, res.ok ? 200 : 500);
       }
 
+      case "check-webhook": {
+        if (!instanceId) return json({ error: "instanceId required" }, 400);
+        const inst = await resolveInstanceAuth(instanceId);
+        if (!inst?.wuzapi_token) return json({ error: "Instance not found" }, 404);
+
+        // Check current webhook config
+        const getRes = await instanceFetch(inst.wuzapi_token, "/webhook", { method: "GET" });
+        console.log("Current webhook config:", JSON.stringify(getRes.data).slice(0, 500));
+
+        const webhookUrl = `${SUPABASE_URL}/functions/v1/whatsapp-webhook`;
+        const currentWebhook = getRes.data?.data?.webhook || getRes.data?.webhook || "";
+        const isConfigured = currentWebhook === webhookUrl;
+
+        if (!isConfigured) {
+          // Reconfigure webhook
+          const setRes = await instanceFetch(inst.wuzapi_token, "/webhook", {
+            method: "POST",
+            body: JSON.stringify({
+              webhook: webhookUrl,
+              events: ["Message", "Receipt", "ReadReceipt", "ChatPresence", "Connected", "Disconnected"],
+            }),
+          });
+          console.log("Webhook reconfigured:", JSON.stringify(setRes.data).slice(0, 200));
+          return json({ success: true, reconfigured: true, previous: currentWebhook, current: webhookUrl, response: setRes.data });
+        }
+
+        return json({ success: true, reconfigured: false, webhook: currentWebhook, details: getRes.data });
+      }
+
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }

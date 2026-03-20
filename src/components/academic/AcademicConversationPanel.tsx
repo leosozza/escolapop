@@ -11,6 +11,7 @@ import {
   AlertCircle,
   FileText,
   History,
+  ExternalLink,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,9 @@ import { openWhatsAppWeb, getWhatsAppWebLink } from '@/lib/whatsapp';
 import { format, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
+import { WhatsAppChatInput } from '@/components/whatsapp/WhatsAppChatInput';
+import { WhatsAppMessageList } from '@/components/whatsapp/WhatsAppMessageList';
+import { WhatsAppStatusIndicator } from '@/components/whatsapp/WhatsAppStatusIndicator';
 
 interface AcademicContact {
   id: string;
@@ -270,9 +274,15 @@ export function AcademicConversationPanel({
                 <FileText className="h-4 w-4 mr-1" />
                 Ficha Completa
               </Button>
-              <Button onClick={handleOpenWhatsApp} className="gap-2 bg-green-600 hover:bg-green-700 text-white">
-                <MessageCircle className="h-4 w-4" />
-                Abrir WhatsApp Web
+              <WhatsAppStatusIndicator />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleOpenWhatsApp}
+                className="gap-1"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                WhatsApp Web
               </Button>
             </div>
           </div>
@@ -444,6 +454,17 @@ export function AcademicConversationPanel({
                 </div>
               </>
             )}
+
+            {/* Chat WhatsApp Integrado */}
+            <Separator />
+            <div className="space-y-2">
+              <p className="text-sm font-medium flex items-center gap-2">
+                <MessageCircle className="h-4 w-4" />
+                Mensagens WhatsApp
+              </p>
+              <WhatsAppMessageList phone={contact.phone} leadId={contact.lead_id} />
+              <WhatsAppChatInput phone={contact.phone} leadId={contact.lead_id} />
+            </div>
 
             {/* Histórico de Tabulação */}
             {enrollmentHistory.length > 0 && (

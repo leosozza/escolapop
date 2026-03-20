@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.academic-lead-automations]
 verify_jwt = false
+
+[functions.whatsapp-api]
+verify_jwt = false
+
+[functions.whatsapp-webhook]
+verify_jwt = false

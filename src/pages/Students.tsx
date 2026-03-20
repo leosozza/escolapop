@@ -48,38 +48,22 @@ import { StudentCSVImportDialog } from '@/components/students/StudentCSVImportDi
 import { StudentWebhookSheet } from '@/components/students/StudentWebhookSheet';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
 
-interface EnrollmentWithLead {
+interface StudentWithEnrollments {
   id: string;
   lead_id: string;
-  course_id: string;
-  class_id: string | null;
-  status: string;
-  enrolled_at: string;
-  progress_percentage: number | null;
-  enrollment_type?: string | null;
-  influencer_name?: string | null;
-  referral_agent_code?: string | null;
-  student_age?: number | null;
-  course: {
-    id: string;
-    name: string;
-  } | null;
+  full_name: string;
+  age: number | null;
+  guardian_name: string | null;
+  referral_agent_code: string | null;
+  enrollment_type: string | null;
+  influencer_name: string | null;
+  is_active: boolean;
   lead: {
     id: string;
     full_name: string;
     phone: string;
     email: string | null;
   } | null;
-  class: {
-    id: string;
-    name: string;
-    start_date: string;
-    end_date: string | null;
-    teacher: {
-      full_name: string;
-    } | null;
-  } | null;
-  attendance_count?: number;
 }
 
 const ENROLLMENT_TYPE_CONFIG: Record<string, { label: string; color: string }> = {
@@ -98,6 +82,42 @@ export default function Students() {
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
 
+  // Fetch students from the students table
+  const { data: studentsList, isLoading: studentsLoading } = useQuery({
+    queryKey: ['students-list', searchTerm],
+    queryFn: async () => {
+      let query = supabase
+        .from('students')
+        .select(`
+          id,
+          lead_id,
+          full_name,
+          age,
+          guardian_name,
+          referral_agent_code,
+          enrollment_type,
+          influencer_name,
+          is_active,
+          lead:leads!students_lead_id_fkey(id, full_name, phone, email)
+        `)
+        .eq('is_active', true)
+        .order('full_name');
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      if (searchTerm) {
+        return (data as unknown as StudentWithEnrollments[])?.filter(s =>
+          s.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          s.lead?.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }
+
+      return data as unknown as StudentWithEnrollments[];
+    },
+  });
+
+  // Fetch enrollments for display
   const { data: enrollments, isLoading, refetch } = useQuery({
     queryKey: ['enrollments-leads', searchTerm, statusFilter, courseFilter],
     queryFn: async () => {
@@ -106,6 +126,7 @@ export default function Students() {
         .select(`
           id,
           lead_id,
+          student_record_id,
           course_id,
           class_id,
           status,
@@ -133,7 +154,7 @@ export default function Students() {
       const { data, error } = await query;
       if (error) throw error;
 
-      const typedData = data as unknown as EnrollmentWithLead[];
+      const typedData = data as unknown as any[];
 
       const enrollmentsWithAttendance = await Promise.all(
         typedData.map(async (enrollment) => {

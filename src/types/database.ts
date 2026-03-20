@@ -81,6 +81,24 @@ export interface Profile {
   updated_at: string;
 }
 
+export interface Student {
+  id: string;
+  lead_id: string;
+  full_name: string;
+  age: number | null;
+  guardian_name: string | null;
+  referral_agent_code: string | null;
+  enrollment_type: string | null;
+  influencer_name: string | null;
+  notes: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  lead?: Lead;
+  enrollments?: Enrollment[];
+}
+
 export interface UserRole {
   id: string;
   user_id: string;

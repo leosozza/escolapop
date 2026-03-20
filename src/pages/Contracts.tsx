@@ -143,7 +143,7 @@ export default function Contracts() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <Button className="bg-gradient-primary hover:opacity-90">
+          <Button className="bg-gradient-primary hover:opacity-90" disabled title="Contratos são criados automaticamente via matrícula">
             <Plus className="h-4 w-4 mr-2" />
             Novo Contrato
           </Button>

@@ -139,7 +139,7 @@ export default function StudentProfile() {
         .select(`
           *,
           course:courses(*),
-          class:classes(*, teacher:profiles!classes_teacher_id_fkey(full_name))
+          class:classes(*, teacher:team_members!classes_teacher_id_fkey(full_name))
         `)
         .eq('lead_id', leadId)
         .order('enrolled_at', { ascending: false });

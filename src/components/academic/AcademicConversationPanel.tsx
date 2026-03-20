@@ -492,12 +492,31 @@ export function AcademicConversationPanel({
             {/* Chat WhatsApp Integrado */}
             <Separator />
             <div className="space-y-2">
-              <p className="text-sm font-medium flex items-center gap-2">
-                <MessageCircle className="h-4 w-4" />
-                Mensagens WhatsApp
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4" />
+                  Mensagens WhatsApp
+                </p>
+                {availableInstances.length > 1 && (
+                  <Select value={selectedInstanceId || ''} onValueChange={setSelectedInstanceId}>
+                    <SelectTrigger className="w-[180px] h-8 text-xs">
+                      <SelectValue placeholder="Instância" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableInstances.map(inst => (
+                        <SelectItem key={inst.id} value={inst.id}>
+                          <span className="flex items-center gap-1.5">
+                            <span className={`h-2 w-2 rounded-full ${inst.status === 'connected' ? 'bg-green-500' : 'bg-destructive'}`} />
+                            {inst.name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
               <WhatsAppMessageList phone={contact.phone} leadId={contact.lead_id} />
-              <WhatsAppChatInput phone={contact.phone} leadId={contact.lead_id} />
+              <WhatsAppChatInput phone={contact.phone} leadId={contact.lead_id} instanceId={selectedInstanceId || undefined} />
             </div>
 
             {/* Histórico de Tabulação */}

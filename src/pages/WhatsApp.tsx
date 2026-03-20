@@ -1,4 +1,4 @@
-import WhatsAppContactPanel from '@/components/whatsapp/WhatsAppContactPanel';
+import { WhatsAppContactPanel } from '@/components/whatsapp/WhatsAppContactPanel';
 
 const WhatsApp = () => {
   return (

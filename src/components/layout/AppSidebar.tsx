@@ -65,7 +65,8 @@ const sidebarGroups = [
   { name: 'CRM', href: '/crm', icon: UserPlus },
   { name: 'Recepção', href: '/reception', icon: DoorOpen },
   { name: 'Agendamento', href: '/appointments', icon: Calendar },
-  { name: 'Studio', href: '/studio', icon: Camera }]
+  { name: 'Studio', href: '/studio', icon: Camera },
+  { name: 'WhatsApp', href: '/whatsapp', icon: MessageCircle }]
 },
 {
   title: 'Acadêmico',

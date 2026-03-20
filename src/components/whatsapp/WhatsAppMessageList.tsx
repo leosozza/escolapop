@@ -61,6 +61,10 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
           setMessages((prev) => [...prev, newMsg]);
         }
       })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'whatsapp_messages' }, (payload) => {
+        const updated = payload.new as Message;
+        setMessages((prev) => prev.map((m) => m.id === updated.id ? updated : m));
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -108,6 +112,8 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
                   {isOutbound && (
                     isFailed ? (
                       <AlertCircle className="h-3 w-3 text-destructive" />
+                    ) : msg.status === 'read' ? (
+                      <CheckCheck className="h-3 w-3 text-blue-400" />
                     ) : msg.status === 'delivered' ? (
                       <CheckCheck className="h-3 w-3 text-green-200" />
                     ) : msg.status === 'sent' ? (

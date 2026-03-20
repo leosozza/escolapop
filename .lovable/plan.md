@@ -1,71 +1,48 @@
 
 
-# Plano: Varredura Completa e Finalização do Projeto
+# Plano: Atualizar Roadmap com Status Real do Projeto
 
-## Problemas Identificados
+## O que está desatualizado
 
-Após análise completa de todas as rotas, páginas, componentes e fluxos do sistema, identifiquei os seguintes problemas:
+O roadmap atual não reflete as funcionalidades implementadas nas últimas iterações. Vários itens marcados como "planned" ou "in-progress" já foram concluídos.
 
-### 1. Dados Hardcoded (Sem Conexão com o Banco)
-- **Reports.tsx**: Todos os KPIs são números fixos (247 leads, 89 agendamentos, 38% conversão, R$89.450 receita, etc). Nenhum dado vem do banco de dados. O gráfico "Funil de Vendas" mostra apenas placeholder "Gráficos serão implementados em breve".
+## Atualizações por Fase
 
-### 2. Botões/Ações Sem Funcionalidade
-- **Contracts.tsx** (linhas 275-292): "Ver detalhes", "Editar", "Marcar como assinado" e "Cancelar" no dropdown não possuem `onClick` — clicam e nada acontece.
-- **Contracts.tsx** (linha 146-149): Botão "Novo Contrato" não tem `onClick`.
-- **Overdue.tsx** (linhas 132-135): "Enviar Cobranças em Massa" não tem ação.
-- **Overdue.tsx** (linhas 266-275): Botões de telefone, email e "Cobrar" não têm ação funcional.
-- **Reports.tsx** (linha 51): Botão "Exportar" não tem ação.
-- **Leads.tsx** (linha 260): "Agendar" no dropdown sem `onClick`.
-- **AppLayout.tsx** (linhas 104-109): Barra de busca global no header não funciona (input sem estado nem ação).
+### Fase 2 — Gestão de Alunos (manter 100%)
+- Adicionar features: Remanejamento, Rematrícula, Dashboard de Alunos (KPIs), Justificativa de Presença
 
-### 3. Joins/Queries Incorretos
-- **Overdue.tsx** (linha 60): Usa `profiles!enrollments_student_id_fkey` para buscar dados do aluno. O `student_id` em enrollments referencia `auth.users`, mas os alunos são leads, não usuários. O join deveria ser `lead:leads!enrollments_lead_id_fkey(full_name, phone)`.
+### Fase 5 — Gestão Acadêmica (manter 100%)
+- Adicionar features: Atendimento Matrícula (dashboard completo), Automação 24h/48h, Tabulações pós-matrícula (ausente, reprovado_faltas, formado), Certificado em massa, Transferência de turma
 
-### 4. Página Órfã
-- **Index.tsx**: Página genérica "Welcome to Your Blank App" — nunca acessível (/ redireciona para /dashboard), mas código desnecessário.
-- **AgentPortfolio.tsx** e **ProducerQueue.tsx**: Estão nas rotas mas não no sidebar — possíveis páginas órfãs.
+### Fase 6 — Financeiro → marcar **completed** (100%)
+- Relatórios Financeiros agora funcionam via Reports.tsx com dados reais do banco
 
-### 5. Inconsistências de Nomenclatura
-- **AppLayout.tsx** (linha 25): Rota `/academic-support` tem título "Atendimentos" mas no sidebar é "Atendimento Matrícula".
+### Fase 7 — Integrações Básicas → marcar **completed** (100%)
+- Adicionar: Gestão de Acessos (criar login/senha internamente), Edge Functions (manage-users, academic-lead-automations)
 
----
+### Fase 8 — Integrações Avançadas → atualizar para **in-progress** (20%)
+- WhatsApp links já funcionam (openWhatsAppWeb) em vários módulos — marcar como "in-progress"
+- Resto continua planned
 
-## O que Será Feito
+### Fase 10 — Dashboards Executivos → atualizar para **in-progress** (40%)
+- Gráficos de Funil: **completed** (Recharts em Reports.tsx)
+- Relatórios de Conversão: **completed** (dados reais)
+- Export CSV: **completed** (Reports.tsx)
+- Forecast/Evasão: planned
 
-### Bloco A: Corrigir Dados Reais nos Relatórios
-- Refatorar `Reports.tsx` para buscar dados reais do banco (contagem de leads, agendamentos, matrículas, taxa de conversão, alunos ativos, presença, valores financeiros, contagem de equipe).
-- Substituir o placeholder do gráfico por um gráfico real usando Recharts (funil de vendas com dados reais).
+### Nova Fase a considerar: Gestão de Acessos e Permissões
+- Já implementado: UserManagement, CreateUserDialog, ResetPasswordDialog, manage-users edge function, roles por área
+- Poderia ser incorporado na Fase 7 ou ser feature destacada
 
-### Bloco B: Conectar Todas as Ações Desconectadas
-- **Contracts.tsx**: Implementar ações "Marcar como assinado" e "Cancelar" com mutations reais. Adicionar toast de confirmação. O botão "Novo Contrato" permanece desabilitado com tooltip (contratos são criados via matrícula).
-- **Overdue.tsx**: Conectar botão de telefone ao WhatsApp (`openWhatsAppWeb`). Botão "Cobrar" abre WhatsApp com mensagem de cobrança pré-formatada.
-- **Leads.tsx**: Conectar "Agendar" para abrir `ScheduleLeadDialog`.
-
-### Bloco C: Corrigir Query da Inadimplência
-- **Overdue.tsx**: Trocar o join de `profiles!enrollments_student_id_fkey` para `lead:leads!enrollments_lead_id_fkey(full_name, phone)` para exibir corretamente os dados dos alunos.
-
-### Bloco D: Remover Busca Global Inativa
-- **AppLayout.tsx**: Remover a barra de busca global no header que não funciona, ou substituir por navegação rápida.
-
-### Bloco E: Corrigir Nomenclatura
-- **AppLayout.tsx**: Alterar título de `/academic-support` de "Atendimentos" para "Atendimento Matrícula".
-
-### Bloco F: Limpar Código Morto
-- **Index.tsx**: Substituir conteúdo pelo redirect (já existe no App.tsx, mas manter o arquivo limpo).
-
----
-
-## Arquivos a Modificar
+## Arquivo a modificar
 
 | Arquivo | Ação |
 |---------|------|
-| `src/pages/Reports.tsx` | Buscar dados reais + gráfico Recharts |
-| `src/pages/Contracts.tsx` | Implementar ações do dropdown |
-| `src/pages/Overdue.tsx` | Corrigir join + conectar botões WhatsApp |
-| `src/pages/Leads.tsx` | Conectar ação "Agendar" |
-| `src/components/layout/AppLayout.tsx` | Corrigir título + remover busca inativa |
-| `src/pages/Index.tsx` | Limpar |
+| `src/pages/Roadmap.tsx` | Atualizar array `roadmapPhases` com status corretos, novas features e percentuais reais |
 
-## Estimativa
-Aproximadamente 6 arquivos editados. Sem migrações de banco necessárias.
+## Resumo dos novos números
+- Fases concluídas: 7 (era 5)
+- Fases em progresso: 2 (era 2, mas diferentes)
+- Fases planejadas: 3 (era 5)
+- Progresso geral: ~65% (era ~52%)
 

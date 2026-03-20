@@ -24,10 +24,69 @@ Deno.serve(async (req) => {
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const WUZAPI_BASE_URL = WUZAPI_URL.replace(/\/+$/, "");
+
+  const buildWuzapiUrl = (path: string) => {
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+    return `${WUZAPI_BASE_URL}${normalizedPath}`;
+  };
+
+  const normalizeRemotePhone = (jid?: string | null) => {
+    if (!jid) return null;
+    return jid.replace(/@.*$/, "").replace(/[.:].*$/, "");
+  };
+
+  const normalizeName = (value?: string | null) => (value || "").trim().toLowerCase();
+
+  const matchRemoteUser = (
+    users: Array<Record<string, unknown>>,
+    name?: string | null,
+    token?: string | null,
+    userId?: string | null,
+  ) => {
+    const normalizedName = normalizeName(name);
+
+    const byToken = token
+      ? users.find((user) => String(user.token || "") === String(token))
+      : null;
+
+    const byName = normalizedName
+      ? users.find((user) => normalizeName(String(user.name || "")) === normalizedName)
+      : null;
+
+    const byUserId = userId
+      ? users.find(
+          (user) =>
+            String(user.id || "") === String(userId) &&
+            (!normalizedName || normalizeName(String(user.name || "")) === normalizedName),
+        )
+      : null;
+
+    return byToken || byName || byUserId || null;
+  };
+
+  const extractCreatedUser = (
+    payload: any,
+    name?: string | null,
+    token?: string | null,
+    userId?: string | null,
+  ) => {
+    const rawData = payload?.data;
+
+    if (Array.isArray(rawData)) {
+      return matchRemoteUser(rawData, name, token, userId);
+    }
+
+    if (rawData && typeof rawData === "object") {
+      return rawData;
+    }
+
+    return null;
+  };
 
   // Helper: call WuzAPI with admin token
   const adminFetch = async (path: string, options: RequestInit = {}) => {
-    const url = `${WUZAPI_URL}${path}`;
+    const url = buildWuzapiUrl(path);
     const res = await fetch(url, {
       ...options,
       headers: {
@@ -46,7 +105,7 @@ Deno.serve(async (req) => {
 
   // Helper: call WuzAPI with instance token
   const instanceFetch = async (token: string, path: string, options: RequestInit = {}) => {
-    const url = `${WUZAPI_URL}${path}`;
+    const url = buildWuzapiUrl(path);
     const res = await fetch(url, {
       ...options,
       headers: {
@@ -63,11 +122,11 @@ Deno.serve(async (req) => {
     }
   };
 
-  // Helper: get instance token from DB
-  const getInstanceToken = async (instanceId: string) => {
+  // Helper: get instance record from DB
+  const getInstanceRecord = async (instanceId: string) => {
     const { data } = await supabase
       .from("whatsapp_instances")
-      .select("wuzapi_token, wuzapi_user_id")
+      .select("id, name, phone_number, wuzapi_token, wuzapi_user_id")
       .eq("id", instanceId)
       .single();
     return data;
@@ -79,6 +138,106 @@ Deno.serve(async (req) => {
       .from("whatsapp_instances")
       .update({ ...data, updated_at: new Date().toISOString() })
       .eq("id", instanceId);
+  };
+
+  const createRemoteUser = async (name: string, existingToken?: string | null) => {
+    const requestedToken = existingToken || crypto.randomUUID().replace(/-/g, "");
+
+    console.log("Creating WuzAPI user:", name, "with token:", requestedToken.slice(0, 8));
+    const createRes = await adminFetch("/admin/users", {
+      method: "POST",
+      body: JSON.stringify({ name, token: requestedToken }),
+    });
+
+    console.log("WuzAPI create response:", JSON.stringify(createRes.data).slice(0, 500));
+
+    if (!createRes.ok) {
+      return { error: createRes.data, user: null, token: null as string | null };
+    }
+
+    let remoteUser = extractCreatedUser(createRes.data, name, requestedToken, null);
+
+    if (!remoteUser?.id || !remoteUser?.token) {
+      const listRes = await adminFetch("/admin/users", { method: "GET" });
+      if (listRes.ok && Array.isArray(listRes.data?.data)) {
+        remoteUser = matchRemoteUser(listRes.data.data, name, requestedToken, null);
+      }
+    }
+
+    return {
+      error: null,
+      token: String(remoteUser?.token || requestedToken),
+      user: remoteUser
+        ? {
+            id: String(remoteUser.id || ""),
+            name: String(remoteUser.name || name),
+            token: String(remoteUser.token || requestedToken),
+            phone_number: normalizeRemotePhone(String(remoteUser.jid || "")),
+          }
+        : null,
+    };
+  };
+
+  const resolveInstanceAuth = async (instanceId: string) => {
+    const instance = await getInstanceRecord(instanceId);
+    if (!instance) return null;
+
+    const listRes = await adminFetch("/admin/users", { method: "GET" });
+
+    if (listRes.ok && Array.isArray(listRes.data?.data)) {
+      const remoteUser = matchRemoteUser(
+        listRes.data.data,
+        instance.name,
+        instance.wuzapi_token,
+        instance.wuzapi_user_id,
+      );
+
+      if (remoteUser) {
+        const nextToken = String(remoteUser.token || instance.wuzapi_token || "");
+        const nextUserId = String(remoteUser.id || instance.wuzapi_user_id || "");
+        const nextPhone = normalizeRemotePhone(String(remoteUser.jid || ""));
+
+        if (
+          nextToken !== String(instance.wuzapi_token || "") ||
+          nextUserId !== String(instance.wuzapi_user_id || "") ||
+          nextPhone !== (instance.phone_number || null)
+        ) {
+          await updateInstance(instanceId, {
+            wuzapi_token: nextToken || null,
+            wuzapi_user_id: nextUserId || null,
+            phone_number: nextPhone,
+            last_error: null,
+          });
+        }
+
+        return {
+          ...instance,
+          wuzapi_token: nextToken || null,
+          wuzapi_user_id: nextUserId || null,
+          phone_number: nextPhone,
+        };
+      }
+    }
+
+    const created = await createRemoteUser(instance.name, instance.wuzapi_token);
+
+    if (!created.user?.id || !created.token) {
+      return instance;
+    }
+
+    await updateInstance(instanceId, {
+      wuzapi_user_id: created.user.id,
+      wuzapi_token: created.user.token,
+      phone_number: created.user.phone_number,
+      last_error: null,
+    });
+
+    return {
+      ...instance,
+      wuzapi_user_id: created.user.id,
+      wuzapi_token: created.user.token,
+      phone_number: created.user.phone_number,
+    };
   };
 
   // Helper: auto-reconnect for an instance
@@ -116,40 +275,24 @@ Deno.serve(async (req) => {
         const { name, connectionType } = params;
         if (!name) return json({ error: "name is required" }, 400);
 
-        // Generate a unique token for this instance
-        const generatedToken = crypto.randomUUID().replace(/-/g, "");
+        const created = await createRemoteUser(name);
 
-        // Create user in WuzAPI with explicit token
-        console.log("Creating WuzAPI user:", name, "with token:", generatedToken.slice(0, 8));
-        const res = await adminFetch("/admin/users", {
-          method: "POST",
-          body: JSON.stringify({ name, token: generatedToken }),
-        });
-
-        console.log("WuzAPI create response:", JSON.stringify(res.data).slice(0, 500));
-
-        if (!res.ok) {
-          return json({ error: "Failed to create WuzAPI user", details: res.data }, 500);
+        if (!created.user?.id || !created.token) {
+          return json({ error: "Failed to create WuzAPI user", details: created.error || "Invalid WuzAPI response" }, 500);
         }
 
-        // WuzAPI returns data as array: { code: 200, data: [{ id: 1, name: "...", token: "..." }] }
-        // or as object: { data: { id: 1, ... } }
-        const rawData = res.data?.data;
-        const wuzapiUser = Array.isArray(rawData) ? rawData[0] : rawData;
-        const token = wuzapiUser?.token || generatedToken;
-        const userId = wuzapiUser?.id;
-
-        console.log("Parsed user:", { token: token?.slice(0, 8), userId });
+        console.log("Parsed user:", { token: created.token.slice(0, 8), userId: created.user.id });
 
         // Save instance to DB
         const { data: instance, error: insertError } = await supabase
           .from("whatsapp_instances")
           .insert({
             name,
-            wuzapi_user_id: userId != null ? String(userId) : null,
-            wuzapi_token: token,
+            wuzapi_user_id: created.user.id,
+            wuzapi_token: created.user.token,
             connection_type: connectionType || "qrcode",
             status: "disconnected",
+            phone_number: created.user.phone_number,
           })
           .select("id")
           .single();
@@ -159,9 +302,9 @@ Deno.serve(async (req) => {
         }
 
         // Auto-configure webhook using the instance token
-        if (token) {
+        if (created.user.token) {
           const webhookUrl = `${SUPABASE_URL}/functions/v1/whatsapp-webhook`;
-          const whRes = await instanceFetch(token, "/webhook", {
+          const whRes = await instanceFetch(created.user.token, "/webhook", {
             method: "POST",
             body: JSON.stringify({
               webhook: webhookUrl,
@@ -177,14 +320,14 @@ Deno.serve(async (req) => {
       case "delete-instance": {
         if (!instanceId) return json({ error: "instanceId required" }, 400);
 
-        const inst = await getInstanceToken(instanceId);
+        const inst = await resolveInstanceAuth(instanceId);
         if (inst?.wuzapi_user_id) {
           // Try to disconnect first
           if (inst.wuzapi_token) {
             await instanceFetch(inst.wuzapi_token, "/session/logout", { method: "POST" }).catch(() => {});
           }
           // Delete from WuzAPI
-          await adminFetch(`/admin/users/${inst.wuzapi_user_id}`, { method: "DELETE" }).catch(() => {});
+          await adminFetch(`/admin/users/${inst.wuzapi_user_id}/full`, { method: "DELETE" }).catch(() => {});
         }
 
         await supabase.from("whatsapp_instances").delete().eq("id", instanceId);
@@ -200,7 +343,7 @@ Deno.serve(async (req) => {
 
       case "check-status": {
         if (!instanceId) return json({ error: "instanceId required" }, 400);
-        const inst = await getInstanceToken(instanceId);
+        const inst = await resolveInstanceAuth(instanceId);
         if (!inst?.wuzapi_token) return json({ error: "Instance not found" }, 404);
 
         console.log("check-status token:", inst.wuzapi_token.slice(0, 8), "user:", inst.wuzapi_user_id);
@@ -218,7 +361,7 @@ Deno.serve(async (req) => {
 
       case "get-qr": {
         if (!instanceId) return json({ error: "instanceId required" }, 400);
-        const inst = await getInstanceToken(instanceId);
+        const inst = await resolveInstanceAuth(instanceId);
         if (!inst?.wuzapi_token) return json({ error: "Instance not found" }, 404);
 
         console.log("get-qr token:", inst.wuzapi_token.slice(0, 8));
@@ -233,7 +376,7 @@ Deno.serve(async (req) => {
 
       case "connect": {
         if (!instanceId) return json({ error: "instanceId required" }, 400);
-        const inst = await getInstanceToken(instanceId);
+        const inst = await resolveInstanceAuth(instanceId);
         if (!inst?.wuzapi_token) return json({ error: "Instance not found" }, 404);
 
         console.log("connect token:", inst.wuzapi_token.slice(0, 8), "user:", inst.wuzapi_user_id);
@@ -266,7 +409,7 @@ Deno.serve(async (req) => {
 
       case "disconnect": {
         if (!instanceId) return json({ error: "instanceId required" }, 400);
-        const inst = await getInstanceToken(instanceId);
+        const inst = await resolveInstanceAuth(instanceId);
         if (!inst?.wuzapi_token) return json({ error: "Instance not found" }, 404);
 
         await instanceFetch(inst.wuzapi_token, "/session/disconnect", { method: "POST" });
@@ -280,7 +423,7 @@ Deno.serve(async (req) => {
           return json({ error: "instanceId, phone and message required" }, 400);
         }
 
-        const inst = await getInstanceToken(instanceId);
+        const inst = await resolveInstanceAuth(instanceId);
         if (!inst?.wuzapi_token) return json({ error: "Instance not found" }, 404);
 
         // Ensure connected before sending
@@ -321,7 +464,7 @@ Deno.serve(async (req) => {
           await new Promise((r) => setTimeout(r, 3000));
           const retry = await instanceFetch(inst.wuzapi_token, "/chat/send/text", {
             method: "POST",
-            body: JSON.stringify({ Phone: jid, Body: message }),
+            body: JSON.stringify({ Phone: phoneNumber, Body: message }),
           });
           if (retry.ok) {
             await supabase
@@ -344,7 +487,7 @@ Deno.serve(async (req) => {
           return json({ error: "instanceId, phone and documentUrl required" }, 400);
         }
 
-        const inst = await getInstanceToken(instanceId);
+        const inst = await resolveInstanceAuth(instanceId);
         if (!inst?.wuzapi_token) return json({ error: "Instance not found" }, 404);
 
         const isConnected = await ensureConnected(instanceId, inst.wuzapi_token);

@@ -1,132 +1,89 @@
 
 
-# Plano: Integração WhatsApp via WuzAPI (Automática e Completa)
+# Plano: WhatsApp Multi-Instância com Permissões de Acesso
 
-## Resumo
+## Contexto
 
-Integrar a API WuzAPI ao sistema com automação total: envio/recebimento de mensagens, reconexão automática, webhooks para receber mensagens, e alertas de erro — tudo sem intervenção manual do operador.
+A WuzAPI suporta múltiplas instâncias (cada "user" na API = uma instância com seu próprio token, número WhatsApp e webhook). Atualmente o sistema trata como sessão única. Precisamos:
+
+1. Gerenciar múltiplas instâncias (criar, conectar via QR ou oficial, desconectar, excluir)
+2. Controlar quais usuários do sistema podem acessar cada instância
+3. Configurar webhook automaticamente ao criar a instância
 
 ## Arquitetura
 
 ```text
-Frontend (React)
-  ↓ supabase.functions.invoke('whatsapp-api')
-Edge Function (whatsapp-api) → proxy seguro
-  ↓ fetch()
-WuzAPI (https://wazapi.ybrasil.com.br/api)
+Admin cria instância → POST /admin/users (WuzAPI)
+  → Salva na tabela whatsapp_instances (token, nome, tipo)
+  → Configura webhook automaticamente: POST /webhook
+  → Conecta: POST /session/connect
+  → Exibe QR: GET /session/qr
 
-WuzAPI webhook POST →
-Edge Function (whatsapp-webhook) → salva em whatsapp_messages
-  ↓ realtime
-Frontend atualiza automaticamente
+Permissões:
+  whatsapp_instance_access (instance_id, user_id)
+  → Operador só vê/usa instâncias que tem acesso
 ```
 
-## Etapas
+## Migração SQL
 
-### 1. Salvar Secrets
-Usar `add_secret` para armazenar:
-- `WUZAPI_URL` = `https://wazapi.ybrasil.com.br`
-- `WUZAPI_ADMIN_TOKEN` = `4059539e1c60f8c77daab20591e1cdbf`
-- `WUZAPI_SECRET_KEY` = `6c9c4fed1fc71aba1153a40d81de9b24`
+1. **Criar tabela `whatsapp_instances`** (substitui `whatsapp_session` como entidade principal):
+   - `id`, `name` (nome da instância), `wuzapi_user_id` (ID do user na WuzAPI), `wuzapi_token` (token gerado), `connection_type` (qrcode/oficial), `status` (disconnected/connecting/connected), `phone_number`, `qr_code`, `last_error`, `last_check_at`, `created_by`, `created_at`, `updated_at`
 
-### 2. Migração SQL — Tabela `whatsapp_messages`
-```sql
-CREATE TABLE public.whatsapp_messages (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  lead_id uuid REFERENCES public.leads(id),
-  phone text NOT NULL,
-  direction text NOT NULL DEFAULT 'outbound',
-  message_type text NOT NULL DEFAULT 'text',
-  content text,
-  media_url text,
-  wuzapi_message_id text,
-  status text DEFAULT 'sent',
-  error_message text,
-  created_at timestamptz DEFAULT now()
-);
-ALTER TABLE public.whatsapp_messages ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Staff can manage messages" ON public.whatsapp_messages
-  FOR ALL USING (public.is_staff(auth.uid()));
-ALTER PUBLICATION supabase_realtime ADD TABLE public.whatsapp_messages;
-```
+2. **Criar tabela `whatsapp_instance_access`** (permissões):
+   - `id`, `instance_id` (FK → whatsapp_instances), `user_id` (FK → auth.users), `created_at`
+   - RLS: admin/gestor pode gerenciar; staff pode ler apenas instâncias que têm acesso
 
-Tabela `whatsapp_session` para estado da conexão:
-```sql
-CREATE TABLE public.whatsapp_session (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  status text NOT NULL DEFAULT 'disconnected',
-  phone_number text,
-  last_check_at timestamptz DEFAULT now(),
-  last_error text,
-  qr_code text,
-  updated_at timestamptz DEFAULT now()
-);
-ALTER TABLE public.whatsapp_session ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Staff can manage session" ON public.whatsapp_session
-  FOR ALL USING (public.is_staff(auth.uid()));
-```
+3. **Atualizar `whatsapp_messages`**: adicionar coluna `instance_id` (FK → whatsapp_instances) para saber por qual instância a mensagem foi enviada/recebida
 
-### 3. Edge Function `whatsapp-api` (Proxy)
-Ações:
-- `send-text` → `POST /chat/send/text`
-- `send-document` → `POST /chat/send/document`
-- `check-status` → `GET /session/status` — retorna status, salva em `whatsapp_session`
-- `get-qr` → `GET /session/qr`
-- `connect` → `POST /session/connect`
-- `reconnect` → automaticamente tenta reconectar se status != "connected"
+## Edge Function `whatsapp-api` — Refatoração
 
-Lógica de auto-reconexão:
-- Antes de cada envio, verifica status da sessão
-- Se desconectado, tenta `POST /session/connect` automaticamente
-- Se falha, salva erro em `whatsapp_session.last_error` e retorna erro ao frontend
+Adicionar novas ações:
+- `create-instance`: Chama `POST /admin/users` com `WUZAPI_ADMIN_TOKEN`, salva na tabela `whatsapp_instances`, configura webhook automaticamente via `POST /webhook`
+- `delete-instance`: Chama `DELETE /admin/users/{id}/full`, remove da tabela
+- `list-instances`: Lista instâncias da WuzAPI via `GET /admin/users`
 
-### 4. Edge Function `whatsapp-webhook` (Receber mensagens)
-- Recebe POST do WuzAPI com mensagens inbound
-- Valida usando `WUZAPI_SECRET_KEY`
-- Salva em `whatsapp_messages` com `direction = 'inbound'`
-- Vincula ao lead pelo número de telefone (busca na tabela `leads`)
+Ações existentes (`connect`, `get-qr`, `check-status`, `disconnect`, `send-text`, `send-document`) passam a receber `instanceId` como parâmetro para identificar qual instância usar. O token da instância é buscado na tabela `whatsapp_instances` e usado no header `token` (em vez do `WUZAPI_ADMIN_TOKEN`).
 
-### 5. UI — Painel de Conversa Real
-Refatorar `AcademicConversationPanel.tsx` e `WhatsAppConversation.tsx`:
-- Substituir botão "Abrir WhatsApp Web" por campo de input para enviar mensagens diretamente
-- Mostrar histórico real de mensagens (da tabela `whatsapp_messages`) com realtime
-- Indicador de status da conexão WhatsApp (verde/vermelho) no header
-- Botão de fallback "Abrir no WhatsApp Web" caso a API esteja offline
+A configuração do webhook é automática: ao criar a instância, a Edge Function faz `POST /webhook` com a URL do `whatsapp-webhook` e eventos `["Message", "ReadReceipt", "Connected", "Disconnected"]`.
 
-### 6. UI — Configuração WhatsApp em Settings
-Nova aba "WhatsApp" na página Settings:
-- Status da conexão (conectado/desconectado) com indicador visual
-- QR Code para escanear (exibido automaticamente se desconectado)
-- Botão "Reconectar" manual
-- Log de erros recentes
-- URL do webhook para configurar no WuzAPI: `https://yrotoothzhdagtiukxdx.supabase.co/functions/v1/whatsapp-webhook`
+## Edge Function `whatsapp-webhook` — Ajuste
 
-### 7. Alertas Automáticos de Erro
-- Se a sessão desconectar, toast de aviso no sistema para todos os operadores logados
-- Se o envio falhar, salvar `error_message` na mensagem e exibir ícone de erro no chat
-- Retry automático: 1 tentativa de reenvio após 5 segundos em caso de falha
+Ao receber mensagem, identificar a instância pelo campo `instance` do payload (que contém o JID da instância). Buscar na tabela `whatsapp_instances` pelo `phone_number` e salvar o `instance_id` na mensagem.
+
+## UI — Nova Página de Gestão de Instâncias
+
+Refatorar `WhatsAppSettings.tsx` para:
+
+1. **Lista de instâncias**: Cards mostrando cada instância com nome, número, status (badge colorido), tipo de conexão
+2. **Botão "Nova Instância"**: Dialog para criar — campos: nome da instância, tipo (QR Code / Oficial)
+3. **Ações por instância**: Conectar, Desconectar, Ver QR Code, Gerenciar Acessos, Excluir
+4. **Dialog "Gerenciar Acessos"**: Lista de usuários do sistema com checkboxes para conceder/revogar acesso à instância
+
+## Permissões no Frontend
+
+- Apenas `admin` e `gestor` podem criar/excluir instâncias e gerenciar acessos
+- Operadores com acesso a uma instância podem: ver status, enviar mensagens, ver conversas
+- No painel de conversa WhatsApp, mostrar selector de instância (apenas as que o operador tem acesso)
 
 ## Arquivos a Criar/Modificar
 
 | Arquivo | Ação |
 |---------|------|
-| Migração SQL | Criar `whatsapp_messages` e `whatsapp_session` |
-| `supabase/functions/whatsapp-api/index.ts` | Criar — proxy + auto-reconexão |
-| `supabase/functions/whatsapp-webhook/index.ts` | Criar — receber mensagens |
-| `supabase/config.toml` | Registrar novas funções |
-| `src/components/academic/AcademicConversationPanel.tsx` | Refatorar para chat real + realtime |
-| `src/components/whatsapp/WhatsAppConversation.tsx` | Refatorar para chat real |
-| `src/components/whatsapp/WhatsAppStatusIndicator.tsx` | Criar — indicador de status |
-| `src/components/settings/WhatsAppSettings.tsx` | Criar — QR code + status + config |
-| `src/pages/Settings.tsx` | Adicionar aba WhatsApp |
-| `src/lib/whatsapp.ts` | Adicionar funções de envio via API |
+| Migração SQL | Criar `whatsapp_instances`, `whatsapp_instance_access`, adicionar `instance_id` em `whatsapp_messages` |
+| `supabase/functions/whatsapp-api/index.ts` | Refatorar para multi-instância (create/delete/list + token por instância) |
+| `supabase/functions/whatsapp-webhook/index.ts` | Identificar instância pelo payload |
+| `src/components/settings/WhatsAppSettings.tsx` | Refatorar para gerenciar múltiplas instâncias |
+| `src/components/settings/WhatsAppInstanceAccessDialog.tsx` | Criar — gerenciar permissões por instância |
+| `src/components/whatsapp/WhatsAppConversation.tsx` | Adicionar selector de instância |
+| `src/components/academic/AcademicConversationPanel.tsx` | Usar instância com acesso para enviar |
+| `src/types/database.ts` | Adicionar tipos WhatsAppInstance e WhatsAppInstanceAccess |
 
-## Fluxo Automático Completo
+## Fluxo Completo
 
-1. Admin escaneia QR code uma vez em Settings → sessão conectada
-2. Operador abre contato → histórico de mensagens carrega automaticamente
-3. Operador digita mensagem → envio via API (sem abrir browser externo)
-4. Mensagem recebida → webhook salva → realtime atualiza a conversa
-5. Sessão cai → sistema tenta reconectar automaticamente → se falha, alerta visual
-6. Certificados podem ser enviados como documento PDF diretamente pelo chat
+1. Admin acessa Settings → WhatsApp → clica "Nova Instância"
+2. Escolhe nome e tipo (QR Code ou Oficial) → sistema cria user na WuzAPI + salva localmente
+3. Webhook é configurado automaticamente (sem ação manual)
+4. Admin clica "Conectar" → exibe QR Code → escaneia com celular
+5. Admin vai em "Gerenciar Acessos" → seleciona quais operadores podem usar esta instância
+6. Operador abre conversa → vê apenas instâncias que tem acesso → envia/recebe mensagens pela instância selecionada
 

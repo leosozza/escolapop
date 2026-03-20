@@ -55,7 +55,7 @@ import { ACADEMIC_STATUS_CONFIG, type AcademicStatus } from '@/types/database';
 import { format, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
-import { openWhatsAppWeb } from '@/lib/whatsapp';
+
 import { AddEnrollmentDialog } from '@/components/students/AddEnrollmentDialog';
 import { TransferClassDialog } from '@/components/students/TransferClassDialog';
 import { AttendanceJustificationDialog } from '@/components/students/AttendanceJustificationDialog';
@@ -397,7 +397,7 @@ export default function StudentProfile() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => openWhatsAppWeb(student.phone, `Olá ${student.full_name}!`)}
+          onClick={() => navigate('/whatsapp')}
         >
           <MessageCircle className="h-4 w-4 mr-1" />
           WhatsApp
@@ -444,7 +444,7 @@ export default function StudentProfile() {
                   type="button"
                   variant="outline"
                   size="icon"
-                  onClick={() => openWhatsAppWeb(editData.phone, `Olá ${editData.full_name}!`)}
+                  onClick={() => navigate('/whatsapp')}
                   title="Abrir WhatsApp"
                 >
                   <MessageCircle className="h-4 w-4 text-green-500" />
@@ -853,7 +853,7 @@ export default function StudentProfile() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" className="gap-1" onClick={() => openWhatsAppWeb(student.phone, `Olá ${student.full_name}! Segue seu certificado de conclusão do curso ${e.course?.name}. Parabéns! 🎉`)}>
+                  <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate('/whatsapp')}>
                     <MessageCircle className="h-3 w-3" /> Enviar WhatsApp
                   </Button>
                   <Badge className="bg-success text-success-foreground border-0">

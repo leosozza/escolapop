@@ -18,7 +18,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { openWhatsAppWeb } from '@/lib/whatsapp';
+import { useNavigate } from 'react-router-dom';
 import type { TextElement } from './TemplateEditor';
 
 interface Template {
@@ -200,8 +200,9 @@ export function BulkCertificateGenerator({
     });
   };
 
+  const navToWA = useNavigate();
   const sendViaWhatsApp = (phone: string, name: string) => {
-    openWhatsAppWeb(phone, `Olá ${name}! Segue seu certificado de conclusão do curso ${courseName}. Parabéns! 🎉`);
+    navToWA('/whatsapp');
   };
 
   return (

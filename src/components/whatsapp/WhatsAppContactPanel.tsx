@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { openWhatsAppWeb } from '@/lib/whatsapp';
+
 import { AddWhatsAppContactDialog } from './AddWhatsAppContactDialog';
 import { WhatsAppConversation } from './WhatsAppConversation';
 import { formatDistanceToNow } from 'date-fns';
@@ -201,9 +201,6 @@ export function WhatsAppContactPanel() {
       .toUpperCase()
       .slice(0, 2);
 
-  const handleOpenWhatsApp = (phone: string) => {
-    openWhatsAppWeb(phone);
-  };
 
   return (
     <div className="h-full flex gap-4">
@@ -323,7 +320,7 @@ export function WhatsAppContactPanel() {
         <WhatsAppConversation
           contact={selectedContact}
           onStatusChange={handleStatusUpdate}
-          onOpenWhatsApp={() => handleOpenWhatsApp(selectedContact.phone)}
+          onOpenWhatsApp={() => {}}
         />
       ) : (
         <Card className="flex-1 flex items-center justify-center border-0 shadow-md">

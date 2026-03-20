@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { openWhatsAppWeb } from '@/lib/whatsapp';
+import { useNavigate } from 'react-router-dom';
 
 interface OverduePayment {
   id: string;
@@ -38,6 +38,7 @@ export default function Overdue() {
   const [payments, setPayments] = useState<OverduePayment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchOverduePayments();
@@ -107,16 +108,7 @@ export default function Overdue() {
     payment.contract?.enrollment?.course?.name || '';
 
   const handleWhatsAppContact = (payment: OverduePayment) => {
-    const phone = getStudentPhone(payment);
-    if (!phone) {
-      toast({ variant: 'destructive', title: 'Telefone não encontrado' });
-      return;
-    }
-    const name = getStudentName(payment);
-    const value = formatCurrency(Number(payment.amount));
-    const dueDate = format(new Date(payment.due_date), 'dd/MM/yyyy', { locale: ptBR });
-    const message = `Olá ${name}! Identificamos que a parcela ${payment.installment_number} no valor de ${value}, com vencimento em ${dueDate}, encontra-se em aberto. Entre em contato conosco para regularizar sua situação. Obrigado!`;
-    openWhatsAppWeb(phone, message);
+    navigate('/whatsapp');
   };
 
   const handleBulkCollection = () => {

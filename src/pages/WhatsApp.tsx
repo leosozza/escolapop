@@ -3,8 +3,6 @@ import {
   MessageCircle,
   Search,
   Plus,
-  Phone,
-  ExternalLink,
   Info,
   X,
   Users,
@@ -31,7 +29,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { openWhatsAppWeb } from '@/lib/whatsapp';
+
 import { AddWhatsAppContactDialog } from '@/components/whatsapp/AddWhatsAppContactDialog';
 import { WhatsAppMessageList } from '@/components/whatsapp/WhatsAppMessageList';
 import { WhatsAppChatInput } from '@/components/whatsapp/WhatsAppChatInput';
@@ -381,15 +379,6 @@ const WhatsApp = () => {
               </Badge>
             </div>
             <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9"
-                onClick={() => openWhatsAppWeb(selectedContact.phone)}
-                title="Abrir WhatsApp Web"
-              >
-                <ExternalLink className="h-4 w-4" />
-              </Button>
               <Button
                 variant="ghost"
                 size="icon"

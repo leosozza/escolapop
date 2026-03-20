@@ -11,7 +11,7 @@ import {
   AlertCircle,
   FileText,
   History,
-  ExternalLink,
+  
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,7 +35,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { openWhatsAppWeb, getWhatsAppWebLink } from '@/lib/whatsapp';
+
 import { format, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
@@ -206,10 +206,7 @@ export function AcademicConversationPanel({
   };
 
   const handleOpenWhatsApp = () => {
-    openWhatsAppWeb(
-      contact.phone,
-      `Olá ${contact.full_name}! Aqui é ${operatorName} do departamento acadêmico. Como posso ajudá-lo(a)?`
-    );
+    navigate('/whatsapp');
   };
 
   const saveNote = async () => {
@@ -280,16 +277,10 @@ export function AcademicConversationPanel({
               <div>
                 <CardTitle className="text-lg">{contact.full_name}</CardTitle>
                 <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-                  <a
-                    href={getWhatsAppWebLink(contact.phone)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer"
-                    onClick={(e) => e.stopPropagation()}
-                  >
+                  <span className="flex items-center gap-1">
                     <Phone className="h-3 w-3" />
                     {contact.phone}
-                  </a>
+                  </span>
                   {contact.referral_agent_code && (
                     <span className="flex items-center gap-1">
                       <User className="h-3 w-3" />
@@ -315,8 +306,8 @@ export function AcademicConversationPanel({
                 onClick={handleOpenWhatsApp}
                 className="gap-1"
               >
-                <ExternalLink className="h-3.5 w-3.5" />
-                WhatsApp Web
+                <MessageCircle className="h-3.5 w-3.5" />
+                WhatsApp
               </Button>
             </div>
           </div>

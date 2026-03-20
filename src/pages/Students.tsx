@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { openWhatsAppWeb } from '@/lib/whatsapp';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -246,7 +246,7 @@ export default function Students() {
   };
 
   const handleOpenWhatsApp = (phone: string, name: string) => {
-    openWhatsAppWeb(phone, `Olá ${name}! Entramos em contato sobre suas aulas na escola.`);
+    navigate('/whatsapp');
   };
 
   return (

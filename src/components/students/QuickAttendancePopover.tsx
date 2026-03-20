@@ -23,7 +23,7 @@ import { Search, Check, X, AlertCircle, MessageCircle, User, GraduationCap } fro
 import { format, addWeeks } from 'date-fns';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
 import { ACADEMIC_STATUS_CONFIG, type AcademicStatus } from '@/types/database';
-import { openWhatsAppWeb } from '@/lib/whatsapp';
+import { useNavigate } from 'react-router-dom';
 
 interface AttendanceRecord {
   lesson_number: number;
@@ -38,6 +38,7 @@ interface QuickAttendancePopoverProps {
 
 export function QuickAttendancePopover({ open, onOpenChange }: QuickAttendancePopoverProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selectedLesson, setSelectedLesson] = useState<{
@@ -226,7 +227,7 @@ export function QuickAttendancePopover({ open, onOpenChange }: QuickAttendancePo
                   variant="outline"
                   size="sm"
                   className="gap-1"
-                  onClick={() => openWhatsAppWeb(lead.phone, `Olá ${lead.full_name}!`)}
+                  onClick={() => navigate('/whatsapp')}
                 >
                   <MessageCircle className="h-4 w-4" />
                   WhatsApp

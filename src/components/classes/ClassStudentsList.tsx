@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { openWhatsAppWeb } from '@/lib/whatsapp';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AttendanceJustificationDialog } from '@/components/students/AttendanceJustificationDialog';
 import { TransferClassDialog } from '@/components/students/TransferClassDialog';
@@ -281,12 +281,9 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
     onUpdate?.();
   };
 
+  const navToWhatsApp = useNavigate();
   const handleOpenWhatsApp = (phone: string | null, studentName: string) => {
-    if (!phone) {
-      toast.error('Telefone não cadastrado');
-      return;
-    }
-    openWhatsAppWeb(phone, `Olá ${studentName}! Entramos em contato sobre suas aulas na ${classInfo?.course?.name || 'escola'}.`);
+    navToWhatsApp('/whatsapp');
   };
 
   const getInitials = (name: string) =>

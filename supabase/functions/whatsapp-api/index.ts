@@ -336,7 +336,7 @@ Deno.serve(async (req) => {
         const res = await instanceFetch(inst.wuzapi_token, "/chat/send/document", {
           method: "POST",
           body: JSON.stringify({
-            Phone: docJid, Document: documentUrl,
+            Phone: docPhoneNumber, Document: documentUrl,
             FileName: fileName || "document.pdf", Caption: caption || "",
           }),
         });

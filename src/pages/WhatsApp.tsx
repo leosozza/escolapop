@@ -288,14 +288,25 @@ const WhatsApp = () => {
             </Select>
           )}
 
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar contato..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="pl-9 h-9 text-sm"
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar contato..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="pl-9 h-9 text-sm"
+              />
+            </div>
+            <Button
+              size="sm"
+              variant={showAllContacts ? 'secondary' : 'ghost'}
+              className="h-9 px-2 shrink-0"
+              onClick={() => setShowAllContacts(!showAllContacts)}
+              title={showAllContacts ? 'Mostrando todos' : 'Mostrar todos os contatos'}
+            >
+              <Users className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 

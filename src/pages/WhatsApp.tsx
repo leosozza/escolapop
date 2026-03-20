@@ -94,6 +94,7 @@ const WhatsApp = () => {
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | undefined>();
   const [instances, setInstances] = useState<{ id: string; name: string; status: string }[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showAllContacts, setShowAllContacts] = useState(false);
 
   // Notes editing
   const [isEditingNotes, setIsEditingNotes] = useState(false);

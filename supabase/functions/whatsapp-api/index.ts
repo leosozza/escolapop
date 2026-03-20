@@ -459,7 +459,7 @@ Deno.serve(async (req) => {
           const whRes = await instanceFetch(inst.wuzapi_token, "/webhook", {
             method: "POST",
             body: JSON.stringify({
-              webhook: webhookUrl,
+              webhookURL: webhookUrl,
               events: ["Message", "Receipt", "ReadReceipt", "ChatPresence", "Connected", "Disconnected"],
             }),
           });

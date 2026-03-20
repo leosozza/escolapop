@@ -46,14 +46,6 @@ Deno.serve(async (req) => {
   ) => {
     const normalizedName = normalizeName(name);
 
-    const byToken = token
-      ? users.find((user) => String(user.token || "") === String(token))
-      : null;
-
-    const byName = normalizedName
-      ? users.find((user) => normalizeName(String(user.name || "")) === normalizedName)
-      : null;
-
     const byUserId = userId
       ? users.find(
           (user) =>
@@ -62,7 +54,17 @@ Deno.serve(async (req) => {
         )
       : null;
 
-    return byToken || byName || byUserId || null;
+    const byToken = token
+      ? users.find((user) => String(user.token || "") === String(token))
+      : null;
+
+    const nameMatches = normalizedName
+      ? users.filter((user) => normalizeName(String(user.name || "")) === normalizedName)
+      : [];
+
+    const byUniqueName = nameMatches.length === 1 ? nameMatches[0] : null;
+
+    return byToken || byUserId || byUniqueName || null;
   };
 
   const extractCreatedUser = (
@@ -155,13 +157,18 @@ Deno.serve(async (req) => {
       return { error: createRes.data, user: null, token: null as string | null };
     }
 
-    let remoteUser = extractCreatedUser(createRes.data, name, requestedToken, null);
+    const createdUserFromResponse = extractCreatedUser(createRes.data, name, requestedToken, null);
+    let remoteUser: Record<string, unknown> | null = null;
 
-    if (!remoteUser?.id || !remoteUser?.token) {
-      const listRes = await adminFetch("/admin/users", { method: "GET" });
-      if (listRes.ok && Array.isArray(listRes.data?.data)) {
-        remoteUser = matchRemoteUser(listRes.data.data, name, requestedToken, null);
-      }
+    const listRes = await adminFetch("/admin/users", { method: "GET" });
+    if (listRes.ok && Array.isArray(listRes.data?.data)) {
+      remoteUser = listRes.data.data.find(
+        (user: Record<string, unknown>) => String(user.token || "") === requestedToken,
+      ) || null;
+    }
+
+    if (!remoteUser?.id && createdUserFromResponse?.id) {
+      remoteUser = createdUserFromResponse;
     }
 
     return {
@@ -185,8 +192,9 @@ Deno.serve(async (req) => {
     const listRes = await adminFetch("/admin/users", { method: "GET" });
 
     if (listRes.ok && Array.isArray(listRes.data?.data)) {
+      const remoteUsers = listRes.data.data as Array<Record<string, unknown>>;
       const remoteUser = matchRemoteUser(
-        listRes.data.data,
+        remoteUsers,
         instance.name,
         instance.wuzapi_token,
         instance.wuzapi_user_id,

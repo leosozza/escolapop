@@ -188,17 +188,22 @@ const WhatsApp = () => {
     }
   };
 
-  const filteredContacts = searchQuery
-    ? contacts.filter(c => {
-        const q = searchQuery.toLowerCase();
-        return (
-          c.full_name.toLowerCase().includes(q) ||
-          c.phone.includes(q) ||
-          c.guardian_name?.toLowerCase().includes(q) ||
-          c.external_id?.toLowerCase().includes(q)
-        );
-      })
-    : contacts;
+  const filteredContacts = contacts.filter(c => {
+    // Filter by conversation unless showAll is toggled or searching
+    const hasConv = !!(c as any)._hasConversation;
+    if (!showAllContacts && !searchQuery && !hasConv) return false;
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      return (
+        c.full_name.toLowerCase().includes(q) ||
+        c.phone.includes(q) ||
+        c.guardian_name?.toLowerCase().includes(q) ||
+        c.external_id?.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
 
   const handleStatusChange = async (contactId: string, newStatus: LeadStatus) => {
     try {

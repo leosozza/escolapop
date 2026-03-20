@@ -213,7 +213,7 @@ export default function StudentProfile() {
         .select(`
           *,
           course:courses(id, name),
-          teacher:profiles!classes_teacher_id_fkey(full_name)
+          teacher:team_members!classes_teacher_id_fkey(full_name)
         `)
         .eq('is_active', true)
         .order('start_date', { ascending: false });

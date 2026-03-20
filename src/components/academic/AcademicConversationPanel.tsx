@@ -455,6 +455,17 @@ export function AcademicConversationPanel({
               </>
             )}
 
+            {/* Chat WhatsApp Integrado */}
+            <Separator />
+            <div className="space-y-2">
+              <p className="text-sm font-medium flex items-center gap-2">
+                <MessageCircle className="h-4 w-4" />
+                Mensagens WhatsApp
+              </p>
+              <WhatsAppMessageList phone={contact.phone} leadId={contact.lead_id} />
+              <WhatsAppChatInput phone={contact.phone} leadId={contact.lead_id} />
+            </div>
+
             {/* Histórico de Tabulação */}
             {enrollmentHistory.length > 0 && (
               <>

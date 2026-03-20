@@ -147,6 +147,77 @@ export function WhatsAppSettings() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleDiagnostic = async (inst: Instance) => {
+    setDiagInstance(inst.id);
+    setDiagLogs([]);
+    setDiagLoading(true);
+    const logs: string[] = [];
+    const log = (msg: string) => { logs.push(`[${new Date().toLocaleTimeString()}] ${msg}`); setDiagLogs([...logs]); };
+
+    try {
+      log(`Iniciando diagnóstico da instância "${inst.name}" (${inst.id})`);
+      log(`Tipo de conexão: ${inst.connection_type}`);
+      log(`Status atual no banco: ${inst.status}`);
+      log(`Telefone: ${inst.phone_number || 'não definido'}`);
+      log(`Último erro: ${inst.last_error || 'nenhum'}`);
+      log(`Token WuzAPI: ${inst.wuzapi_token ? inst.wuzapi_token.slice(0, 8) + '...' : 'AUSENTE'}`);
+
+      // 1. Check status
+      log('--- Verificando status da sessão na WuzAPI...');
+      const { data: statusData, error: statusErr } = await supabase.functions.invoke('whatsapp-api', {
+        body: { action: 'check-status', instanceId: inst.id },
+      });
+      if (statusErr) {
+        log(`❌ Erro ao verificar status: ${statusErr.message}`);
+      } else {
+        log(`✅ Resposta status: connected=${statusData?.connected}`);
+        if (statusData?.details) {
+          log(`   Detalhes: ${JSON.stringify(statusData.details).slice(0, 300)}`);
+        }
+      }
+
+      // 2. Try connect if disconnected
+      if (!statusData?.connected) {
+        log('--- Tentando conectar...');
+        const { data: connectData, error: connectErr } = await supabase.functions.invoke('whatsapp-api', {
+          body: { action: 'connect', instanceId: inst.id },
+        });
+        if (connectErr) {
+          log(`❌ Erro ao conectar: ${connectErr.message}`);
+        } else {
+          log(`✅ Resposta connect: ${JSON.stringify(connectData).slice(0, 300)}`);
+        }
+
+        // 3. Try QR
+        log('--- Solicitando QR Code...');
+        await new Promise(r => setTimeout(r, 1500));
+        const { data: qrData, error: qrErr } = await supabase.functions.invoke('whatsapp-api', {
+          body: { action: 'get-qr', instanceId: inst.id },
+        });
+        if (qrErr) {
+          log(`❌ Erro ao obter QR: ${qrErr.message}`);
+        } else if (qrData?.QRCode) {
+          log(`✅ QR Code recebido (${qrData.QRCode.length} chars)`);
+        } else {
+          log(`⚠️ QR Code não disponível: ${JSON.stringify(qrData).slice(0, 200)}`);
+        }
+      }
+
+      // 4. Webhook config check
+      log(`--- Webhook URL configurada: ${webhookUrl}`);
+      log('Diagnóstico concluído.');
+    } catch (err) {
+      log(`❌ Erro geral: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setDiagLoading(false);
+    }
+  };
+
+  const copyDiagLogs = () => {
+    navigator.clipboard.writeText(diagLogs.join('\n'));
+    toast.success('Logs copiados para a área de transferência!');
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}

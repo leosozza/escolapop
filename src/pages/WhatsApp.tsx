@@ -29,7 +29,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { openWhatsAppWeb } from '@/lib/whatsapp';
+
 import { AddWhatsAppContactDialog } from '@/components/whatsapp/AddWhatsAppContactDialog';
 import { WhatsAppMessageList } from '@/components/whatsapp/WhatsAppMessageList';
 import { WhatsAppChatInput } from '@/components/whatsapp/WhatsAppChatInput';

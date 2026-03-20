@@ -55,7 +55,7 @@ import { ACADEMIC_STATUS_CONFIG, type AcademicStatus } from '@/types/database';
 import { format, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { COURSE_WEEKS } from '@/lib/course-schedule-config';
-import { openWhatsAppWeb } from '@/lib/whatsapp';
+
 import { AddEnrollmentDialog } from '@/components/students/AddEnrollmentDialog';
 import { TransferClassDialog } from '@/components/students/TransferClassDialog';
 import { AttendanceJustificationDialog } from '@/components/students/AttendanceJustificationDialog';

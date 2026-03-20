@@ -460,7 +460,7 @@ Deno.serve(async (req) => {
             method: "POST",
             body: JSON.stringify({
               webhook: webhookUrl,
-              events: ["Message", "ReadReceipt", "Connected", "Disconnected"],
+              events: ["Message", "Receipt", "ReadReceipt", "ChatPresence", "Connected", "Disconnected"],
             }),
           });
           console.log("Webhook config after connect:", JSON.stringify(whRes.data).slice(0, 200));

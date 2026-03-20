@@ -351,7 +351,7 @@ Deno.serve(async (req) => {
           const whRes = await instanceFetch(created.user.token, "/webhook", {
             method: "POST",
             body: JSON.stringify({
-              webhook: webhookUrl,
+              webhookURL: webhookUrl,
               events: ["Message", "Receipt", "ReadReceipt", "ChatPresence", "Connected", "Disconnected"],
             }),
           });

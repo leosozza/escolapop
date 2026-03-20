@@ -100,15 +100,6 @@ export function AppLayout({ children }: AppLayoutProps) {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Search */}
-            <div className="relative hidden md:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input
-                placeholder="Search"
-                className="pl-9 w-64 h-10 rounded-xl bg-muted/50 border-border/50 focus:bg-background"
-              />
-            </div>
-
             {/* User avatar */}
             <Avatar className="size-10 ring-2 ring-primary/20 cursor-pointer">
               <AvatarImage src={profile?.avatar_url ?? undefined} alt={profile?.full_name ?? 'Usuário'} />

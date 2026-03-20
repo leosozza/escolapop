@@ -272,24 +272,34 @@ export default function Contracts() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              toast({ title: 'Detalhes do contrato', description: `Contrato de ${contract.enrollment?.lead?.full_name || 'N/A'} - ${contract.installments}x ${formatCurrency(Number(contract.total_value) / contract.installments)}` });
+                            }}>
                               <Eye className="h-4 w-4 mr-2" />
                               Ver detalhes
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Editar
-                            </DropdownMenuItem>
                             {contract.status === 'rascunho' && (
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={async () => {
+                                const { error } = await supabase.from('contracts').update({ status: 'assinado', signed_at: new Date().toISOString() }).eq('id', contract.id);
+                                if (error) { toast({ variant: 'destructive', title: 'Erro ao assinar contrato' }); return; }
+                                toast({ title: 'Contrato assinado!' });
+                                fetchContracts();
+                              }}>
                                 <CheckCircle2 className="h-4 w-4 mr-2" />
                                 Marcar como assinado
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem className="text-destructive">
-                              <XCircle className="h-4 w-4 mr-2" />
-                              Cancelar
-                            </DropdownMenuItem>
+                            {contract.status !== 'cancelado' && (
+                              <DropdownMenuItem className="text-destructive" onClick={async () => {
+                                const { error } = await supabase.from('contracts').update({ status: 'cancelado' }).eq('id', contract.id);
+                                if (error) { toast({ variant: 'destructive', title: 'Erro ao cancelar contrato' }); return; }
+                                toast({ title: 'Contrato cancelado' });
+                                fetchContracts();
+                              }}>
+                                <XCircle className="h-4 w-4 mr-2" />
+                                Cancelar
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

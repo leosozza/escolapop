@@ -2,13 +2,11 @@ import { useState, useEffect } from 'react';
 import {
   AlertTriangle,
   Phone,
-  Mail,
   Calendar,
   Loader2,
   Send,
   DollarSign,
   Clock,
-  User,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { openWhatsAppWeb } from '@/lib/whatsapp';
 
 interface OverduePayment {
   id: string;
@@ -28,7 +27,7 @@ interface OverduePayment {
   installment_number: number;
   contract?: {
     enrollment?: {
-      student?: { full_name: string; phone: string | null };
+      lead?: { full_name: string; phone: string | null };
       course?: { name: string };
     };
   };
@@ -47,7 +46,7 @@ export default function Overdue() {
   const fetchOverduePayments = async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      
+
       const { data, error } = await supabase
         .from('payments')
         .select(`
@@ -57,7 +56,7 @@ export default function Overdue() {
           installment_number,
           contract:contracts(
             enrollment:enrollments(
-              student:profiles!enrollments_student_id_fkey(full_name, phone),
+              lead:leads!enrollments_lead_id_fkey(full_name, phone),
               course:courses(name)
             )
           )
@@ -68,7 +67,6 @@ export default function Overdue() {
 
       if (error) throw error;
 
-      // Calculate days overdue
       const overduePayments = (data || []).map((p: any) => ({
         ...p,
         days_overdue: differenceInDays(new Date(), new Date(p.due_date)),
@@ -90,17 +88,48 @@ export default function Overdue() {
   const getInitials = (name: string) =>
     name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
   const getUrgencyColor = (days: number) => {
     if (days > 30) return 'border-l-destructive bg-destructive/5';
     if (days > 15) return 'border-l-warning bg-warning/5';
     return 'border-l-primary';
+  };
+
+  const getStudentName = (payment: OverduePayment) =>
+    payment.contract?.enrollment?.lead?.full_name || 'Aluno';
+
+  const getStudentPhone = (payment: OverduePayment) =>
+    payment.contract?.enrollment?.lead?.phone || null;
+
+  const getCourseName = (payment: OverduePayment) =>
+    payment.contract?.enrollment?.course?.name || '';
+
+  const handleWhatsAppContact = (payment: OverduePayment) => {
+    const phone = getStudentPhone(payment);
+    if (!phone) {
+      toast({ variant: 'destructive', title: 'Telefone não encontrado' });
+      return;
+    }
+    const name = getStudentName(payment);
+    const value = formatCurrency(Number(payment.amount));
+    const dueDate = format(new Date(payment.due_date), 'dd/MM/yyyy', { locale: ptBR });
+    const message = `Olá ${name}! Identificamos que a parcela ${payment.installment_number} no valor de ${value}, com vencimento em ${dueDate}, encontra-se em aberto. Entre em contato conosco para regularizar sua situação. Obrigado!`;
+    openWhatsAppWeb(phone, message);
+  };
+
+  const handleBulkCollection = () => {
+    const withPhone = payments.filter(p => getStudentPhone(p));
+    if (withPhone.length === 0) {
+      toast({ variant: 'destructive', title: 'Nenhum contato com telefone disponível' });
+      return;
+    }
+    handleWhatsAppContact(withPhone[0]);
+    toast({
+      title: 'Cobrança iniciada',
+      description: `Abrindo WhatsApp para ${getStudentName(withPhone[0])}. Total de ${withPhone.length} cobranças pendentes.`,
+    });
   };
 
   const stats = {
@@ -121,96 +150,64 @@ export default function Overdue() {
 
   return (
     <div className="space-y-6 animate-fade-in p-6">
-      {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Inadimplência</h1>
-          <p className="text-muted-foreground">
-            Parcelas vencidas e ações de cobrança
-          </p>
+          <p className="text-muted-foreground">Parcelas vencidas e ações de cobrança</p>
         </div>
-        <Button className="bg-gradient-primary hover:opacity-90">
+        <Button className="bg-gradient-primary hover:opacity-90" onClick={handleBulkCollection}>
           <Send className="h-4 w-4 mr-2" />
           Enviar Cobranças em Massa
         </Button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card className="border-0 shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-destructive/10">
-                <AlertTriangle className="h-5 w-5 text-destructive" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.total}</p>
-                <p className="text-sm text-muted-foreground">Total</p>
-              </div>
+              <div className="p-2 rounded-lg bg-destructive/10"><AlertTriangle className="h-5 w-5 text-destructive" /></div>
+              <div><p className="text-2xl font-bold">{stats.total}</p><p className="text-sm text-muted-foreground">Total</p></div>
             </div>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Clock className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.ate15dias}</p>
-                <p className="text-sm text-muted-foreground">Até 15 dias</p>
-              </div>
+              <div className="p-2 rounded-lg bg-primary/10"><Clock className="h-5 w-5 text-primary" /></div>
+              <div><p className="text-2xl font-bold">{stats.ate15dias}</p><p className="text-sm text-muted-foreground">Até 15 dias</p></div>
             </div>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-warning/10">
-                <Clock className="h-5 w-5 text-warning" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.ate30dias}</p>
-                <p className="text-sm text-muted-foreground">15-30 dias</p>
-              </div>
+              <div className="p-2 rounded-lg bg-warning/10"><Clock className="h-5 w-5 text-warning" /></div>
+              <div><p className="text-2xl font-bold">{stats.ate30dias}</p><p className="text-sm text-muted-foreground">15-30 dias</p></div>
             </div>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-destructive/10">
-                <AlertTriangle className="h-5 w-5 text-destructive" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.mais30dias}</p>
-                <p className="text-sm text-muted-foreground">+30 dias</p>
-              </div>
+              <div className="p-2 rounded-lg bg-destructive/10"><AlertTriangle className="h-5 w-5 text-destructive" /></div>
+              <div><p className="text-2xl font-bold">{stats.mais30dias}</p><p className="text-sm text-muted-foreground">+30 dias</p></div>
             </div>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-destructive/10">
-                <DollarSign className="h-5 w-5 text-destructive" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{formatCurrency(stats.valorTotal)}</p>
-                <p className="text-sm text-muted-foreground">Valor Total</p>
-              </div>
+              <div className="p-2 rounded-lg bg-destructive/10"><DollarSign className="h-5 w-5 text-destructive" /></div>
+              <div><p className="text-2xl font-bold">{formatCurrency(stats.valorTotal)}</p><p className="text-sm text-muted-foreground">Valor Total</p></div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Overdue List */}
       <Card className="border-0 shadow-md">
         <CardHeader>
           <CardTitle className="text-lg">Parcelas Vencidas</CardTitle>
-          <CardDescription>
-            Ordenadas por urgência (mais atrasadas primeiro)
-          </CardDescription>
+          <CardDescription>Ordenadas por urgência (mais atrasadas primeiro)</CardDescription>
         </CardHeader>
         <CardContent>
           {payments.length === 0 ? (
@@ -225,24 +222,19 @@ export default function Overdue() {
                 {payments.map((payment) => (
                   <div
                     key={payment.id}
-                    className={cn(
-                      'p-4 rounded-lg border-l-4 transition-colors',
-                      getUrgencyColor(payment.days_overdue)
-                    )}
+                    className={cn('p-4 rounded-lg border-l-4 transition-colors', getUrgencyColor(payment.days_overdue))}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <Avatar className="h-12 w-12">
                           <AvatarFallback className="bg-gradient-primary text-white">
-                            {getInitials(payment.contract?.enrollment?.student?.full_name || 'A')}
+                            {getInitials(getStudentName(payment))}
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-medium">
-                            {payment.contract?.enrollment?.student?.full_name || 'Aluno'}
-                          </p>
+                          <p className="font-medium">{getStudentName(payment)}</p>
                           <p className="text-sm text-muted-foreground">
-                            {payment.contract?.enrollment?.course?.name} - Parcela {payment.installment_number}
+                            {getCourseName(payment)} - Parcela {payment.installment_number}
                           </p>
                           <div className="flex items-center gap-4 mt-1 text-sm">
                             <span className="flex items-center gap-1 text-muted-foreground">
@@ -257,20 +249,15 @@ export default function Overdue() {
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-right">
-                          <p className="text-lg font-bold text-destructive">
-                            {formatCurrency(Number(payment.amount))}
-                          </p>
+                          <p className="text-lg font-bold text-destructive">{formatCurrency(Number(payment.amount))}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          {payment.contract?.enrollment?.student?.phone && (
-                            <Button variant="outline" size="icon">
+                          {getStudentPhone(payment) && (
+                            <Button variant="outline" size="icon" onClick={() => handleWhatsAppContact(payment)}>
                               <Phone className="h-4 w-4" />
                             </Button>
                           )}
-                          <Button variant="outline" size="icon">
-                            <Mail className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm">
+                          <Button size="sm" onClick={() => handleWhatsAppContact(payment)}>
                             <Send className="h-4 w-4 mr-2" />
                             Cobrar
                           </Button>

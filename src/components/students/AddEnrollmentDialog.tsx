@@ -294,7 +294,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
       // Clear pending state
       setPendingSubmit(null);
 
-      // 1. Criar o lead (sem email)
+      // 1. Criar o lead (sem email) - marcado como acadêmico
       const { data: leadData, error: leadError } = await supabase
         .from('leads')
         .insert({
@@ -304,7 +304,8 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
           source: 'indicacao' as const,
           status: 'matriculado' as const,
           notes: values.notes || null,
-        })
+          origin_sector: 'academico',
+        } as never)
         .select('id')
         .single();
 

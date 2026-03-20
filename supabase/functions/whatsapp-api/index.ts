@@ -120,25 +120,33 @@ Deno.serve(async (req) => {
         const generatedToken = crypto.randomUUID().replace(/-/g, "");
 
         // Create user in WuzAPI with explicit token
+        console.log("Creating WuzAPI user:", name, "with token:", generatedToken.slice(0, 8));
         const res = await adminFetch("/admin/users", {
           method: "POST",
           body: JSON.stringify({ name, token: generatedToken }),
         });
 
+        console.log("WuzAPI create response:", JSON.stringify(res.data).slice(0, 500));
+
         if (!res.ok) {
           return json({ error: "Failed to create WuzAPI user", details: res.data }, 500);
         }
 
-        const wuzapiUser = res.data?.data || res.data;
+        // WuzAPI returns data as array: { code: 200, data: [{ id: 1, name: "...", token: "..." }] }
+        // or as object: { data: { id: 1, ... } }
+        const rawData = res.data?.data;
+        const wuzapiUser = Array.isArray(rawData) ? rawData[0] : rawData;
         const token = wuzapiUser?.token || generatedToken;
         const userId = wuzapiUser?.id;
+
+        console.log("Parsed user:", { token: token?.slice(0, 8), userId });
 
         // Save instance to DB
         const { data: instance, error: insertError } = await supabase
           .from("whatsapp_instances")
           .insert({
             name,
-            wuzapi_user_id: String(userId),
+            wuzapi_user_id: userId != null ? String(userId) : null,
             wuzapi_token: token,
             connection_type: connectionType || "qrcode",
             status: "disconnected",
@@ -153,13 +161,14 @@ Deno.serve(async (req) => {
         // Auto-configure webhook using the instance token
         if (token) {
           const webhookUrl = `${SUPABASE_URL}/functions/v1/whatsapp-webhook`;
-          await instanceFetch(token, "/webhook", {
+          const whRes = await instanceFetch(token, "/webhook", {
             method: "POST",
             body: JSON.stringify({
               webhook: webhookUrl,
               events: ["Message", "ReadReceipt", "Connected", "Disconnected"],
             }),
           });
+          console.log("Webhook config response:", JSON.stringify(whRes.data).slice(0, 200));
         }
 
         return json({ success: true, instance: { id: instance.id, name } });

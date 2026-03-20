@@ -115,13 +115,15 @@ const WhatsApp = () => {
   const fetchInstances = async () => {
     const { data } = await supabase
       .from('whatsapp_instances')
-      .select('id, name, status');
+      .select('id, name, status')
+      .eq('status', 'connected');
 
     if (data && data.length > 0) {
       setInstances(data);
-      // Auto-select first connected or first available
-      const connected = data.find(i => i.status === 'connected');
-      setSelectedInstanceId(connected?.id || data[0].id);
+      setSelectedInstanceId(data[0].id);
+    } else {
+      setInstances([]);
+      setSelectedInstanceId(undefined);
     }
   };
 

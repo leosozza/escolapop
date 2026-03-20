@@ -112,6 +112,40 @@ export function AcademicConversationPanel({
   const [enrollmentHistory, setEnrollmentHistory] = useState<EnrollmentHistoryRecord[]>([]);
   const [selectedLesson, setSelectedLesson] = useState<AttendanceRecord | null>(null);
   const [classId, setClassId] = useState<string | null>(null);
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
+  const [availableInstances, setAvailableInstances] = useState<{ id: string; name: string; status: string }[]>([]);
+
+  // Load instances the user has access to
+  useEffect(() => {
+    const loadInstances = async () => {
+      if (!user) return;
+      // Get instances the user has access to
+      const { data: access } = await supabase
+        .from('whatsapp_instance_access')
+        .select('instance_id')
+        .eq('user_id', user.id);
+
+      const accessIds = (access || []).map(a => a.instance_id);
+
+      // Get all instances (staff can view all)
+      const { data: instances } = await supabase
+        .from('whatsapp_instances')
+        .select('id, name, status');
+
+      if (instances) {
+        // Filter to only accessible ones, or show all for admin/gestor
+        const filtered = accessIds.length > 0
+          ? instances.filter(i => accessIds.includes(i.id))
+          : instances;
+        setAvailableInstances(filtered);
+        // Auto-select first connected instance
+        const connected = filtered.find(i => i.status === 'connected');
+        if (connected) setSelectedInstanceId(connected.id);
+        else if (filtered.length > 0) setSelectedInstanceId(filtered[0].id);
+      }
+    };
+    loadInstances();
+  }, [user]);
 
   useEffect(() => {
     loadEnrollmentData();

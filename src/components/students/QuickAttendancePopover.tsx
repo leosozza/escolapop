@@ -38,6 +38,7 @@ interface QuickAttendancePopoverProps {
 
 export function QuickAttendancePopover({ open, onOpenChange }: QuickAttendancePopoverProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selectedLesson, setSelectedLesson] = useState<{

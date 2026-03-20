@@ -1,0 +1,1 @@
+DELETE FROM whatsapp_instances WHERE id = '94528fd5-eabc-4c2e-866b-05ba9c67acf1';

@@ -394,13 +394,8 @@ Deno.serve(async (req) => {
         const res = await instanceFetch(inst.wuzapi_token, "/session/status", { method: "GET" });
         console.log("check-status response:", JSON.stringify(res.data).slice(0, 300));
         
-        const connected = res.ok && res.data?.data?.Connected;
-        await updateInstance(instanceId, {
-          status: connected ? "connected" : "disconnected",
-          last_check_at: new Date().toISOString(),
-          last_error: connected ? null : (res.data?.error || res.data?.data?.message || null),
-        });
-        return json({ connected, details: res.data });
+        const { connected, loggedIn } = await syncInstanceState(instanceId, res.data?.data);
+        return json({ connected: connected && loggedIn, details: res.data });
       }
 
       case "get-qr": {

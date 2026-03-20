@@ -306,8 +306,8 @@ export function AcademicConversationPanel({
                 onClick={handleOpenWhatsApp}
                 className="gap-1"
               >
-                <ExternalLink className="h-3.5 w-3.5" />
-                WhatsApp Web
+                <MessageCircle className="h-3.5 w-3.5" />
+                WhatsApp
               </Button>
             </div>
           </div>

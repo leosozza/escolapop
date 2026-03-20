@@ -201,9 +201,6 @@ export function WhatsAppContactPanel() {
       .toUpperCase()
       .slice(0, 2);
 
-  const handleOpenWhatsApp = (phone: string) => {
-    openWhatsAppWeb(phone);
-  };
 
   return (
     <div className="h-full flex gap-4">

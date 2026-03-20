@@ -444,7 +444,7 @@ export default function StudentProfile() {
                   type="button"
                   variant="outline"
                   size="icon"
-                  onClick={() => openWhatsAppWeb(editData.phone, `Olá ${editData.full_name}!`)}
+                  onClick={() => navigate('/whatsapp')}
                   title="Abrir WhatsApp"
                 >
                   <MessageCircle className="h-4 w-4 text-green-500" />

@@ -382,15 +382,6 @@ const WhatsApp = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9"
-                onClick={() => openWhatsAppWeb(selectedContact.phone)}
-                title="Abrir WhatsApp Web"
-              >
-                <ExternalLink className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
                 className={cn('h-9 w-9', showInfoPanel && 'bg-muted')}
                 onClick={() => setShowInfoPanel(!showInfoPanel)}
                 title="Info do contato"

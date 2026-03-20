@@ -281,12 +281,9 @@ export function ClassStudentsList({ classInfo, open, onOpenChange, onUpdate }: C
     onUpdate?.();
   };
 
+  const navToWhatsApp = useNavigate();
   const handleOpenWhatsApp = (phone: string | null, studentName: string) => {
-    if (!phone) {
-      toast.error('Telefone não cadastrado');
-      return;
-    }
-    openWhatsAppWeb(phone, `Olá ${studentName}! Entramos em contato sobre suas aulas na ${classInfo?.course?.name || 'escola'}.`);
+    navToWhatsApp('/whatsapp');
   };
 
   const getInitials = (name: string) =>

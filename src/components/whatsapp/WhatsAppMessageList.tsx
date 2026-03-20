@@ -112,6 +112,8 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
                   {isOutbound && (
                     isFailed ? (
                       <AlertCircle className="h-3 w-3 text-destructive" />
+                    ) : msg.status === 'read' ? (
+                      <CheckCheck className="h-3 w-3 text-blue-400" />
                     ) : msg.status === 'delivered' ? (
                       <CheckCheck className="h-3 w-3 text-green-200" />
                     ) : msg.status === 'sent' ? (

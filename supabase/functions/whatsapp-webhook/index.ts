@@ -19,11 +19,14 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    console.log("Webhook received:", JSON.stringify(body).slice(0, 500));
+    console.log("=== WEBHOOK RECEIVED ===");
+    console.log("Event:", body.event, "Instance:", body.instance);
+    console.log("Payload:", JSON.stringify(body).slice(0, 800));
 
     // Validate webhook secret if provided
     const webhookSecret = req.headers.get("x-webhook-secret");
     if (WUZAPI_SECRET_KEY && webhookSecret && webhookSecret !== WUZAPI_SECRET_KEY) {
+      console.log("Invalid webhook secret");
       return new Response(JSON.stringify({ error: "Invalid webhook secret" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -32,7 +35,9 @@ Deno.serve(async (req) => {
 
     const eventType = body.event || body.type;
     const instanceJid = body.instance || "";
-    const instancePhone = instanceJid.replace(/@s\.whatsapp\.net$/, "").replace(/\..*$/, "");
+    const instancePhone = instanceJid.replace(/@.*$/, "").replace(/[.:].*$/, "");
+
+    console.log("Parsed event:", eventType, "instancePhone:", instancePhone);
 
     // Helper: find instance by JID/phone from the webhook payload
     const findInstanceId = async (): Promise<string | null> => {
@@ -60,18 +65,26 @@ Deno.serve(async (req) => {
     // ============ MESSAGE EVENTS ============
     if (eventType === "Message") {
       const msgData = body.data || {};
-      const sender = msgData.sender || msgData.Info?.Sender || "";
+      
+      // WuzAPI format: data.sender contains the JID
+      const sender = msgData.sender || msgData.Info?.Sender || msgData.Info?.MessageSource?.Sender || "";
       const phone = sender.replace("@s.whatsapp.net", "").replace("@g.us", "");
+      const pushName = msgData.pushName || msgData.Info?.PushName || "";
+
+      console.log("Message from:", phone, "pushName:", pushName);
 
       if (!phone) {
+        console.log("No phone found, skipping");
         return new Response(JSON.stringify({ ok: true, skipped: "no phone" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
       const instanceId = await findInstanceId();
+      console.log("Matched instance:", instanceId);
 
       // Extract message content — WuzAPI format
+      // WuzAPI sends: data.message.conversation, data.message.extendedTextMessage.text, etc.
       const message = msgData.message || msgData.Message || {};
       const content =
         message.conversation ||
@@ -90,7 +103,9 @@ Deno.serve(async (req) => {
           ? "document"
           : (message.audioMessage || message.AudioMessage)
             ? "audio"
-            : "text";
+            : (message.videoMessage || message.VideoMessage)
+              ? "video"
+              : "text";
 
       // Find matching lead by phone
       const cleanPhone = phone.replace(/^55/, "");
@@ -101,13 +116,17 @@ Deno.serve(async (req) => {
         .limit(1)
         .maybeSingle();
 
+      console.log("Lead match:", lead?.id || "none");
+
+      const wuzapiMsgId = msgData.id || msgData.Info?.Id || null;
+
       await supabase.from("whatsapp_messages").insert({
         phone,
         content,
         lead_id: lead?.id || null,
         direction: "inbound",
         message_type: messageType,
-        wuzapi_message_id: msgData.id || msgData.Info?.Id || null,
+        wuzapi_message_id: wuzapiMsgId,
         status: "received",
         instance_id: instanceId,
       });
@@ -115,6 +134,38 @@ Deno.serve(async (req) => {
       console.log("Message saved from:", phone, "content:", content.slice(0, 50));
 
       return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ============ RECEIPT EVENTS (delivery/read status) ============
+    if (eventType === "Receipt" || eventType === "ReadReceipt") {
+      const receiptData = body.data || {};
+      console.log("Receipt data:", JSON.stringify(receiptData).slice(0, 500));
+
+      // WuzAPI Receipt format: data.ids (array of message IDs), data.type ("delivered", "read", "played")
+      const messageIds: string[] = receiptData.ids || (receiptData.id ? [receiptData.id] : []);
+      const receiptType = receiptData.type || (eventType === "ReadReceipt" ? "read" : "delivered");
+      
+      const newStatus = (receiptType === "read" || receiptType === "played") ? "read" : "delivered";
+
+      console.log("Updating", messageIds.length, "messages to status:", newStatus);
+
+      for (const msgId of messageIds) {
+        if (!msgId) continue;
+        const { error } = await supabase
+          .from("whatsapp_messages")
+          .update({ status: newStatus })
+          .eq("wuzapi_message_id", msgId);
+        
+        if (error) {
+          console.log("Failed to update message", msgId, error.message);
+        } else {
+          console.log("Updated message", msgId, "→", newStatus);
+        }
+      }
+
+      return new Response(JSON.stringify({ ok: true, updated: messageIds.length }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -145,6 +196,7 @@ Deno.serve(async (req) => {
             phone_number: isConnected ? instancePhone : undefined,
             updated_at: new Date().toISOString(),
           }).eq("id", inst.id);
+          console.log("Instance", inst.id, "updated to", newStatus);
         }
       }
 
@@ -168,9 +220,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ============ READ RECEIPT ============
-    if (eventType === "ReadReceipt") {
-      console.log("Read receipt received");
+    // ============ CHAT PRESENCE (typing) ============
+    if (eventType === "ChatPresence") {
+      console.log("ChatPresence:", JSON.stringify(body.data).slice(0, 200));
+      // Not persisted — could be broadcast via Supabase Realtime channel in the future
     }
 
     return new Response(JSON.stringify({ ok: true }), {

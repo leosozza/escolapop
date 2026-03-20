@@ -444,7 +444,7 @@ Deno.serve(async (req) => {
         console.log("connect token:", inst.wuzapi_token.slice(0, 8), "user:", inst.wuzapi_user_id);
         const res = await instanceFetch(inst.wuzapi_token, "/session/connect", {
           method: "POST",
-          body: JSON.stringify({ Subscribe: ["Message", "ReadReceipt", "Connected", "Disconnected"], Immediate: true }),
+          body: JSON.stringify({ Subscribe: ["Message", "Receipt", "ReadReceipt", "ChatPresence", "Connected", "Disconnected"], Immediate: true }),
         });
         console.log("connect response:", JSON.stringify(res.data).slice(0, 300));
 

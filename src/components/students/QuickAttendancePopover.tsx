@@ -226,7 +226,7 @@ export function QuickAttendancePopover({ open, onOpenChange }: QuickAttendancePo
                   variant="outline"
                   size="sm"
                   className="gap-1"
-                  onClick={() => openWhatsAppWeb(lead.phone, `Olá ${lead.full_name}!`)}
+                  onClick={() => { const nav = document.location; nav.href = '/whatsapp'; }}
                 >
                   <MessageCircle className="h-4 w-4" />
                   WhatsApp

@@ -853,7 +853,7 @@ export default function StudentProfile() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" className="gap-1" onClick={() => openWhatsAppWeb(student.phone, `Olá ${student.full_name}! Segue seu certificado de conclusão do curso ${e.course?.name}. Parabéns! 🎉`)}>
+                  <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate('/whatsapp')}>
                     <MessageCircle className="h-3 w-3" /> Enviar WhatsApp
                   </Button>
                   <Badge className="bg-success text-success-foreground border-0">

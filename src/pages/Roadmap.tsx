@@ -154,7 +154,7 @@ const roadmapPhases: RoadmapPhase[] = [
     status: 'in-progress',
     progress: 20,
     features: [
-      { name: 'WhatsApp Links (openWhatsAppWeb)', status: 'completed' },
+      { name: 'WhatsApp Integrado', status: 'completed' },
       { name: 'TheMembers (Alunos Online)', status: 'planned', priority: 'high' },
       { name: 'WhatsApp Business API', status: 'planned', priority: 'high' },
       { name: 'Meta Ads Integration', status: 'planned', priority: 'high' },

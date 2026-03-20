@@ -320,7 +320,7 @@ export function WhatsAppContactPanel() {
         <WhatsAppConversation
           contact={selectedContact}
           onStatusChange={handleStatusUpdate}
-          onOpenWhatsApp={() => handleOpenWhatsApp(selectedContact.phone)}
+          onOpenWhatsApp={() => {}}
         />
       ) : (
         <Card className="flex-1 flex items-center justify-center border-0 shadow-md">

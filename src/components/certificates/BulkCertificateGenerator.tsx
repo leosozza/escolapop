@@ -200,8 +200,9 @@ export function BulkCertificateGenerator({
     });
   };
 
+  const navToWA = useNavigate();
   const sendViaWhatsApp = (phone: string, name: string) => {
-    openWhatsAppWeb(phone, `Olá ${name}! Segue seu certificado de conclusão do curso ${courseName}. Parabéns! 🎉`);
+    navToWA('/whatsapp');
   };
 
   return (

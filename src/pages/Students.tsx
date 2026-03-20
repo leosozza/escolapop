@@ -246,7 +246,7 @@ export default function Students() {
   };
 
   const handleOpenWhatsApp = (phone: string, name: string) => {
-    openWhatsAppWeb(phone, `Olá ${name}! Entramos em contato sobre suas aulas na escola.`);
+    navigate('/whatsapp');
   };
 
   return (

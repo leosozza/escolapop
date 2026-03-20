@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
 
   // Helper: call WuzAPI with admin token
   const adminFetch = async (path: string, options: RequestInit = {}) => {
-    const url = `${WUZAPI_URL}/api${path}`;
+    const url = `${WUZAPI_URL}${path}`;
     const res = await fetch(url, {
       ...options,
       headers: {

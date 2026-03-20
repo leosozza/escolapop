@@ -1120,6 +1120,7 @@ export type Database = {
           id: string
           lost_at: string | null
           notes: string | null
+          origin_sector: string
           phone: string
           proposal_at: string | null
           scheduled_at: string | null
@@ -1146,6 +1147,7 @@ export type Database = {
           id?: string
           lost_at?: string | null
           notes?: string | null
+          origin_sector?: string
           phone: string
           proposal_at?: string | null
           scheduled_at?: string | null
@@ -1172,6 +1174,7 @@ export type Database = {
           id?: string
           lost_at?: string | null
           notes?: string | null
+          origin_sector?: string
           phone?: string
           proposal_at?: string | null
           scheduled_at?: string | null

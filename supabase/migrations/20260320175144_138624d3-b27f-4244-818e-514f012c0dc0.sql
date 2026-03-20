@@ -1,0 +1,1 @@
+ALTER TABLE public.leads ADD COLUMN origin_sector text NOT NULL DEFAULT 'comercial';

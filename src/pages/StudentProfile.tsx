@@ -139,7 +139,7 @@ export default function StudentProfile() {
         .select(`
           *,
           course:courses(*),
-          class:classes(*, teacher:profiles!classes_teacher_id_fkey(full_name))
+          class:classes(*, teacher:team_members!classes_teacher_id_fkey(full_name))
         `)
         .eq('lead_id', leadId)
         .order('enrolled_at', { ascending: false });
@@ -213,7 +213,7 @@ export default function StudentProfile() {
         .select(`
           *,
           course:courses(id, name),
-          teacher:profiles!classes_teacher_id_fkey(full_name)
+          teacher:team_members!classes_teacher_id_fkey(full_name)
         `)
         .eq('is_active', true)
         .order('start_date', { ascending: false });
@@ -447,6 +447,26 @@ export default function StudentProfile() {
                 onChange={(e) => setEditData({ ...editData, guardian_name: e.target.value })}
                 placeholder="Nome do responsável (se menor)"
               />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm">Idade</Label>
+              <p className="text-sm text-muted-foreground pt-1">
+                {enrollments?.[0]?.student_age ? `${enrollments[0].student_age} anos` : '—'}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm">Código MaxFama</Label>
+              <p className="text-sm text-muted-foreground pt-1">
+                {enrollments?.find(e => e.referral_agent_code)?.referral_agent_code || '—'}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm">Tipo de Matrícula</Label>
+              <p className="text-sm text-muted-foreground pt-1">
+                {enrollments?.[0]?.enrollment_type
+                  ? ENROLLMENT_TYPE_CONFIG[enrollments[0].enrollment_type]?.label || enrollments[0].enrollment_type
+                  : '—'}
+              </p>
             </div>
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="notes">Observações Gerais</Label>

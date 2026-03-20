@@ -56,6 +56,7 @@ const ENROLLMENT_TYPES = [
 const newStudentSchema = z.object({
   full_name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   phone: z.string().min(10, 'Telefone deve ter pelo menos 10 dígitos').regex(/^\d+$/, 'Apenas números são permitidos'),
+  guardian_name: z.string().optional(),
   course_id: z.string().min(1, 'Selecione um curso'),
   class_id: z.string().min(1, 'Selecione uma turma'),
   enrollment_type: z.string().min(1, 'Selecione o tipo de matrícula'),
@@ -101,6 +102,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
     defaultValues: {
       full_name: '',
       phone: '',
+      guardian_name: '',
       course_id: '',
       class_id: '',
       enrollment_type: '',
@@ -300,6 +302,7 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
         .insert({
           full_name: values.full_name,
           phone: values.phone,
+          guardian_name: values.guardian_name || null,
           course_interest_id: values.course_id,
           source: 'indicacao' as const,
           status: 'matriculado' as const,
@@ -522,6 +525,19 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
                   />
                 </div>
 
+                <FormField
+                  control={newStudentForm.control}
+                  name="guardian_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Responsável</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Nome do responsável (se menor)" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={newStudentForm.control}
                   name="student_age"

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Wifi, WifiOff, Loader2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -10,44 +9,37 @@ interface WhatsAppStatusIndicatorProps {
 }
 
 export function WhatsAppStatusIndicator({ showLabel = false }: WhatsAppStatusIndicatorProps) {
-  const [status, setStatus] = useState<string>('unknown');
-  const [lastError, setLastError] = useState<string | null>(null);
+  const [connectedCount, setConnectedCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [prevConnected, setPrevConnected] = useState(0);
 
   const fetchStatus = async () => {
     const { data } = await supabase
-      .from('whatsapp_session')
-      .select('status, last_error')
-      .limit(1)
-      .maybeSingle();
+      .from('whatsapp_instances')
+      .select('status');
 
     if (data) {
-      const prevStatus = status;
-      setStatus(data.status);
-      setLastError(data.last_error);
-
+      const connected = data.filter(d => d.status === 'connected').length;
+      
       // Alert on disconnect
-      if (prevStatus === 'connected' && data.status === 'disconnected') {
-        toast.error('WhatsApp desconectado! Verifique em Configurações.', { duration: 10000 });
+      if (prevConnected > 0 && connected === 0 && data.length > 0) {
+        toast.error('Todas as instâncias WhatsApp desconectaram!', { duration: 10000 });
       }
+      
+      setPrevConnected(connected);
+      setConnectedCount(connected);
+      setTotalCount(data.length);
     }
   };
 
   useEffect(() => {
     fetchStatus();
-    const interval = setInterval(fetchStatus, 30000); // Check every 30s
+    const interval = setInterval(fetchStatus, 30000);
 
-    // Realtime subscription for immediate updates
     const channel = supabase
-      .channel('whatsapp-session-status')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_session' }, (payload) => {
-        const newData = payload.new as { status: string; last_error: string | null };
-        if (newData) {
-          if (status === 'connected' && newData.status === 'disconnected') {
-            toast.error('WhatsApp desconectado! Verifique em Configurações.', { duration: 10000 });
-          }
-          setStatus(newData.status);
-          setLastError(newData.last_error);
-        }
+      .channel('whatsapp-instances-status')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_instances' }, () => {
+        fetchStatus();
       })
       .subscribe();
 
@@ -57,33 +49,32 @@ export function WhatsAppStatusIndicator({ showLabel = false }: WhatsAppStatusInd
     };
   }, []);
 
-  const isConnected = status === 'connected';
-  const isConnecting = status === 'connecting' || status === 'waiting_qr';
+  const isConnected = connectedCount > 0;
+  const isPartial = connectedCount > 0 && connectedCount < totalCount;
 
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
           <div className="flex items-center gap-1.5 cursor-default">
-            {isConnecting ? (
-              <Loader2 className="h-3.5 w-3.5 text-warning animate-spin" />
+            {totalCount === 0 ? (
+              <WifiOff className="h-3.5 w-3.5 text-muted-foreground" />
             ) : isConnected ? (
-              <Wifi className="h-3.5 w-3.5 text-green-500" />
+              <Wifi className={`h-3.5 w-3.5 ${isPartial ? 'text-yellow-500' : 'text-green-500'}`} />
             ) : (
               <WifiOff className="h-3.5 w-3.5 text-destructive" />
             )}
             {showLabel && (
               <span className="text-xs text-muted-foreground">
-                {isConnected ? 'Online' : isConnecting ? 'Conectando...' : 'Offline'}
+                {totalCount === 0 ? 'Sem instâncias' : `${connectedCount}/${totalCount}`}
               </span>
             )}
           </div>
         </TooltipTrigger>
         <TooltipContent>
           <p className="font-medium">
-            WhatsApp: {isConnected ? 'Conectado' : isConnecting ? 'Conectando...' : 'Desconectado'}
+            WhatsApp: {connectedCount}/{totalCount} instâncias conectadas
           </p>
-          {lastError && <p className="text-xs text-muted-foreground">{lastError}</p>}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

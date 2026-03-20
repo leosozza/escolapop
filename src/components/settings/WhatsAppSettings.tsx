@@ -1,126 +1,138 @@
 import { useState, useEffect } from 'react';
-import { Wifi, WifiOff, QrCode, RefreshCcw, Loader2, Copy, CheckCircle2 } from 'lucide-react';
+import { Wifi, WifiOff, QrCode, RefreshCcw, Loader2, Copy, CheckCircle2, Plus, Trash2, Users, Shield } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { WhatsAppInstanceAccessDialog } from './WhatsAppInstanceAccessDialog';
+
+interface Instance {
+  id: string;
+  name: string;
+  connection_type: string;
+  status: string;
+  phone_number: string | null;
+  qr_code: string | null;
+  last_error: string | null;
+  updated_at: string;
+}
 
 export function WhatsAppSettings() {
-  const [status, setStatus] = useState<string>('unknown');
-  const [lastError, setLastError] = useState<string | null>(null);
-  const [qrCode, setQrCode] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const { hasRole } = useAuth();
+  const [instances, setInstances] = useState<Instance[]>([]);
+  const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newType, setNewType] = useState('qrcode');
+  const [creating, setCreating] = useState(false);
+  const [accessDialogInstance, setAccessDialogInstance] = useState<Instance | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const canManage = hasRole('admin') || hasRole('gestor');
   const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;
 
-  const fetchSessionStatus = async () => {
+  const fetchInstances = async () => {
     const { data } = await supabase
-      .from('whatsapp_session')
+      .from('whatsapp_instances')
       .select('*')
-      .limit(1)
-      .maybeSingle();
-
-    if (data) {
-      setStatus(data.status);
-      setLastError(data.last_error);
-      setQrCode(data.qr_code);
-    }
+      .order('created_at', { ascending: false });
+    setInstances((data as Instance[]) || []);
   };
 
   useEffect(() => {
-    fetchSessionStatus();
+    fetchInstances();
     const channel = supabase
-      .channel('whatsapp-session-settings')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_session' }, () => {
-        fetchSessionStatus();
+      .channel('whatsapp-instances-settings')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_instances' }, () => {
+        fetchInstances();
       })
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const handleCheckStatus = async () => {
-    setIsLoading(true);
+  const setLoading = (id: string, val: boolean) =>
+    setIsLoading(prev => ({ ...prev, [id]: val }));
+
+  const handleCreate = async () => {
+    if (!newName.trim()) return;
+    setCreating(true);
     try {
       const { data, error } = await supabase.functions.invoke('whatsapp-api', {
-        body: { action: 'check-status' },
+        body: { action: 'create-instance', name: newName, connectionType: newType },
       });
       if (error) throw error;
-      toast.success(data?.connected ? 'WhatsApp conectado!' : 'WhatsApp desconectado.');
-      await fetchSessionStatus();
+      toast.success(`Instância "${newName}" criada!`);
+      setShowCreateDialog(false);
+      setNewName('');
+      await fetchInstances();
     } catch (err) {
       console.error(err);
-      toast.error('Erro ao verificar status');
+      toast.error('Erro ao criar instância');
     } finally {
-      setIsLoading(false);
+      setCreating(false);
     }
   };
 
-  const handleConnect = async () => {
-    setIsLoading(true);
-    try {
-      const { error } = await supabase.functions.invoke('whatsapp-api', {
-        body: { action: 'connect' },
-      });
-      if (error) throw error;
-
-      // Wait a moment then fetch QR
-      await new Promise(r => setTimeout(r, 2000));
-      const { data: qrData } = await supabase.functions.invoke('whatsapp-api', {
-        body: { action: 'get-qr' },
-      });
-      if (qrData?.QRCode) {
-        setQrCode(qrData.QRCode);
-        setStatus('waiting_qr');
-        toast.info('Escaneie o QR Code com seu WhatsApp');
-      } else {
-        toast.success('Sessão conectada!');
-      }
-      await fetchSessionStatus();
-    } catch (err) {
-      console.error(err);
-      toast.error('Erro ao conectar');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDisconnect = async () => {
-    setIsLoading(true);
+  const handleDelete = async (inst: Instance) => {
+    if (!confirm(`Excluir instância "${inst.name}"? Esta ação é irreversível.`)) return;
+    setLoading(inst.id, true);
     try {
       await supabase.functions.invoke('whatsapp-api', {
-        body: { action: 'disconnect' },
+        body: { action: 'delete-instance', instanceId: inst.id },
       });
-      toast.success('WhatsApp desconectado');
-      await fetchSessionStatus();
+      toast.success('Instância excluída');
+      await fetchInstances();
     } catch {
-      toast.error('Erro ao desconectar');
+      toast.error('Erro ao excluir');
     } finally {
-      setIsLoading(false);
+      setLoading(inst.id, false);
     }
   };
 
-  const handleGetQR = async () => {
-    setIsLoading(true);
+  const handleAction = async (inst: Instance, action: string) => {
+    setLoading(inst.id, true);
     try {
-      const { data } = await supabase.functions.invoke('whatsapp-api', {
-        body: { action: 'get-qr' },
+      const { data, error } = await supabase.functions.invoke('whatsapp-api', {
+        body: { action, instanceId: inst.id },
       });
-      if (data?.QRCode) {
-        setQrCode(data.QRCode);
-        toast.info('QR Code atualizado! Escaneie com o WhatsApp.');
-      } else {
-        toast.warning('QR Code não disponível. Tente conectar primeiro.');
+      if (error) throw error;
+
+      if (action === 'connect') {
+        // Wait and fetch QR
+        await new Promise(r => setTimeout(r, 2000));
+        const { data: qrData } = await supabase.functions.invoke('whatsapp-api', {
+          body: { action: 'get-qr', instanceId: inst.id },
+        });
+        if (qrData?.QRCode) {
+          toast.info('Escaneie o QR Code com seu WhatsApp');
+        } else {
+          toast.success('Sessão conectada!');
+        }
+      } else if (action === 'check-status') {
+        toast.success(data?.connected ? 'Conectado!' : 'Desconectado.');
+      } else if (action === 'disconnect') {
+        toast.success('Desconectado');
+      } else if (action === 'get-qr') {
+        if (data?.QRCode) {
+          toast.info('QR Code atualizado!');
+        } else {
+          toast.warning('QR Code não disponível. Tente conectar primeiro.');
+        }
       }
-    } catch {
-      toast.error('Erro ao obter QR Code');
+
+      await fetchInstances();
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro na operação');
     } finally {
-      setIsLoading(false);
+      setLoading(inst.id, false);
     }
   };
 
@@ -131,113 +143,195 @@ export function WhatsAppSettings() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const isConnected = status === 'connected';
-  const isConnecting = status === 'connecting' || status === 'waiting_qr';
-
   return (
     <div className="space-y-6">
-      {/* Status Card */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                {isConnected ? (
-                  <Wifi className="h-5 w-5 text-green-500" />
-                ) : (
-                  <WifiOff className="h-5 w-5 text-destructive" />
-                )}
-                Status da Conexão
-              </CardTitle>
-              <CardDescription>Gerencie a conexão com o WhatsApp</CardDescription>
-            </div>
-            <Badge variant={isConnected ? 'default' : 'destructive'} className={isConnected ? 'bg-green-600' : ''}>
-              {isConnected ? 'Conectado' : isConnecting ? 'Conectando...' : 'Desconectado'}
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {lastError && (
-            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive">
-              <strong>Último erro:</strong> {lastError}
-            </div>
-          )}
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">Instâncias WhatsApp</h3>
+          <p className="text-sm text-muted-foreground">Gerencie suas conexões WhatsApp via WuzAPI</p>
+        </div>
+        {canManage && (
+          <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Nova Instância
+          </Button>
+        )}
+      </div>
 
-          <div className="flex gap-2">
-            <Button onClick={handleCheckStatus} variant="outline" disabled={isLoading}>
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCcw className="h-4 w-4 mr-2" />}
-              Verificar Status
-            </Button>
-            {!isConnected && (
-              <Button onClick={handleConnect} disabled={isLoading} className="bg-green-600 hover:bg-green-700">
-                {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wifi className="h-4 w-4 mr-2" />}
-                Conectar
-              </Button>
-            )}
-            {isConnected && (
-              <Button onClick={handleDisconnect} variant="destructive" disabled={isLoading}>
-                <WifiOff className="h-4 w-4 mr-2" />
-                Desconectar
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* QR Code Card */}
-      {!isConnected && (
+      {/* Instances List */}
+      {instances.length === 0 ? (
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <QrCode className="h-5 w-5" />
-              QR Code
-            </CardTitle>
-            <CardDescription>Escaneie com o WhatsApp do celular para conectar</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {qrCode ? (
-              <div className="flex justify-center p-6 bg-white rounded-lg border">
-                <img src={`data:image/png;base64,${qrCode}`} alt="QR Code WhatsApp" className="w-64 h-64" />
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center p-12 bg-muted/30 rounded-lg border border-dashed">
-                <QrCode className="h-16 w-16 text-muted-foreground mb-4" />
-                <p className="text-sm text-muted-foreground mb-4">Clique abaixo para gerar o QR Code</p>
-              </div>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <QrCode className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">Nenhuma instância configurada</p>
+            {canManage && (
+              <Button variant="outline" className="mt-4" onClick={() => setShowCreateDialog(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Criar primeira instância
+              </Button>
             )}
-            <Button onClick={handleGetQR} variant="outline" className="w-full" disabled={isLoading}>
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCcw className="h-4 w-4 mr-2" />}
-              {qrCode ? 'Atualizar QR Code' : 'Gerar QR Code'}
-            </Button>
           </CardContent>
         </Card>
+      ) : (
+        <div className="grid gap-4">
+          {instances.map(inst => {
+            const loading = isLoading[inst.id] || false;
+            const isConnected = inst.status === 'connected';
+            const isConnecting = inst.status === 'connecting' || inst.status === 'waiting_qr';
+
+            return (
+              <Card key={inst.id}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`h-3 w-3 rounded-full ${isConnected ? 'bg-green-500' : isConnecting ? 'bg-yellow-500 animate-pulse' : 'bg-destructive'}`} />
+                      <div>
+                        <CardTitle className="text-base">{inst.name}</CardTitle>
+                        <CardDescription className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {inst.connection_type === 'qrcode' ? 'QR Code' : 'Oficial'}
+                          </Badge>
+                          {inst.phone_number && (
+                            <span className="text-xs">{inst.phone_number}</span>
+                          )}
+                        </CardDescription>
+                      </div>
+                    </div>
+                    <Badge variant={isConnected ? 'default' : 'destructive'} className={isConnected ? 'bg-green-600' : ''}>
+                      {isConnected ? 'Conectado' : isConnecting ? 'Conectando...' : 'Desconectado'}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {inst.last_error && (
+                    <div className="p-2 rounded bg-destructive/10 text-xs text-destructive">
+                      <strong>Erro:</strong> {inst.last_error}
+                    </div>
+                  )}
+
+                  {/* QR Code display */}
+                  {!isConnected && inst.qr_code && (
+                    <div className="flex justify-center p-4 bg-white rounded-lg border">
+                      <img
+                        src={inst.qr_code.startsWith('data:') ? inst.qr_code : `data:image/png;base64,${inst.qr_code}`}
+                        alt="QR Code"
+                        className="w-48 h-48"
+                      />
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" onClick={() => handleAction(inst, 'check-status')} disabled={loading}>
+                      {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <RefreshCcw className="h-3.5 w-3.5 mr-1" />}
+                      Status
+                    </Button>
+
+                    {!isConnected && (
+                      <>
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleAction(inst, 'connect')} disabled={loading}>
+                          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Wifi className="h-3.5 w-3.5 mr-1" />}
+                          Conectar
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleAction(inst, 'get-qr')} disabled={loading}>
+                          <QrCode className="h-3.5 w-3.5 mr-1" />
+                          QR Code
+                        </Button>
+                      </>
+                    )}
+
+                    {isConnected && (
+                      <Button variant="outline" size="sm" onClick={() => handleAction(inst, 'disconnect')} disabled={loading}>
+                        <WifiOff className="h-3.5 w-3.5 mr-1" />
+                        Desconectar
+                      </Button>
+                    )}
+
+                    {canManage && (
+                      <>
+                        <Button variant="outline" size="sm" onClick={() => setAccessDialogInstance(inst)}>
+                          <Users className="h-3.5 w-3.5 mr-1" />
+                          Acessos
+                        </Button>
+                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDelete(inst)} disabled={loading}>
+                          <Trash2 className="h-3.5 w-3.5 mr-1" />
+                          Excluir
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       )}
 
       <Separator />
 
-      {/* Webhook Config */}
+      {/* Webhook URL */}
       <Card>
         <CardHeader>
-          <CardTitle>Webhook para Receber Mensagens</CardTitle>
-          <CardDescription>
-            Configure esta URL no painel da WuzAPI para receber mensagens automaticamente
-          </CardDescription>
+          <CardTitle className="text-base">Webhook para Receber Mensagens</CardTitle>
+          <CardDescription>Configurado automaticamente ao criar instâncias</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
-            <Label>URL do Webhook</Label>
-            <div className="flex gap-2">
-              <Input value={webhookUrl} readOnly className="font-mono text-xs" />
-              <Button variant="outline" size="icon" onClick={copyWebhookUrl}>
-                {copied ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Cole esta URL no campo de webhook da WuzAPI para receber mensagens inbound automaticamente.
-            </p>
+          <div className="flex gap-2">
+            <Input value={webhookUrl} readOnly className="font-mono text-xs" />
+            <Button variant="outline" size="icon" onClick={copyWebhookUrl}>
+              {copied ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+            </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Create Instance Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova Instância WhatsApp</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Nome da Instância</Label>
+              <Input
+                placeholder="Ex: Comercial, Acadêmico, Suporte..."
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo de Conexão</Label>
+              <Select value={newType} onValueChange={setNewType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="qrcode">QR Code</SelectItem>
+                  <SelectItem value="oficial">API Oficial</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>Cancelar</Button>
+            <Button onClick={handleCreate} disabled={creating || !newName.trim()}>
+              {creating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+              Criar Instância
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Access Management Dialog */}
+      {accessDialogInstance && (
+        <WhatsAppInstanceAccessDialog
+          instance={accessDialogInstance}
+          open={!!accessDialogInstance}
+          onOpenChange={(open) => !open && setAccessDialogInstance(null)}
+        />
+      )}
     </div>
   );
 }

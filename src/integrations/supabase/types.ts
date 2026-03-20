@@ -1801,6 +1801,83 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_instance_access: {
+        Row: {
+          created_at: string | null
+          id: string
+          instance_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          instance_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          instance_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_instance_access_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_instances: {
+        Row: {
+          connection_type: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          last_check_at: string | null
+          last_error: string | null
+          name: string
+          phone_number: string | null
+          qr_code: string | null
+          status: string
+          updated_at: string | null
+          wuzapi_token: string | null
+          wuzapi_user_id: string | null
+        }
+        Insert: {
+          connection_type?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          last_check_at?: string | null
+          last_error?: string | null
+          name: string
+          phone_number?: string | null
+          qr_code?: string | null
+          status?: string
+          updated_at?: string | null
+          wuzapi_token?: string | null
+          wuzapi_user_id?: string | null
+        }
+        Update: {
+          connection_type?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          last_check_at?: string | null
+          last_error?: string | null
+          name?: string
+          phone_number?: string | null
+          qr_code?: string | null
+          status?: string
+          updated_at?: string | null
+          wuzapi_token?: string | null
+          wuzapi_user_id?: string | null
+        }
+        Relationships: []
+      }
       whatsapp_messages: {
         Row: {
           content: string | null
@@ -1808,6 +1885,7 @@ export type Database = {
           direction: string
           error_message: string | null
           id: string
+          instance_id: string | null
           lead_id: string | null
           media_url: string | null
           message_type: string
@@ -1821,6 +1899,7 @@ export type Database = {
           direction?: string
           error_message?: string | null
           id?: string
+          instance_id?: string | null
           lead_id?: string | null
           media_url?: string | null
           message_type?: string
@@ -1834,6 +1913,7 @@ export type Database = {
           direction?: string
           error_message?: string | null
           id?: string
+          instance_id?: string | null
           lead_id?: string | null
           media_url?: string | null
           message_type?: string
@@ -1842,6 +1922,13 @@ export type Database = {
           wuzapi_message_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "whatsapp_messages_lead_id_fkey"
             columns: ["lead_id"]

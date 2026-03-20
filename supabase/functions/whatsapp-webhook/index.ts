@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
 
-    // Validate webhook secret if provided in header
+    // Validate webhook secret if provided
     const webhookSecret = req.headers.get("x-webhook-secret");
     if (WUZAPI_SECRET_KEY && webhookSecret && webhookSecret !== WUZAPI_SECRET_KEY) {
       return new Response(JSON.stringify({ error: "Invalid webhook secret" }), {
@@ -29,15 +29,39 @@ Deno.serve(async (req) => {
       });
     }
 
-    // WuzAPI sends different event types
     const eventType = body.event || body.type;
 
+    // Helper: find instance by JID or token in the payload
+    const findInstanceId = async (): Promise<string | null> => {
+      // WuzAPI may include the instance JID in the payload
+      const jid = body.Info?.Sender || body.instance || body.jid || "";
+      const phone = jid.replace("@s.whatsapp.net", "").replace("@g.us", "");
+
+      if (phone) {
+        // Try to find instance by phone_number
+        const { data } = await supabase
+          .from("whatsapp_instances")
+          .select("id")
+          .or(`phone_number.eq.${phone},phone_number.like.%${phone.slice(-8)}%`)
+          .limit(1)
+          .maybeSingle();
+        if (data) return data.id;
+      }
+
+      // Fallback: use the first active instance
+      const { data: firstInstance } = await supabase
+        .from("whatsapp_instances")
+        .select("id")
+        .eq("status", "connected")
+        .limit(1)
+        .maybeSingle();
+
+      return firstInstance?.id || null;
+    };
+
     if (eventType === "message" || body.Info?.MessageSource) {
-      // Incoming message
       const message = body.Message || body;
       const sender = body.Info?.Sender || body.sender || "";
-      
-      // Extract phone from JID (format: 5511999999999@s.whatsapp.net)
       const phone = sender.replace("@s.whatsapp.net", "").replace("@g.us", "");
 
       if (!phone) {
@@ -46,7 +70,9 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Try to find matching lead by phone
+      const instanceId = await findInstanceId();
+
+      // Find matching lead
       const cleanPhone = phone.replace(/^55/, "");
       const { data: lead } = await supabase
         .from("leads")
@@ -78,6 +104,7 @@ Deno.serve(async (req) => {
         message_type: messageType,
         wuzapi_message_id: body.Info?.Id || null,
         status: "received",
+        instance_id: instanceId,
       });
 
       return new Response(JSON.stringify({ ok: true }), {
@@ -85,28 +112,37 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Session status events
-    if (eventType === "disconnected" || eventType === "LoggedOut") {
-      const { data: existing } = await supabase
-        .from("whatsapp_session")
-        .select("id")
-        .limit(1)
-        .maybeSingle();
+    // Session status events — update instance status
+    if (eventType === "disconnected" || eventType === "LoggedOut" ||
+        eventType === "connected" || eventType === "Ready") {
 
-      const sessionData = {
-        status: "disconnected",
-        last_error: eventType,
-        updated_at: new Date().toISOString(),
-      };
+      const isConnected = eventType === "connected" || eventType === "Ready";
+      const newStatus = isConnected ? "connected" : "disconnected";
 
-      if (existing) {
-        await supabase.from("whatsapp_session").update(sessionData).eq("id", existing.id);
-      } else {
-        await supabase.from("whatsapp_session").insert(sessionData);
+      // Try to identify which instance this event belongs to
+      const jid = body.jid || body.JID || "";
+      const instancePhone = jid.replace("@s.whatsapp.net", "");
+
+      // Update matching instance or fallback to all
+      if (instancePhone) {
+        const { data: inst } = await supabase
+          .from("whatsapp_instances")
+          .select("id")
+          .or(`phone_number.eq.${instancePhone},phone_number.like.%${instancePhone.slice(-8)}%`)
+          .limit(1)
+          .maybeSingle();
+
+        if (inst) {
+          await supabase.from("whatsapp_instances").update({
+            status: newStatus,
+            last_error: isConnected ? null : eventType,
+            phone_number: isConnected ? instancePhone : undefined,
+            updated_at: new Date().toISOString(),
+          }).eq("id", inst.id);
+        }
       }
-    }
 
-    if (eventType === "connected" || eventType === "Ready") {
+      // Also update legacy whatsapp_session for backward compatibility
       const { data: existing } = await supabase
         .from("whatsapp_session")
         .select("id")
@@ -114,8 +150,8 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       const sessionData = {
-        status: "connected",
-        last_error: null,
+        status: newStatus,
+        last_error: isConnected ? null : eventType,
         updated_at: new Date().toISOString(),
       };
 

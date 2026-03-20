@@ -527,6 +527,19 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
 
                 <FormField
                   control={newStudentForm.control}
+                  name="guardian_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Responsável</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Nome do responsável (se menor)" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={newStudentForm.control}
                   name="student_age"
                   render={({ field }) => (
                     <FormItem>

@@ -143,7 +143,7 @@ export function AttendanceJustificationDialog({
             Justificar Presença
           </DialogTitle>
           <DialogDescription>
-            Justificar falta de {studentName} em {format(new Date(attendanceDate + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}.
+            Justificar falta de {studentName} em {attendanceDate ? format(new Date(attendanceDate.includes('T') ? attendanceDate : attendanceDate + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : '-'}.
           </DialogDescription>
         </DialogHeader>
 

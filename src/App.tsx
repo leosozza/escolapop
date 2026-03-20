@@ -31,6 +31,7 @@ import Billing from "./pages/Billing";
 import AcademicSupport from "./pages/AcademicSupport";
 import Studio from "./pages/Studio";
 import UserManagement from "./pages/UserManagement";
+import WhatsApp from "./pages/WhatsApp";
 
 import NotFound from "./pages/NotFound";
 

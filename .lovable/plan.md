@@ -1,68 +1,77 @@
 
 
-# Plano: Corrigir Vinculação de Dados entre Atendimento Matrícula, Alunos e Turmas
+# Plano: Perfil do Aluno Completo + Integração de Dados
 
-## Problema Identificado
+## Problemas Identificados
 
-Quando um aluno é criado via "Atendimento Matrícula" (`AcademicSupport.tsx`), ele não aparece corretamente nas páginas **Alunos** e **Turmas** por dois motivos:
-
-1. **Join incorreto na página Alunos** (`Students.tsx` linha 120): a query tenta fazer join de `classes.teacher_id` com `profiles` (`profiles!classes_teacher_id_fkey`), mas `teacher_id` referencia `team_members`, não `profiles`. Isso causa erro silencioso no join e pode retornar dados nulos.
-
-2. **Falta de `class_enrollments`**: a tabela `class_enrollments` existe no banco mas nunca é populada. Embora o sistema atual use `enrollments.class_id` diretamente (o que funciona), a inconsistência pode causar problemas futuros.
-
-3. **AcademicSupport busca leads com `status='lead'`** (linha 129) como "novos leads acadêmicos", mas não há distinção entre leads comerciais e acadêmicos — todos os leads com status `lead` aparecem, misturando setores.
+1. **Perfil do aluno incompleto**: Faltam campos de Idade e Código MaxFama no card principal do perfil.
+2. **Join incorreto (ainda presente)**: `StudentProfile.tsx` linhas 142 e 216 ainda usam `profiles!classes_teacher_id_fkey` em vez de `team_members!classes_teacher_id_fkey`.
+3. **Botão de gerar certificado ausente**: Não existe botão direto no perfil para gerar certificado de cursos concluídos.
+4. **Dados da matrícula não refletem no perfil**: Quando o `AddEnrollmentDialog` cria o aluno, salva `student_age` e `referral_agent_code` no enrollment mas não no lead, então o perfil não exibe idade nem código.
 
 ## O que será feito
 
-### 1. Corrigir join do teacher na página Alunos
-- `Students.tsx`: trocar `profiles!classes_teacher_id_fkey` por `team_members!classes_teacher_id_fkey` no select da query de enrollments.
+### 1. Completar o card de informações do perfil
+Adicionar ao card principal em `StudentProfile.tsx`:
+- **Idade**: Campo editável que puxa do enrollment mais recente (ou permite edição manual)
+- **Código MaxFama**: Exibir o `referral_agent_code` do enrollment ativo (somente leitura, vem da matrícula)
+- **Observações gerais**: Já existe
 
-### 2. Garantir que AddEnrollmentDialog popule `class_enrollments`
-- Após inserir o enrollment, inserir também em `class_enrollments` com `class_id` e `enrollment_id` para manter consistência.
-- Aplicar isso tanto no fluxo "Novo Aluno" quanto "Lead Existente".
+### 2. Corrigir joins com teacher
+Em `StudentProfile.tsx`, trocar os 2 joins de `profiles!classes_teacher_id_fkey` por `team_members!classes_teacher_id_fkey` (linhas 142 e 216).
 
-### 3. Separar leads acadêmicos dos comerciais
-- Adicionar coluna `origin_sector` (text, default `'comercial'`) na tabela `leads` via migração.
-- Quando o `AddEnrollmentDialog` é chamado da página Acadêmica, marcar o lead com `origin_sector = 'academico'`.
-- Na `AcademicSupport.tsx`, filtrar apenas leads com `origin_sector = 'academico'` ao buscar novos leads.
+### 3. Melhorar aba de cursos matriculados
+Reorganizar a seção de enrollments para mostrar claramente:
+- Status atual de cada curso (badge colorido)
+- Aulas assistidas / total com barra de progresso (já existe)
+- Turma e professor
+- Tipo de matrícula e código
 
-### 4. Refetch após criação
-- Garantir que `onSuccess` no `AddEnrollmentDialog` invalide as queries do React Query para que as páginas Alunos e Turmas atualizem automaticamente.
+### 4. Adicionar botão "Gerar Certificado" por curso concluído
+Para cada enrollment com status `concluido` e `certificate_issued = false`, exibir um botão "Gerar Certificado" que navega para `/certificates` com os dados pré-preenchidos. Já existe a função `handleCourseComplete` mas precisa de um botão explícito na seção de histórico.
+
+### 5. Seção de Histórico de Modificações
+Já existe a query de `enrollment_history`. Melhorar a exibição para incluir:
+- Trocas de turma (remanejamento)
+- Rematrículas
+- Mudanças de status com data e horário
+
+### 6. Integrar dados do AddEnrollmentDialog
+No `AddEnrollmentDialog`, ao criar um novo aluno, também salvar `guardian_name` no lead (adicionar campo ao formulário se não existir). Garantir que ao criar a matrícula via Atendimento, os dados fluam corretamente para o perfil.
 
 ## Arquivos a modificar
 
 | Arquivo | Ação |
 |---------|------|
-| `src/pages/Students.tsx` | Corrigir join `team_members` em vez de `profiles` |
-| `src/components/students/AddEnrollmentDialog.tsx` | Inserir em `class_enrollments` após criar enrollment; marcar `origin_sector` quando acadêmico |
-| `src/pages/AcademicSupport.tsx` | Filtrar leads por `origin_sector = 'academico'` |
-| Migração SQL | Adicionar coluna `origin_sector` em `leads` |
+| `src/pages/StudentProfile.tsx` | Corrigir joins (2x), adicionar campos idade/código ao card, botão certificado por curso concluído, melhorar histórico |
+| `src/components/students/AddEnrollmentDialog.tsx` | Adicionar campo `guardian_name` ao formulário de novo aluno para sincronizar com o lead |
 
 ## Detalhes técnicos
 
-**Migração SQL:**
-```sql
-ALTER TABLE public.leads ADD COLUMN origin_sector text NOT NULL DEFAULT 'comercial';
+**Correção de joins em StudentProfile.tsx:**
+```
+// Linha 142 e 216: trocar
+profiles!classes_teacher_id_fkey(full_name)
+// por
+team_members!classes_teacher_id_fkey(full_name)
 ```
 
-**AddEnrollmentDialog — após insert do enrollment:**
+**Campos no card do perfil (novo layout):**
+```text
+┌─────────────────────────────────────────────┐
+│ Nome Completo       │ Telefone (WhatsApp)   │
+│ Responsável         │ Idade (do enrollment) │
+│ Código MaxFama      │ Tipo de Matrícula     │
+│ Observações Gerais (colspan 2)              │
+│ [Matricular Aluno em Novo Curso]            │
+└─────────────────────────────────────────────┘
+```
+
+**Botão Certificado** na seção de cursos concluídos:
 ```typescript
-// Após criar enrollment com sucesso
-const { data: enrollmentResult } = await supabase
-  .from('enrollments')
-  .insert(enrollmentData)
-  .select('id')
-  .single();
-
-// Inserir na tabela de junção
-await supabase.from('class_enrollments').insert({
-  class_id: values.class_id,
-  enrollment_id: enrollmentResult.id,
-});
-```
-
-**Students.tsx — correção do join (linha 120):**
-```
-class:classes(id, name, start_date, end_date, teacher:team_members!classes_teacher_id_fkey(full_name))
+// Para cada enrollment concluído sem certificado
+<Button onClick={() => navigate('/certificates', { state: { studentName, courseName, completionDate } })}>
+  Gerar Certificado
+</Button>
 ```
 

@@ -759,18 +759,6 @@ const WhatsApp = () => {
                   {STATUS_CONFIG[selectedContact.status]?.label || selectedContact.status}
                 </Badge>
               )}
-              {/* Wait timer */}
-              {!selectedContact._isVirtual && ['lead', 'em_atendimento'].includes(selectedContact.status) && (() => {
-                const hours = differenceInHours(new Date(), new Date(selectedContact.created_at));
-                if (hours < 1) return null;
-                const color = hours >= 48 ? 'text-destructive' : hours >= 24 ? 'text-orange-500' : hours >= 12 ? 'text-yellow-600' : 'text-muted-foreground';
-                return (
-                  <div className={cn('flex items-center gap-1 ml-2 text-xs font-medium', color)}>
-                    <Timer className="h-3.5 w-3.5" />
-                    <span>{hours}h</span>
-                  </div>
-                );
-              })()}
             </div>
             <div className="flex items-center gap-1">
               <Button

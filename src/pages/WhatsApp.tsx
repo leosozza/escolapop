@@ -147,6 +147,16 @@ const WhatsApp = () => {
   useEffect(() => {
     fetchContacts();
     fetchInstances();
+
+    // Realtime listener for new messages to auto-refresh contact list
+    const channel = supabase
+      .channel('whatsapp-contacts-refresh')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'whatsapp_messages' }, () => {
+        fetchContacts();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   useEffect(() => {

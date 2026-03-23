@@ -81,6 +81,39 @@ export function WhatsAppConversation({
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notes, setNotes] = useState(contact.notes || '');
   const [isSaving, setIsSaving] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Listen for typing broadcast
+  useEffect(() => {
+    const cleanPhone = contact.phone.replace(/\D/g, '');
+    const channel = supabase
+      .channel('whatsapp-typing-ui')
+      .on('broadcast', { event: 'typing' }, (payload: any) => {
+        const data = payload.payload;
+        if (!data?.phone) return;
+        const eventPhone = data.phone.replace(/\D/g, '');
+        const match = eventPhone === cleanPhone ||
+          eventPhone === `55${cleanPhone}` ||
+          cleanPhone.endsWith(eventPhone.slice(-8));
+
+        if (match) {
+          if (data.state === 'composing') {
+            setIsTyping(true);
+            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+            typingTimeoutRef.current = setTimeout(() => setIsTyping(false), 5000);
+          } else {
+            setIsTyping(false);
+          }
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, [contact.phone]);
 
   const handleSaveNotes = async () => {
     setIsSaving(true);

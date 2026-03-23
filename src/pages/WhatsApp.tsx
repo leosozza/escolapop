@@ -875,6 +875,7 @@ const WhatsApp = () => {
                         </p>
                       )}
                     </div>
+                    </>}
                   </div>
                 </ScrollArea>
               </div>

@@ -109,7 +109,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-hidden">
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
@@ -117,7 +117,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               initial="initial"
               animate="animate"
               exit="exit"
-              className="container py-6"
+              className={location.pathname === '/whatsapp' ? 'h-full' : 'container py-6 h-full overflow-auto'}
             >
               {children}
             </motion.div>

@@ -512,7 +512,7 @@ const WhatsApp = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] flex bg-muted/30">
+    <div className="h-full flex bg-muted/30">
       {/* ─── Sidebar: Contact List ─── */}
       <div className="w-[380px] flex flex-col border-r bg-background shrink-0">
         <div className="p-3 border-b space-y-3">

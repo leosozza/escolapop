@@ -271,10 +271,44 @@ const WhatsApp = () => {
           last_message_at: lastMsg?.created_at || null,
           _hasConversation: phonesWithMessages.has(cleanPhone),
           _hasNewInbound: phonesWithInbound.has(cleanPhone),
+          _isVirtual: false,
         };
       });
 
-      contactsWithMessages.sort((a, b) => {
+      // Find phones with messages that don't match any lead
+      const leadPhones = new Set((leads || []).map(l => l.phone.replace(/\D/g, '').slice(-8)));
+      const virtualContacts: WhatsAppContact[] = [];
+      const seenVirtualPhones = new Set<string>();
+
+      for (const [cleanPhone, msgData] of messageMap.entries()) {
+        if (!leadPhones.has(cleanPhone) && !seenVirtualPhones.has(cleanPhone)) {
+          seenVirtualPhones.add(cleanPhone);
+          virtualContacts.push({
+            id: `virtual-${msgData.rawPhone}`,
+            full_name: msgData.rawPhone,
+            guardian_name: null,
+            phone: msgData.rawPhone,
+            email: null,
+            source: 'whatsapp' as any,
+            status: 'lead' as LeadStatus,
+            external_id: null,
+            external_source: null,
+            notes: null,
+            created_at: msgData.created_at,
+            updated_at: msgData.created_at,
+            assigned_agent_id: null,
+            last_message: msgData.content,
+            last_message_at: msgData.created_at,
+            _isVirtual: true,
+            _hasConversation: true,
+            _hasNewInbound: phonesWithInbound.has(cleanPhone),
+          } as any);
+        }
+      }
+
+      const allContacts = [...contactsWithMessages, ...virtualContacts];
+
+      allContacts.sort((a, b) => {
         const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
         const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
         if (aTime && bTime) return bTime - aTime;
@@ -283,9 +317,9 @@ const WhatsApp = () => {
         return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
       });
 
-      setContacts(contactsWithMessages as WhatsAppContact[]);
+      setContacts(allContacts as WhatsAppContact[]);
 
-      // Fetch enrollment statuses for all leads
+      // Fetch enrollment statuses for all leads (non-virtual only)
       const leadIds = (leads || []).map(l => l.id);
       if (leadIds.length > 0) {
         const { data: allEnrollments } = await supabase

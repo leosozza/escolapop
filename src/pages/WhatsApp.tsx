@@ -632,7 +632,7 @@ const WhatsApp = () => {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                       {contact.last_message || contact.phone}
                     </p>
                   </div>

@@ -87,7 +87,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   return (
     <SidebarProvider defaultOpen={true}>
       <AppSidebar />
-      <SidebarInset className="flex flex-col min-h-screen">
+      <SidebarInset className="flex flex-col h-screen overflow-hidden">
         {/* Top Header Bar */}
         <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between border-b bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/60 px-6">
           <div className="flex items-center gap-4">

@@ -1,35 +1,30 @@
 
 
-# Plano: Realtime + Indicador de Digitando no WhatsApp
+# Plano: Ajustar Input do Chat e Adicionar Matrícula de Irmão
 
-## 1. Ativar Realtime na tabela `whatsapp_messages`
+## 1. Aumentar campo de mensagem para 4 linhas
+- Em `WhatsAppChatInput.tsx`, alterar o `Textarea` de `rows={1}` e `min-h-[36px]` para `rows={4}` e `min-h-[100px]`
 
-Migração SQL:
-```sql
-ALTER PUBLICATION supabase_realtime ADD TABLE public.whatsapp_messages;
-```
+## 2. Esconder ícones de formatação/emoji em menu suspenso
+- Remover a toolbar de formatação (Bold, Italic, Strikethrough, Code) e os botões laterais (Emoji, Clip, Zap, Settings) do layout direto
+- Criar um botão "+" ou seta que abre um menu dropdown/popover com todas essas opções organizadas
+- Manter apenas o textarea, o botão de enviar/mic, e o botão "+" para expandir as ferramentas
+- Ao clicar no "+", mostrar popover com: Emoji, Anexar arquivo, Formatação (sub-grupo), Respostas rápidas, Gerenciar respostas
 
-Isso garante que INSERT e UPDATE na tabela sejam propagados automaticamente via WebSocket para o frontend. O código em `WhatsAppMessageList.tsx` já escuta `postgres_changes` — só falta a publicação estar ativa.
+## 3. Botão "Matricular Irmão" no painel de informações
+- No info panel do WhatsApp (`WhatsApp.tsx`), dentro de "Ações Rápidas", adicionar botão "Novo Aluno (Irmão)"
+- Ao clicar, abrir um dialog que:
+  - Pré-preenche o telefone do responsável atual e o nome do responsável (guardian_name)
+  - Pede: Nome do Modelo (obrigatório), e opcionais: Nº Contrato MaxSystem, ID Bitrix, ID Ficha MaxSystem
+  - Cria um **novo lead** separado com o mesmo telefone e guardian_name do responsável
+  - Cria um **novo student** vinculado a esse lead
+  - Abre o `AddEnrollmentDialog` para matricular o novo aluno
 
-## 2. Indicador de "digitando..." via Broadcast
-
-### Backend — `whatsapp-webhook/index.ts`
-No handler de `ChatPresence`, em vez de apenas logar, fazer broadcast via Supabase Realtime:
-- Extrair o telefone e o estado (`composing` / `paused`)
-- Usar o Supabase client para enviar broadcast no canal `whatsapp-typing`
-- Payload: `{ phone, state, instanceId }`
-
-### Frontend — `WhatsAppConversation.tsx`
-- Adicionar listener no canal `whatsapp-typing` (Broadcast)
-- Quando `state === "composing"` e o phone corresponde ao contato aberto, mostrar "digitando..." abaixo do nome no header
-- Auto-ocultar após 5 segundos sem novo evento
-- Animação com 3 pontos pulsantes
-
-## Arquivos a modificar
+## Arquivos a modificar/criar
 
 | Arquivo | Ação |
 |---------|------|
-| **migração SQL** | `ALTER PUBLICATION supabase_realtime ADD TABLE public.whatsapp_messages` |
-| `supabase/functions/whatsapp-webhook/index.ts` | Broadcast do ChatPresence via Supabase Realtime |
-| `src/components/whatsapp/WhatsAppConversation.tsx` | Listener de typing + indicador visual |
+| `src/components/whatsapp/WhatsAppChatInput.tsx` | Textarea 4 linhas; agrupar ferramentas em menu suspenso |
+| `src/components/whatsapp/RegisterSiblingDialog.tsx` | **Novo** — Dialog para cadastrar irmão do mesmo responsável |
+| `src/pages/WhatsApp.tsx` | Adicionar botão e estado para o RegisterSiblingDialog nas ações rápidas |
 

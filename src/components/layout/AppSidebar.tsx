@@ -71,7 +71,6 @@ const sidebarGroups = [
 {
   title: 'Acadêmico',
   items: [
-  { name: 'Atendimento Matrícula', href: '/academic-support', icon: Headphones },
   { name: 'Alunos', href: '/students', icon: Users },
   { name: 'Turmas', href: '/classes', icon: Users2 },
   { name: 'Cursos', href: '/courses', icon: GraduationCap },

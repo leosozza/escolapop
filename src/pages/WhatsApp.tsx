@@ -12,6 +12,11 @@ import {
   Edit3,
   Save,
   Clock,
+  GraduationCap,
+  Award,
+  FileText,
+  ExternalLink,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,12 +34,14 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 
 import { AddWhatsAppContactDialog } from '@/components/whatsapp/AddWhatsAppContactDialog';
 import { WhatsAppMessageList } from '@/components/whatsapp/WhatsAppMessageList';
 import { WhatsAppChatInput } from '@/components/whatsapp/WhatsAppChatInput';
 import { WhatsAppStatusIndicator } from '@/components/whatsapp/WhatsAppStatusIndicator';
-import { format, formatDistanceToNow } from 'date-fns';
+import { AddEnrollmentDialog } from '@/components/students/AddEnrollmentDialog';
+import { format, formatDistanceToNow, differenceInHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Tables } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -60,6 +67,22 @@ interface WhatsAppContact {
   unread_count?: number;
 }
 
+interface EnrollmentInfo {
+  id: string;
+  status: string;
+  course_name: string;
+  class_name: string | null;
+  absences: number;
+  certificate_issued: boolean;
+}
+
+interface ResponseTracking {
+  first_contact_at: string;
+  first_response_at: string | null;
+  alert_24h: boolean;
+  auto_tabulated: boolean;
+}
+
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   lead: { label: 'Lead', color: 'bg-blue-500' },
   em_atendimento: { label: 'Atendendo', color: 'bg-yellow-500' },
@@ -78,11 +101,25 @@ const STATUS_OPTIONS: { value: LeadStatus; label: string; color: string }[] = [
   { value: 'confirmado', label: 'Confirmado', color: 'bg-green-500' },
   { value: 'compareceu', label: 'Compareceu', color: 'bg-emerald-600' },
   { value: 'proposta', label: 'Proposta', color: 'bg-orange-500' },
+  { value: 'matriculado', label: 'Matriculado', color: 'bg-teal-500' },
   { value: 'perdido', label: 'Perdido', color: 'bg-destructive' },
 ];
 
+const ACADEMIC_STATUS_LABELS: Record<string, string> = {
+  matriculado: 'Matriculado',
+  em_curso: 'Em Curso',
+  concluido: 'Concluído',
+  ausente: 'Ausente',
+  reprovado_faltas: 'Reprovado por Faltas',
+  desistente: 'Desistente',
+  rematricula: 'Rematrícula',
+  remanejado: 'Remanejado',
+  formado: 'Formado',
+};
+
 const WhatsApp = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [contacts, setContacts] = useState<WhatsAppContact[]>([]);
   const [selectedContact, setSelectedContact] = useState<WhatsAppContact | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -93,6 +130,11 @@ const WhatsApp = () => {
   const [instances, setInstances] = useState<{ id: string; name: string; status: string }[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [showAllContacts, setShowAllContacts] = useState(false);
+  const [enrollmentDialogOpen, setEnrollmentDialogOpen] = useState(false);
+
+  // Info panel data
+  const [enrollments, setEnrollments] = useState<EnrollmentInfo[]>([]);
+  const [responseTracking, setResponseTracking] = useState<ResponseTracking | null>(null);
 
   // Notes editing
   const [isEditingNotes, setIsEditingNotes] = useState(false);
@@ -108,8 +150,57 @@ const WhatsApp = () => {
     if (selectedContact) {
       setNotes(selectedContact.notes || '');
       setIsEditingNotes(false);
+      fetchContactAcademicData(selectedContact.id);
+    } else {
+      setEnrollments([]);
+      setResponseTracking(null);
     }
   }, [selectedContact?.id]);
+
+  const fetchContactAcademicData = async (leadId: string) => {
+    // Fetch enrollments with course and class info
+    const { data: enrollmentData } = await supabase
+      .from('enrollments')
+      .select('id, status, course_id, class_id, certificate_issued, courses(name), classes(name)')
+      .eq('lead_id', leadId);
+
+    if (enrollmentData) {
+      // Fetch absence counts
+      const enrollmentInfos: EnrollmentInfo[] = [];
+      for (const e of enrollmentData) {
+        let absences = 0;
+        if (e.class_id) {
+          const { count } = await supabase
+            .from('attendance')
+            .select('*', { count: 'exact', head: true })
+            .eq('student_id', leadId)
+            .eq('class_id', e.class_id)
+            .eq('status', 'falta');
+          absences = count || 0;
+        }
+        enrollmentInfos.push({
+          id: e.id,
+          status: e.status,
+          course_name: (e as any).courses?.name || 'Sem curso',
+          class_name: (e as any).classes?.name || null,
+          absences,
+          certificate_issued: e.certificate_issued || false,
+        });
+      }
+      setEnrollments(enrollmentInfos);
+    } else {
+      setEnrollments([]);
+    }
+
+    // Fetch response tracking
+    const { data: tracking } = await supabase
+      .from('lead_response_tracking')
+      .select('first_contact_at, first_response_at, alert_24h, auto_tabulated')
+      .eq('lead_id', leadId)
+      .maybeSingle();
+
+    setResponseTracking(tracking);
+  };
 
   const fetchInstances = async () => {
     const { data } = await supabase
@@ -128,14 +219,12 @@ const WhatsApp = () => {
 
   const fetchContacts = async () => {
     try {
-      // Fetch all messages ordered by most recent to build phone->lastMessage map
       const { data: lastMessages } = await supabase
         .from('whatsapp_messages')
         .select('phone, content, created_at, direction')
         .order('created_at', { ascending: false })
         .limit(1000);
 
-      // Build map: cleaned phone (last 8 digits) -> last message info
       const messageMap = new Map<string, { content: string | null; created_at: string; direction: string; rawPhone: string }>();
       const phonesWithMessages = new Set<string>();
       if (lastMessages) {
@@ -148,7 +237,6 @@ const WhatsApp = () => {
         }
       }
 
-      // Fetch leads
       const { data: leads, error } = await supabase
         .from('leads')
         .select('id, full_name, guardian_name, phone, email, source, status, external_id, external_source, notes, created_at, updated_at, assigned_agent_id')
@@ -168,7 +256,6 @@ const WhatsApp = () => {
         };
       }) as (WhatsAppContact & { _hasConversation: boolean })[];
 
-      // Sort: contacts with recent messages first
       contactsWithMessages.sort((a, b) => {
         const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
         const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
@@ -187,7 +274,6 @@ const WhatsApp = () => {
   };
 
   const filteredContacts = contacts.filter(c => {
-    // Filter by conversation unless showAll is toggled or searching
     const hasConv = !!(c as any)._hasConversation;
     if (!showAllContacts && !searchQuery && !hasConv) return false;
 
@@ -250,11 +336,19 @@ const WhatsApp = () => {
     return phone;
   };
 
+  const getWaitTimeIndicator = () => {
+    if (!responseTracking || responseTracking.first_response_at) return null;
+    const hours = differenceInHours(new Date(), new Date(responseTracking.first_contact_at));
+    if (hours >= 48) return { label: '48h+ sem resposta', color: 'text-destructive', bg: 'bg-destructive/10', icon: '🔴' };
+    if (hours >= 24) return { label: '24h+ sem resposta', color: 'text-orange-600', bg: 'bg-orange-50', icon: '🟡' };
+    if (hours >= 12) return { label: `${hours}h sem resposta`, color: 'text-yellow-600', bg: 'bg-yellow-50', icon: '⏳' };
+    return null;
+  };
+
   return (
     <div className="h-[calc(100vh-4rem)] flex bg-muted/30">
       {/* ─── Sidebar: Contact List ─── */}
       <div className="w-[340px] flex flex-col border-r bg-background">
-        {/* Sidebar Header */}
         <div className="p-3 border-b space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -267,7 +361,6 @@ const WhatsApp = () => {
             </Button>
           </div>
 
-          {/* Instance selector */}
           {instances.length > 1 && (
             <Select value={selectedInstanceId} onValueChange={setSelectedInstanceId}>
               <SelectTrigger className="h-8 text-xs">
@@ -308,7 +401,6 @@ const WhatsApp = () => {
           </div>
         </div>
 
-        {/* Contact List */}
         <ScrollArea className="flex-1">
           <div className="divide-y">
             {isLoading ? (
@@ -394,7 +486,6 @@ const WhatsApp = () => {
           <div className="flex-1 flex min-h-0">
             {/* Messages + Input */}
             <div className="flex-1 flex flex-col bg-[hsl(var(--muted))]/30">
-              {/* Message List */}
               <div className="flex-1 min-h-0">
                 <WhatsAppMessageList
                   phone={selectedContact.phone}
@@ -402,8 +493,6 @@ const WhatsApp = () => {
                   key={`msg-${selectedContact.id}-${refreshKey}`}
                 />
               </div>
-
-              {/* Input */}
               <div className="p-3 bg-background border-t">
                 <WhatsAppChatInput
                   phone={selectedContact.phone}
@@ -416,7 +505,7 @@ const WhatsApp = () => {
 
             {/* ─── Info Panel ─── */}
             {showInfoPanel && (
-              <div className="w-[320px] border-l bg-background flex flex-col shrink-0">
+              <div className="w-[340px] border-l bg-background flex flex-col shrink-0">
                 <div className="p-4 border-b flex items-center justify-between">
                   <span className="font-semibold text-sm">Info do contato</span>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowInfoPanel(false)}>
@@ -424,7 +513,7 @@ const WhatsApp = () => {
                   </Button>
                 </div>
                 <ScrollArea className="flex-1">
-                  <div className="p-4 space-y-5">
+                  <div className="p-4 space-y-4">
                     {/* Avatar + Name */}
                     <div className="flex flex-col items-center text-center gap-2">
                       <div className="h-20 w-20 rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-2xl">
@@ -436,11 +525,59 @@ const WhatsApp = () => {
                       </div>
                     </div>
 
+                    {/* Wait Time Indicator */}
+                    {(() => {
+                      const indicator = getWaitTimeIndicator();
+                      if (!indicator) return null;
+                      return (
+                        <div className={cn('flex items-center gap-2 rounded-lg p-3 text-sm font-medium', indicator.bg, indicator.color)}>
+                          <AlertTriangle className="h-4 w-4 shrink-0" />
+                          <span>{indicator.icon} {indicator.label}</span>
+                        </div>
+                      );
+                    })()}
+
                     <Separator />
 
-                    {/* Status */}
+                    {/* Quick Actions */}
                     <div>
-                      <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Tabulação</p>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">⚡ Ações Rápidas</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-9 text-xs justify-start"
+                          onClick={() => setEnrollmentDialogOpen(true)}
+                        >
+                          <GraduationCap className="h-3.5 w-3.5 mr-1.5" />
+                          Matricular
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-9 text-xs justify-start"
+                          onClick={() => navigate('/certificates')}
+                        >
+                          <Award className="h-3.5 w-3.5 mr-1.5" />
+                          Certificado
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-9 text-xs justify-start col-span-2"
+                          onClick={() => navigate(`/students/${selectedContact.id}`)}
+                        >
+                          <FileText className="h-3.5 w-3.5 mr-1.5" />
+                          Ficha Completa
+                        </Button>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Lead Tabulation */}
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">📋 Tabulação</p>
                       <Select
                         value={selectedContact.status}
                         onValueChange={v => handleStatusChange(selectedContact.id, v as LeadStatus)}
@@ -460,6 +597,41 @@ const WhatsApp = () => {
                         </SelectContent>
                       </Select>
                     </div>
+
+                    {/* Academic Data */}
+                    {enrollments.length > 0 && (
+                      <>
+                        <Separator />
+                        <div>
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">🎓 Dados Acadêmicos</p>
+                          <div className="space-y-3">
+                            {enrollments.map(e => (
+                              <div key={e.id} className="rounded-lg border p-3 space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-sm font-medium">{e.course_name}</p>
+                                  <Badge variant="secondary" className="text-[10px]">
+                                    {ACADEMIC_STATUS_LABELS[e.status] || e.status}
+                                  </Badge>
+                                </div>
+                                {e.class_name && (
+                                  <p className="text-xs text-muted-foreground">Turma: {e.class_name}</p>
+                                )}
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                  <span>Faltas: <span className={cn(e.absences >= 3 ? 'text-destructive font-semibold' : '')}>{e.absences}</span></span>
+                                  {e.certificate_issued && (
+                                    <span className="flex items-center gap-1 text-green-600">
+                                      <Award className="h-3 w-3" /> Certificado emitido
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    <Separator />
 
                     {/* Contact Info */}
                     <div className="space-y-3">
@@ -488,12 +660,6 @@ const WhatsApp = () => {
                           {format(new Date(selectedContact.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                         </p>
                       </div>
-                      {selectedContact.external_id && (
-                        <div>
-                          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">ID Externo</p>
-                          <p className="text-sm font-mono text-primary">{selectedContact.external_id}</p>
-                        </div>
-                      )}
                     </div>
 
                     <Separator />
@@ -539,7 +705,6 @@ const WhatsApp = () => {
           </div>
         </div>
       ) : (
-        /* Empty state */
         <div className="flex-1 flex items-center justify-center bg-muted/20">
           <div className="text-center text-muted-foreground">
             <MessageCircle className="mx-auto h-16 w-16 opacity-20 mb-4" />
@@ -554,6 +719,20 @@ const WhatsApp = () => {
         onOpenChange={setIsAddDialogOpen}
         onSuccess={() => { fetchContacts(); setIsAddDialogOpen(false); }}
       />
+
+      {selectedContact && (
+        <AddEnrollmentDialog
+          open={enrollmentDialogOpen}
+          onOpenChange={setEnrollmentDialogOpen}
+          onSuccess={() => {
+            setEnrollmentDialogOpen(false);
+            fetchContactAcademicData(selectedContact.id);
+            handleStatusChange(selectedContact.id, 'matriculado');
+            toast.success('Matrícula realizada com sucesso!');
+          }}
+          preSelectedLeadId={selectedContact.id}
+        />
+      )}
     </div>
   );
 };

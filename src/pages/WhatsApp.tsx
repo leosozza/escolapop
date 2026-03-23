@@ -677,32 +677,7 @@ const WhatsApp = () => {
                           <Button
                             size="sm"
                             className="w-full h-8 text-xs"
-                            onClick={async () => {
-                              try {
-                                const { data: newLead, error } = await supabase
-                                  .from('leads')
-                                  .insert({
-                                    full_name: selectedContact.phone,
-                                    phone: selectedContact.phone,
-                                    source: 'whatsapp' as any,
-                                    origin_sector: 'comercial',
-                                  })
-                                  .select()
-                                  .single();
-                                if (error) throw error;
-                                // Link existing messages to this lead
-                                await supabase
-                                  .from('whatsapp_messages')
-                                  .update({ lead_id: newLead.id })
-                                  .eq('phone', selectedContact.phone);
-                                toast.success('Lead cadastrado com sucesso!');
-                                await fetchContacts();
-                                // Select the new real contact
-                                setSelectedContact(prev => prev ? { ...prev, id: newLead.id, _isVirtual: false } as any : null);
-                              } catch {
-                                toast.error('Erro ao cadastrar lead');
-                              }
-                            }}
+                            onClick={() => setRegisterLeadDialogOpen(true)}
                           >
                             <Plus className="h-3.5 w-3.5 mr-1.5" />
                             Cadastrar como Lead
@@ -712,7 +687,7 @@ const WhatsApp = () => {
                       </>
                     )}
 
-                    {/* Wait Time Indicator */}
+
                     {!selectedContact._isVirtual && (() => {
                       const indicator = getWaitTimeIndicator();
                       if (!indicator) return null;

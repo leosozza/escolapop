@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { AlertCircle, Check, CheckCheck, Clock, Download, FileIcon } from 'lucide-react';
+import { AlertCircle, Check, CheckCheck, Clock, Download, FileIcon, Play, Pause } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -134,15 +135,97 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
   );
 }
 
+function InlineAudioPlayer({ src, isOutbound }: { src: string; isOutbound: boolean }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+
+  const togglePlay = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (isPlaying) {
+      audio.pause();
+    } else {
+      audio.play();
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  const formatSec = (s: number) => {
+    if (!s || isNaN(s)) return '0:00';
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="flex items-center gap-2 min-w-[200px]">
+      <audio
+        ref={audioRef}
+        src={src}
+        preload="metadata"
+        onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
+        onTimeUpdate={() => {
+          const a = audioRef.current;
+          if (a) {
+            setCurrentTime(a.currentTime);
+            setProgress(a.duration ? (a.currentTime / a.duration) * 100 : 0);
+          }
+        }}
+        onEnded={() => { setIsPlaying(false); setProgress(0); setCurrentTime(0); }}
+      />
+      <Button
+        variant="ghost"
+        size="icon"
+        className={cn('h-8 w-8 rounded-full shrink-0', isOutbound ? 'text-white hover:bg-green-700' : 'hover:bg-muted-foreground/20')}
+        onClick={togglePlay}
+      >
+        {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+      </Button>
+      <div className="flex-1 flex flex-col gap-1">
+        <div className="h-1 rounded-full bg-background/30 overflow-hidden">
+          <div className="h-full rounded-full bg-current transition-all" style={{ width: `${progress}%` }} />
+        </div>
+        <span className={cn('text-[10px]', isOutbound ? 'text-green-200' : 'text-muted-foreground')}>
+          {isPlaying ? formatSec(currentTime) : formatSec(duration)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function FormattedText({ text, className }: { text: string; className?: string }) {
+  // Parse WhatsApp-style formatting: *bold*, _italic_, ~strikethrough~, ```code```
+  const parts: React.ReactNode[] = [];
+  let remaining = text;
+  let key = 0;
+
+  const patterns = [
+    { regex: /\*([^*]+)\*/, tag: 'strong' },
+    { regex: /_([^_]+)_/, tag: 'em' },
+    { regex: /~([^~]+)~/, tag: 's' },
+    { regex: /```([^`]+)```/, tag: 'code' },
+  ];
+
+  // Simple approach: render with dangerouslySetInnerHTML alternative
+  const formatted = text
+    .replace(/```([^`]+)```/g, '<code class="bg-background/20 px-1 rounded text-xs font-mono">$1</code>')
+    .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
+    .replace(/_([^_]+)_/g, '<em>$1</em>')
+    .replace(/~([^~]+)~/g, '<s>$1</s>');
+
+  return <p className={cn('whitespace-pre-wrap break-words', className)} dangerouslySetInnerHTML={{ __html: formatted }} />;
+}
+
 function MessageContent({ msg, isOutbound }: { msg: Message; isOutbound: boolean }) {
   const type = msg.message_type;
 
   if (type === 'audio' && msg.media_url) {
     return (
-      <div className="min-w-[200px]">
-        <audio controls className="w-full max-w-[280px] h-8" preload="none">
-          <source src={msg.media_url} />
-        </audio>
+      <div>
+        <InlineAudioPlayer src={msg.media_url} isOutbound={isOutbound} />
         {msg.content && msg.content !== '[Mídia recebida]' && (
           <p className="whitespace-pre-wrap break-words mt-1 text-xs opacity-80">{msg.content}</p>
         )}
@@ -160,7 +243,7 @@ function MessageContent({ msg, isOutbound }: { msg: Message; isOutbound: boolean
           onClick={() => window.open(msg.media_url!, '_blank')}
         />
         {msg.content && msg.content !== '[Mídia recebida]' && (
-          <p className="whitespace-pre-wrap break-words mt-1">{msg.content}</p>
+          <FormattedText text={msg.content} className="mt-1" />
         )}
       </div>
     );
@@ -173,7 +256,7 @@ function MessageContent({ msg, isOutbound }: { msg: Message; isOutbound: boolean
           <source src={msg.media_url} />
         </video>
         {msg.content && msg.content !== '[Mídia recebida]' && (
-          <p className="whitespace-pre-wrap break-words mt-1">{msg.content}</p>
+          <FormattedText text={msg.content} className="mt-1" />
         )}
       </div>
     );
@@ -191,5 +274,5 @@ function MessageContent({ msg, isOutbound }: { msg: Message; isOutbound: boolean
     );
   }
 
-  return <p className="whitespace-pre-wrap break-words">{msg.content || '[sem conteúdo]'}</p>;
+  return <FormattedText text={msg.content || '[sem conteúdo]'} />;
 }

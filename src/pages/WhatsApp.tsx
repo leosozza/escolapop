@@ -715,6 +715,7 @@ const WhatsApp = () => {
 
                     <Separator />
 
+                    {!selectedContact._isVirtual && <>
                     {/* Quick Actions */}
                     <div>
                       <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">⚡ Ações Rápidas</p>

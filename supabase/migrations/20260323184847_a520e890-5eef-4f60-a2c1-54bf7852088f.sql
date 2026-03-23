@@ -1,0 +1,1 @@
+ALTER TABLE public.classes ADD COLUMN age_range text DEFAULT 'todas';

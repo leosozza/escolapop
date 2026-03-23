@@ -464,6 +464,7 @@ export type Database = {
       }
       classes: {
         Row: {
+          age_range: string | null
           course_id: string
           created_at: string
           end_date: string | null
@@ -478,6 +479,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          age_range?: string | null
           course_id: string
           created_at?: string
           end_date?: string | null
@@ -492,6 +494,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          age_range?: string | null
           course_id?: string
           created_at?: string
           end_date?: string | null

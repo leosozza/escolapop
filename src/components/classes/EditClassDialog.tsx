@@ -23,7 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
-  ROOMS, WEEKDAYS, COURSE_DURATIONS, COURSE_WEEKS, getAvailableHours, formatTimeRange,
+  ROOMS, WEEKDAYS, COURSE_DURATIONS, COURSE_WEEKS, AGE_RANGES, getAvailableHours, formatTimeRange,
 } from '@/lib/course-schedule-config';
 
 const classSchema = z.object({
@@ -34,6 +34,7 @@ const classSchema = z.object({
   teacher_id: z.string().optional(),
   schedule_day: z.string().min(1, 'Selecione o dia da semana'),
   schedule_time: z.string().min(1, 'Selecione o horário'),
+  age_range: z.string().min(1, 'Selecione a faixa etária'),
 });
 
 type ClassFormValues = z.infer<typeof classSchema>;
@@ -50,6 +51,7 @@ interface EditClassDialogProps {
     start_date: string;
     teacher_id: string | null;
     schedule: Record<string, string> | null;
+    age_range?: string | null;
   };
 }
 
@@ -74,6 +76,7 @@ export function EditClassDialog({ open, onOpenChange, onSuccess, classData }: Ed
       teacher_id: classData.teacher_id || undefined,
       schedule_day: existingScheduleDay,
       schedule_time: existingScheduleTime,
+      age_range: (classData as any).age_range || 'todas',
     },
   });
 
@@ -135,7 +138,8 @@ export function EditClassDialog({ open, onOpenChange, onSuccess, classData }: Ed
           teacher_id: values.teacher_id || null,
           max_students: roomCapacity,
           schedule: Object.keys(schedule).length > 0 ? schedule : null,
-        })
+          age_range: values.age_range,
+        } as any)
         .eq('id', classData.id);
 
       if (error) throw error;
@@ -239,6 +243,21 @@ export function EditClassDialog({ open, onOpenChange, onSuccess, classData }: Ed
                 </FormItem>
               )} />
             </div>
+
+            <FormField control={form.control} name="age_range" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Faixa Etária *</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl><SelectTrigger><SelectValue placeholder="Faixa etária" /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    {AGE_RANGES.map((range) => (
+                      <SelectItem key={range.id} value={range.id}>{range.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )} />
 
             <FormField control={form.control} name="start_date" render={({ field }) => (
               <FormItem className="flex flex-col">

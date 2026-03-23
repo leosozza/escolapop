@@ -34,8 +34,9 @@ import { PhoneInput } from '@/components/ui/phone-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { UserPlus, Users, Info, MessageCircle } from 'lucide-react';
-import { COURSE_WEEKS } from '@/lib/course-schedule-config';
+import { UserPlus, Users, Info, MessageCircle, Filter } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { COURSE_WEEKS, AGE_RANGES, WEEKDAYS } from '@/lib/course-schedule-config';
 import { DuplicateWarningDialog } from './DuplicateWarningDialog';
 
 interface DuplicateInfo {
@@ -95,6 +96,8 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
   const [enrollmentSource, setEnrollmentSource] = useState<'new' | 'existing'>('new');
   const [duplicateWarning, setDuplicateWarning] = useState<DuplicateInfo | null>(null);
   const [pendingSubmit, setPendingSubmit] = useState<NewStudentFormValues | null>(null);
+  const [filterAgeRange, setFilterAgeRange] = useState<string>('all');
+  const [filterDay, setFilterDay] = useState<string>('all');
 
   // Form para novo aluno
   const newStudentForm = useForm<NewStudentFormValues>({
@@ -172,13 +175,13 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
   });
 
   // Fetch classes for selected course (new student)
-  const { data: classesNew } = useQuery({
+  const { data: classesNewRaw } = useQuery({
     queryKey: ['classes-for-enrollment', selectedCourseIdNew],
     queryFn: async () => {
       if (!selectedCourseIdNew) return [];
       const { data, error } = await supabase
         .from('classes')
-        .select('id, name, room, start_date, schedule')
+        .select('id, name, room, start_date, schedule, age_range')
         .eq('course_id', selectedCourseIdNew)
         .eq('is_active', true)
         .order('start_date', { ascending: true });
@@ -189,13 +192,13 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
   });
 
   // Fetch classes for selected course (existing lead)
-  const { data: classesExisting } = useQuery({
+  const { data: classesExistingRaw } = useQuery({
     queryKey: ['classes-for-enrollment', selectedCourseIdExisting],
     queryFn: async () => {
       if (!selectedCourseIdExisting) return [];
       const { data, error } = await supabase
         .from('classes')
-        .select('id, name, room, start_date, schedule')
+        .select('id, name, room, start_date, schedule, age_range')
         .eq('course_id', selectedCourseIdExisting)
         .eq('is_active', true)
         .order('start_date', { ascending: true });
@@ -204,6 +207,19 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
     },
     enabled: !!selectedCourseIdExisting,
   });
+
+  // Apply filters to classes
+  const filterClasses = (classes: any[] | undefined) => {
+    if (!classes) return [];
+    return classes.filter((c: any) => {
+      const matchesAge = filterAgeRange === 'all' || (c.age_range || 'todas') === filterAgeRange;
+      const matchesDay = filterDay === 'all' || (c.schedule && Object.keys(c.schedule).includes(filterDay));
+      return matchesAge && matchesDay;
+    });
+  };
+
+  const classesNew = filterClasses(classesNewRaw);
+  const classesExisting = filterClasses(classesExistingRaw);
 
   // Fetch influencers
   const { data: influencers } = useQuery({
@@ -517,6 +533,46 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
       .join(', ');
   };
 
+  const getAgeRangeLabel = (ageRange: string | null | undefined) => {
+    if (!ageRange || ageRange === 'todas') return '';
+    return AGE_RANGES.find(r => r.id === ageRange)?.label || '';
+  };
+
+  const renderClassFilters = () => (
+    <div className="flex gap-2 mb-2">
+      <Select value={filterAgeRange} onValueChange={setFilterAgeRange}>
+        <SelectTrigger className="h-8 text-xs w-[140px]">
+          <Filter className="h-3 w-3 mr-1" />
+          <SelectValue placeholder="Faixa etária" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todas faixas</SelectItem>
+          {AGE_RANGES.map((r) => (
+            <SelectItem key={r.id} value={r.id}>{r.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select value={filterDay} onValueChange={setFilterDay}>
+        <SelectTrigger className="h-8 text-xs w-[140px]">
+          <SelectValue placeholder="Dia" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos os dias</SelectItem>
+          {WEEKDAYS.map((d) => (
+            <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
+  const renderClassLabel = (c: any) => {
+    const schedule = formatSchedule(c.schedule as Record<string, string>);
+    const ageLabel = getAgeRangeLabel(c.age_range);
+    const parts = [c.name, c.room, schedule, ageLabel].filter(Boolean);
+    return parts.join(' • ');
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
@@ -736,6 +792,8 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
                   )}
                 />
 
+                {selectedCourseIdNew && renderClassFilters()}
+
                 <FormField
                   control={newStudentForm.control}
                   name="class_id"
@@ -749,15 +807,15 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {classesNew?.map((c) => (
+                          {classesNew?.map((c: any) => (
                             <SelectItem key={c.id} value={c.id}>
-                              {c.name} - {c.room} ({formatSchedule(c.schedule as Record<string, string>)})
+                              {renderClassLabel(c)}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                       {classesNew?.length === 0 && selectedCourseIdNew && (
-                        <p className="text-xs text-destructive">Nenhuma turma ativa para este curso</p>
+                        <p className="text-xs text-destructive">Nenhuma turma encontrada com esses filtros</p>
                       )}
                       <FormMessage />
                     </FormItem>
@@ -985,6 +1043,8 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
                   )}
                 />
 
+                {selectedCourseIdExisting && renderClassFilters()}
+
                 <FormField
                   control={existingLeadForm.control}
                   name="class_id"
@@ -998,15 +1058,15 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {classesExisting?.map((c) => (
+                          {classesExisting?.map((c: any) => (
                             <SelectItem key={c.id} value={c.id}>
-                              {c.name} - {c.room} ({formatSchedule(c.schedule as Record<string, string>)})
+                              {renderClassLabel(c)}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                       {classesExisting?.length === 0 && selectedCourseIdExisting && (
-                        <p className="text-xs text-destructive">Nenhuma turma ativa para este curso</p>
+                        <p className="text-xs text-destructive">Nenhuma turma encontrada com esses filtros</p>
                       )}
                       <FormMessage />
                     </FormItem>

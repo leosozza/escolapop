@@ -46,6 +46,7 @@ import {
   WEEKDAYS,
   COURSE_DURATIONS,
   COURSE_WEEKS,
+  AGE_RANGES,
   getAvailableHours,
   formatTimeRange,
 } from '@/lib/course-schedule-config';
@@ -58,6 +59,7 @@ const classSchema = z.object({
   teacher_id: z.string().optional(),
   schedule_day: z.string().min(1, 'Selecione o dia da semana'),
   schedule_time: z.string().min(1, 'Selecione o horário'),
+  age_range: z.string().min(1, 'Selecione a faixa etária'),
 });
 
 type ClassFormValues = z.infer<typeof classSchema>;
@@ -79,6 +81,7 @@ export function AddClassDialog({ open, onOpenChange, onSuccess }: AddClassDialog
       room: '',
       schedule_day: '',
       schedule_time: '',
+      age_range: 'todas',
     },
   });
 
@@ -155,7 +158,8 @@ export function AddClassDialog({ open, onOpenChange, onSuccess }: AddClassDialog
           max_students: roomCapacity,
           schedule: Object.keys(schedule).length > 0 ? schedule : null,
           is_active: true,
-        });
+          age_range: values.age_range,
+        } as any);
 
       if (error) throw error;
 
@@ -316,6 +320,31 @@ export function AddClassDialog({ open, onOpenChange, onSuccess }: AddClassDialog
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="age_range"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Faixa Etária *</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a faixa etária" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {AGE_RANGES.map((range) => (
+                        <SelectItem key={range.id} value={range.id}>
+                          {range.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}

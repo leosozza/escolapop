@@ -1,30 +1,35 @@
 
 
-# Plano: Ajustar Input do Chat e Adicionar Matrícula de Irmão
+# Plano: Filtrar Operadores por Função
 
-## 1. Aumentar campo de mensagem para 4 linhas
-- Em `WhatsAppChatInput.tsx`, alterar o `Textarea` de `rows={1}` e `min-h-[36px]` para `rows={4}` e `min-h-[100px]`
+## Contexto
+Atualmente, tanto o formulário de matrícula quanto o de agendamento buscam da mesma tabela `agents`. O correto é:
 
-## 2. Esconder ícones de formatação/emoji em menu suspenso
-- Remover a toolbar de formatação (Bold, Italic, Strikethrough, Code) e os botões laterais (Emoji, Clip, Zap, Settings) do layout direto
-- Criar um botão "+" ou seta que abre um menu dropdown/popover com todas essas opções organizadas
-- Manter apenas o textarea, o botão de enviar/mic, e o botão "+" para expandir as ferramentas
-- Ao clicar no "+", mostrar popover com: Emoji, Anexar arquivo, Formatação (sub-grupo), Respostas rápidas, Gerenciar respostas
+1. **Matrícula** — mostrar funcionários do **departamento de matrícula** (setor `departamento_matricula` na tabela `team_members`), **gestores** e **supervisores** (roles `gestor`, `supervisor` da tabela `user_roles` + `profiles`)
+2. **Agendamento** — mostrar apenas o **agente comercial atribuído** à conversa (`assigned_agent_id` do lead), que vem da tabela `agents`
 
-## 3. Botão "Matricular Irmão" no painel de informações
-- No info panel do WhatsApp (`WhatsApp.tsx`), dentro de "Ações Rápidas", adicionar botão "Novo Aluno (Irmão)"
-- Ao clicar, abrir um dialog que:
-  - Pré-preenche o telefone do responsável atual e o nome do responsável (guardian_name)
-  - Pede: Nome do Modelo (obrigatório), e opcionais: Nº Contrato MaxSystem, ID Bitrix, ID Ficha MaxSystem
-  - Cria um **novo lead** separado com o mesmo telefone e guardian_name do responsável
-  - Cria um **novo student** vinculado a esse lead
-  - Abre o `AddEnrollmentDialog` para matricular o novo aluno
+## Mudanças
 
-## Arquivos a modificar/criar
+### 1. `AddEnrollmentDialog.tsx` — Operadores de matrícula
+- Substituir a query que busca de `agents` por uma que busca:
+  - `team_members` com `sector = 'departamento_matricula'` e `is_active = true`
+  - `profiles` + `user_roles` onde role é `gestor` ou `supervisor`
+- Combinar ambas as listas sem duplicatas
+- Renomear o label de "Agente que Agendou" para "Operador de Matrícula"
+
+### 2. `ScheduleLeadDialog.tsx` — Agente de agendamento
+- Manter a busca de `agents`, mas quando chamado dentro do WhatsApp com `assigned_agent_id`, pré-selecionar e limitar ao agente atribuído à conversa
+- Adicionar prop opcional `assignedAgentId` para filtrar
+- Quando `assignedAgentId` é passado, mostrar apenas esse agente no select
+
+### 3. `WhatsApp.tsx` — Passar contexto ao dialog
+- Ao abrir o dialog de matrícula ou agendamento, passar o `assigned_agent_id` do contato selecionado como prop
+
+## Arquivos a modificar
 
 | Arquivo | Ação |
 |---------|------|
-| `src/components/whatsapp/WhatsAppChatInput.tsx` | Textarea 4 linhas; agrupar ferramentas em menu suspenso |
-| `src/components/whatsapp/RegisterSiblingDialog.tsx` | **Novo** — Dialog para cadastrar irmão do mesmo responsável |
-| `src/pages/WhatsApp.tsx` | Adicionar botão e estado para o RegisterSiblingDialog nas ações rápidas |
+| `src/components/students/AddEnrollmentDialog.tsx` | Buscar operadores de matrícula (team_members + roles gestor/supervisor) |
+| `src/components/appointments/ScheduleLeadDialog.tsx` | Aceitar prop `assignedAgentId` para filtrar agente |
+| `src/pages/WhatsApp.tsx` | Passar `assignedAgentId` do contato ao ScheduleLeadDialog |
 

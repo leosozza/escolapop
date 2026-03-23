@@ -1,75 +1,78 @@
 
 
-# Plano: Corrigir Recebimento de Mensagens e Status de Entrega
+# Plano: Integrar Tabulação Acadêmica na Página WhatsApp e Remover Atendimento Matrícula
 
-## Diagnóstico
+## Resumo
 
-Três problemas distintos identificados:
-
-### 1. Webhook não está recebendo chamadas
-Os logs do webhook estão **completamente vazios** — a WuzAPI não está enviando eventos. Isso explica por que mensagens recebidas não aparecem. Causa provável: a configuração do webhook na WuzAPI não está persistindo ou o formato da URL/eventos está incorreto.
-
-### 2. ReadReceipt não atualiza status das mensagens
-O webhook recebe `ReadReceipt` mas apenas faz `console.log("Read receipt received")` — não atualiza o status da mensagem na tabela `whatsapp_messages` de `sent` para `delivered`/`read`.
-
-### 3. Frontend não escuta atualizações de status
-O `WhatsAppMessageList` escuta apenas `INSERT` no realtime. Quando o status de uma mensagem muda (sent → delivered → read), o componente não atualiza.
+Unificar todo o atendimento (comercial + acadêmico) na página `/whatsapp`. A página de Atendimento Matrícula (`/academic-support`) será removida. O painel de info do WhatsApp ganhará botões de ação rápida para tabulação, matrícula e geração de certificado.
 
 ## O que será feito
 
-### Edge Function `whatsapp-webhook`
-1. **Adicionar logs detalhados** no início para debugar se chamadas chegam
-2. **Implementar handler de `Receipt`** (WuzAPI envia `Receipt`, não apenas `ReadReceipt`): atualizar `whatsapp_messages.status` para `delivered` ou `read` baseado no tipo de recibo
-3. **Tratar evento `ChatPresence`** (digitando): não persiste, mas pode ser retransmitido via broadcast channel
+### 1. Expandir o painel de info do WhatsApp com ações de tabulação
 
-### Edge Function `whatsapp-api`
-4. **Adicionar action `check-webhook`**: verificar se o webhook está configurado corretamente na WuzAPI (GET /webhook) e reconfigurar se necessário
-5. **Incluir `Receipt` e `ChatPresence`** na lista de eventos assinados ao conectar/configurar webhook
+No painel lateral direito (Info do contato) da página `/whatsapp`, adicionar:
 
-### Frontend `WhatsAppMessageList`
-6. **Escutar evento `UPDATE`** além de `INSERT` no canal realtime, para refletir mudanças de status (sent → delivered → read)
-7. **Adicionar status `read`**: duplo check azul (CheckCheck com cor diferente)
+- **Botões de tabulação rápida**: Status do lead (Lead → Em Atendimento → Agendado → Confirmado → Compareceu → Matriculado → Perdido)
+- **Botão "Matricular"**: Abre o `AddEnrollmentDialog` pré-preenchido com os dados do contato selecionado
+- **Botão "Gerar Certificado"**: Navega para `/certificates` com dados do aluno
+- **Botão "Ficha Completa"**: Navega para `/students/:leadId`
+- **Indicador de tempo de espera**: Mostra há quanto tempo o lead está sem resposta (12h, 24h+, 48h+)
+- **Seção de enrollment info**: Se o contato tiver matrícula, mostrar curso, turma, faltas, status acadêmico
 
-### Frontend `WhatsApp.tsx`
-8. **Adicionar botão de diagnóstico de webhook**: permite verificar e reconfigurar o webhook da instância selecionada
+### 2. Integrar dados acadêmicos na busca de contatos
+
+Na função `fetchContacts`, além de buscar leads, também buscar dados de enrollment (curso, turma, faltas) para exibir no painel de info quando disponível. Isso substitui toda a lógica que existia no AcademicSupport.
+
+### 3. Remover página Atendimento Matrícula
+
+- Deletar `src/pages/AcademicSupport.tsx`
+- Remover rota `/academic-support` do `App.tsx`
+- Remover item "Atendimento Matrícula" do sidebar (`AppSidebar.tsx`)
+- Remover referência em `AppLayout.tsx`
+
+### 4. Manter automação de 24h/48h
+
+A lógica de alerta de 24h e auto-tabulação de 48h já existe na Edge Function `academic-lead-automations`. Será mantida como está. No painel de info, exibir o indicador de tempo de espera para leads sem resposta.
 
 ## Arquivos a Modificar
 
 | Arquivo | Ação |
 |---------|------|
-| `supabase/functions/whatsapp-webhook/index.ts` | Implementar handler de Receipt/ReadReceipt que atualiza status; adicionar logs |
-| `supabase/functions/whatsapp-api/index.ts` | Adicionar action `check-webhook`; incluir Receipt nos eventos; adicionar `diagnose-webhook` |
-| `src/components/whatsapp/WhatsAppMessageList.tsx` | Escutar UPDATE no realtime; adicionar status `read` com check azul |
+| `src/pages/WhatsApp.tsx` | Expandir painel de info com botões de tabulação, matrícula, certificado, dados acadêmicos |
+| `src/App.tsx` | Remover rota `/academic-support` |
+| `src/components/layout/AppSidebar.tsx` | Remover item "Atendimento Matrícula" |
+| `src/components/layout/AppLayout.tsx` | Remover entrada de breadcrumb |
+| `src/pages/AcademicSupport.tsx` | Deletar arquivo |
 
-## Detalhes técnicos
+## Detalhes do painel de info expandido
 
-**Webhook Receipt handler:**
-```typescript
-if (eventType === "Receipt" || eventType === "ReadReceipt") {
-  const receiptData = body.data || {};
-  const messageIds = receiptData.ids || [receiptData.id];
-  const receiptType = receiptData.type; // "delivered", "read", "played"
-  const newStatus = receiptType === "read" || receiptType === "played" ? "read" : "delivered";
-  
-  // Update all matching messages
-  for (const msgId of messageIds) {
-    await supabase.from("whatsapp_messages")
-      .update({ status: newStatus })
-      .eq("wuzapi_message_id", msgId);
-  }
-}
-```
-
-**Realtime UPDATE listener:**
-```typescript
-.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'whatsapp_messages' }, (payload) => {
-  const updated = payload.new as Message;
-  setMessages(prev => prev.map(m => m.id === updated.id ? updated : m));
-})
-```
-
-**Eventos assinados expandidos:**
-```json
-["Message", "Receipt", "ReadReceipt", "ChatPresence", "Connected", "Disconnected"]
+```text
+┌─────────────────────────┐
+│ Info do contato     [X] │
+├─────────────────────────┤
+│    [Avatar]             │
+│    Nome do Contato      │
+│    (11) 94089-7303      │
+├─────────────────────────┤
+│ ⚡ AÇÕES RÁPIDAS        │
+│ [Matricular] [Certif.]  │
+│ [Ficha Completa]        │
+├─────────────────────────┤
+│ 📋 TABULAÇÃO            │
+│ [Select: status lead]   │
+├─────────────────────────┤
+│ 🎓 DADOS ACADÊMICOS    │
+│ Curso: Modelo Teen      │
+│ Turma: T01-2025         │
+│ Faltas: 2               │
+│ Status: Em Curso        │
+│ [Select: status acad.]  │
+├─────────────────────────┤
+│ ⏱ TEMPO DE ESPERA       │
+│ 🟡 24h+ sem resposta    │
+├─────────────────────────┤
+│ 📝 OBSERVAÇÕES          │
+│ [texto editável]        │
+└─────────────────────────┘
 ```
 

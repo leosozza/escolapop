@@ -516,14 +516,20 @@ Deno.serve(async (req) => {
           body: JSON.stringify({ Phone: phoneNumber, Body: message }),
         });
 
+        console.log("send-text response:", JSON.stringify(res.data).slice(0, 500));
+
         const msgStatus = res.ok ? "sent" : "failed";
-        const errorMsg = res.ok ? null : (res.data?.message || "Send failed");
+        const errorMsg = res.ok ? null : (res.data?.message || res.data?.error || "Send failed");
+
+        // WuzAPI returns MessageID or Id in various formats
+        const wuzapiMsgId = res.data?.data?.MessageID || res.data?.data?.Id || res.data?.MessageID || res.data?.Id || null;
+        console.log("Captured wuzapi_message_id:", wuzapiMsgId);
 
         await supabase.from("whatsapp_messages").insert({
           phone: formattedPhone, content: message, lead_id: leadId || null,
           direction: "outbound", message_type: "text",
           status: msgStatus, error_message: errorMsg,
-          wuzapi_message_id: res.data?.data?.MessageID || res.data?.MessageID || null,
+          wuzapi_message_id: wuzapiMsgId,
           instance_id: instanceId,
         });
 

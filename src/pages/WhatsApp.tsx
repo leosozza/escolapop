@@ -626,14 +626,14 @@ const WhatsApp = () => {
               <div className="flex-1 min-h-0">
                 <WhatsAppMessageList
                   phone={selectedContact.phone}
-                  leadId={selectedContact.id}
+                  leadId={selectedContact._isVirtual ? undefined : selectedContact.id}
                   key={`msg-${selectedContact.id}-${refreshKey}`}
                 />
               </div>
               <div className="p-3 bg-background border-t">
                 <WhatsAppChatInput
                   phone={selectedContact.phone}
-                  leadId={selectedContact.id}
+                  leadId={selectedContact._isVirtual ? undefined : selectedContact.id}
                   instanceId={selectedInstanceId}
                   onMessageSent={() => setRefreshKey(k => k + 1)}
                 />

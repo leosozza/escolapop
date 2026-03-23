@@ -65,6 +65,7 @@ interface WhatsAppContact {
   last_message?: string | null;
   last_message_at?: string | null;
   unread_count?: number;
+  _isVirtual?: boolean;
 }
 
 interface EnrollmentInfo {

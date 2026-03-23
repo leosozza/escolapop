@@ -445,6 +445,53 @@ const WhatsApp = () => {
     }
   };
 
+  const handleStartEditDetails = () => {
+    if (!selectedContact) return;
+    setEditDetails({
+      full_name: selectedContact.full_name || '',
+      guardian_name: selectedContact.guardian_name || '',
+      external_id: selectedContact.external_id || '',
+      maxsystem_contract_number: (selectedContact as any).maxsystem_contract_number || '',
+      maxsystem_record_id: (selectedContact as any).maxsystem_record_id || '',
+    });
+    setIsEditingDetails(true);
+  };
+
+  const handleSaveDetails = async () => {
+    if (!selectedContact) return;
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({
+          full_name: editDetails.full_name.trim(),
+          guardian_name: editDetails.guardian_name.trim() || null,
+          external_id: editDetails.external_id.trim() || null,
+          external_source: editDetails.external_id.trim() ? 'bitrix' : null,
+          maxsystem_contract_number: editDetails.maxsystem_contract_number.trim() || null,
+          maxsystem_record_id: editDetails.maxsystem_record_id.trim() || null,
+        } as any)
+        .eq('id', selectedContact.id);
+      if (error) throw error;
+      toast.success('Dados atualizados');
+      setIsEditingDetails(false);
+      const updatedContact = {
+        ...selectedContact,
+        full_name: editDetails.full_name.trim(),
+        guardian_name: editDetails.guardian_name.trim() || null,
+        external_id: editDetails.external_id.trim() || null,
+        maxsystem_contract_number: editDetails.maxsystem_contract_number.trim() || null,
+        maxsystem_record_id: editDetails.maxsystem_record_id.trim() || null,
+      };
+      setContacts(prev => prev.map(c => c.id === selectedContact.id ? { ...c, ...updatedContact } : c));
+      setSelectedContact(updatedContact as any);
+    } catch {
+      toast.error('Erro ao salvar dados');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const getInitials = (name: string) =>
     name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 

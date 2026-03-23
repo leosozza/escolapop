@@ -54,9 +54,10 @@ interface ScheduleLeadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  assignedAgentId?: string;
 }
 
-export function ScheduleLeadDialog({ open, onOpenChange, onSuccess }: ScheduleLeadDialogProps) {
+export function ScheduleLeadDialog({ open, onOpenChange, onSuccess, assignedAgentId }: ScheduleLeadDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [addServiceDayOpen, setAddServiceDayOpen] = useState(false);
@@ -78,14 +79,25 @@ export function ScheduleLeadDialog({ open, onOpenChange, onSuccess }: ScheduleLe
 
   useEffect(() => {
     const fetchAgents = async () => {
-      const { data: agentsData, error } = await supabase
+      let query = supabase
         .from('agents')
         .select('id, full_name')
         .eq('is_active', true)
         .order('full_name');
 
+      // If assignedAgentId is provided, filter to only that agent
+      if (assignedAgentId) {
+        query = query.eq('id', assignedAgentId);
+      }
+
+      const { data: agentsData, error } = await query;
+
       if (!error && agentsData) {
         setAgents(agentsData.map(a => ({ id: a.id, full_name: a.full_name })));
+        // Auto-select if only one agent
+        if (agentsData.length === 1) {
+          form.setValue('agent_id', agentsData[0].id);
+        }
       }
     };
 
@@ -93,7 +105,7 @@ export function ScheduleLeadDialog({ open, onOpenChange, onSuccess }: ScheduleLe
       fetchAgents();
       form.reset();
     }
-  }, [open, form]);
+  }, [open, form, assignedAgentId]);
 
   const onSubmit = async (data: ScheduleFormData) => {
     if (!user) return;

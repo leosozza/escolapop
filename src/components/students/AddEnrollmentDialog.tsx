@@ -219,17 +219,44 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
     },
   });
 
-  // Fetch agents
-  const { data: agents } = useQuery({
-    queryKey: ['agents-for-enrollment'],
+  // Fetch enrollment operators: team_members from departamento_matricula + profiles with gestor/supervisor roles
+  const { data: enrollmentOperators } = useQuery({
+    queryKey: ['enrollment-operators'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('agents')
+      // 1. Team members from departamento_matricula
+      const { data: teamData } = await supabase
+        .from('team_members')
         .select('id, full_name')
+        .eq('sector', 'departamento_matricula')
         .eq('is_active', true)
         .order('full_name');
-      if (error) throw error;
-      return data;
+
+      // 2. Profiles with gestor or supervisor roles
+      const { data: rolesData } = await supabase
+        .from('user_roles')
+        .select('user_id, role')
+        .in('role', ['gestor', 'supervisor']);
+
+      let managerProfiles: { id: string; full_name: string }[] = [];
+      if (rolesData && rolesData.length > 0) {
+        const userIds = [...new Set(rolesData.map(r => r.user_id))];
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, full_name')
+          .in('user_id', userIds);
+        if (profiles) {
+          managerProfiles = profiles.map(p => ({ id: p.user_id, full_name: p.full_name }));
+        }
+      }
+
+      // Combine without duplicates
+      const allOperators = [...(teamData || []), ...managerProfiles];
+      const seen = new Set<string>();
+      return allOperators.filter(op => {
+        if (seen.has(op.id)) return false;
+        seen.add(op.id);
+        return true;
+      }).sort((a, b) => a.full_name.localeCompare(b.full_name));
     },
   });
 
@@ -742,17 +769,17 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
                   name="agent_id"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Agente que Agendou</FormLabel>
+                      <FormLabel>Operador de Matrícula</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value || ''}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecione o agente (opcional)" />
+                            <SelectValue placeholder="Selecione o operador (opcional)" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {agents?.map((agent) => (
-                            <SelectItem key={agent.id} value={agent.id}>
-                              {agent.full_name}
+                          {enrollmentOperators?.map((op) => (
+                            <SelectItem key={op.id} value={op.id}>
+                              {op.full_name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -991,17 +1018,17 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
                   name="agent_id"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Agente que Agendou</FormLabel>
+                      <FormLabel>Operador de Matrícula</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value || ''}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecione o agente (opcional)" />
+                            <SelectValue placeholder="Selecione o operador (opcional)" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {agents?.map((agent) => (
-                            <SelectItem key={agent.id} value={agent.id}>
-                              {agent.full_name}
+                          {enrollmentOperators?.map((op) => (
+                            <SelectItem key={op.id} value={op.id}>
+                              {op.full_name}
                             </SelectItem>
                           ))}
                         </SelectContent>

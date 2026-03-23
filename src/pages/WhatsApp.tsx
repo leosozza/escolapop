@@ -163,7 +163,12 @@ const WhatsApp = () => {
     if (selectedContact) {
       setNotes(selectedContact.notes || '');
       setIsEditingNotes(false);
-      fetchContactAcademicData(selectedContact.id);
+      if (!selectedContact._isVirtual) {
+        fetchContactAcademicData(selectedContact.id);
+      } else {
+        setEnrollments([]);
+        setResponseTracking(null);
+      }
     } else {
       setEnrollments([]);
       setResponseTracking(null);

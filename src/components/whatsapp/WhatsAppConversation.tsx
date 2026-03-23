@@ -168,18 +168,30 @@ export function WhatsAppConversation({
             </div>
             <div>
               <CardTitle className="text-xl">{contact.full_name}</CardTitle>
-              <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Phone className="h-3.5 w-3.5" />
-                  {formatPhoneForDisplay(contact.phone)}
-                </span>
-                {contact.external_id && (
-                  <span className="flex items-center gap-1">
-                    <Tag className="h-3.5 w-3.5" />
-                    {contact.external_id}
+              {isTyping && (
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-xs text-green-500 font-medium">digitando</span>
+                  <span className="flex gap-0.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-bounce" style={{ animationDelay: '300ms' }} />
                   </span>
-                )}
-              </div>
+                </div>
+              )}
+              {!isTyping && (
+                <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Phone className="h-3.5 w-3.5" />
+                    {formatPhoneForDisplay(contact.phone)}
+                  </span>
+                  {contact.external_id && (
+                    <span className="flex items-center gap-1">
+                      <Tag className="h-3.5 w-3.5" />
+                      {contact.external_id}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           <Button

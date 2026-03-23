@@ -693,6 +693,7 @@ const WhatsApp = () => {
                   leadId={selectedContact._isVirtual ? undefined : selectedContact.id}
                   instanceId={selectedInstanceId}
                   onMessageSent={() => setRefreshKey(k => k + 1)}
+                  leadName={selectedContact.full_name}
                 />
               </div>
             </div>

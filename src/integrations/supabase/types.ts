@@ -1944,6 +1944,39 @@ export type Database = {
           },
         ]
       }
+      whatsapp_quick_replies: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          id: string
+          is_global: boolean
+          shortcut: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by: string
+          id?: string
+          is_global?: boolean
+          shortcut: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_global?: boolean
+          shortcut?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       whatsapp_session: {
         Row: {
           id: string

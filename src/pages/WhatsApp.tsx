@@ -515,21 +515,32 @@ const WhatsApp = () => {
     <div className="h-full flex bg-muted/30">
       {/* ─── Sidebar: Contact List ─── */}
       <div className="w-[380px] flex flex-col border-r bg-background shrink-0">
-        <div className="p-3 border-b space-y-3">
+        <div className="p-2 border-b space-y-1.5">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <MessageCircle className="h-5 w-5 text-green-600" />
-              <span className="font-semibold text-sm">WhatsApp</span>
+            <div className="flex items-center gap-1.5">
+              <MessageCircle className="h-4 w-4 text-green-600" />
+              <span className="font-semibold text-xs">WhatsApp</span>
               <WhatsAppStatusIndicator />
             </div>
-            <Button size="sm" variant="ghost" onClick={() => setIsAddDialogOpen(true)}>
-              <Plus className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant={showAllContacts ? 'secondary' : 'ghost'}
+                className="h-7 w-7 p-0 shrink-0"
+                onClick={() => setShowAllContacts(!showAllContacts)}
+                title={showAllContacts ? 'Mostrando todos' : 'Mostrar todos os contatos'}
+              >
+                <Users className="h-3.5 w-3.5" />
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setIsAddDialogOpen(true)}>
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
 
           {instances.length > 1 && (
             <Select value={selectedInstanceId} onValueChange={setSelectedInstanceId}>
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className="h-7 text-xs">
                 <SelectValue placeholder="Instância" />
               </SelectTrigger>
               <SelectContent>
@@ -545,14 +556,14 @@ const WhatsApp = () => {
             </Select>
           )}
 
-          {/* Filter chips */}
-          <div className="flex flex-wrap gap-1">
+          {/* Filter chips - single scrollable row */}
+          <div className="flex gap-1 overflow-x-auto no-scrollbar">
             {FILTER_OPTIONS.map(f => (
               <Button
                 key={f.key}
                 size="sm"
                 variant={activeFilter === f.key ? 'default' : 'outline'}
-                className="h-7 text-[11px] px-2 gap-1"
+                className="h-6 text-[10px] px-1.5 gap-0.5 shrink-0"
                 onClick={() => setActiveFilter(f.key)}
               >
                 <f.icon className="h-3 w-3" />
@@ -561,25 +572,14 @@ const WhatsApp = () => {
             ))}
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar contato..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="pl-9 h-9 text-sm"
-              />
-            </div>
-            <Button
-              size="sm"
-              variant={showAllContacts ? 'secondary' : 'ghost'}
-              className="h-9 px-2 shrink-0"
-              onClick={() => setShowAllContacts(!showAllContacts)}
-              title={showAllContacts ? 'Mostrando todos' : 'Mostrar todos os contatos'}
-            >
-              <Users className="h-4 w-4" />
-            </Button>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Buscar contato..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="pl-8 h-7 text-xs"
+            />
           </div>
         </div>
 

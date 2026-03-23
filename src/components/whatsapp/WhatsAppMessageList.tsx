@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { AlertCircle, Check, CheckCheck, Clock } from 'lucide-react';
+import { AlertCircle, Check, CheckCheck, Clock, Download, FileIcon } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
@@ -12,6 +12,7 @@ interface Message {
   direction: string;
   message_type: string;
   content: string | null;
+  media_url: string | null;
   status: string | null;
   error_message: string | null;
   created_at: string;
@@ -90,10 +91,7 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
           const isFailed = msg.status === 'failed';
 
           return (
-            <div
-              key={msg.id}
-              className={cn('flex', isOutbound ? 'justify-end' : 'justify-start')}
-            >
+            <div key={msg.id} className={cn('flex', isOutbound ? 'justify-end' : 'justify-start')}>
               <div
                 className={cn(
                   'max-w-[75%] rounded-xl px-3 py-2 text-sm',
@@ -104,7 +102,7 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
                     : 'bg-muted'
                 )}
               >
-                <p className="whitespace-pre-wrap break-words">{msg.content || '[sem conteúdo]'}</p>
+                <MessageContent msg={msg} isOutbound={isOutbound} />
                 <div className={cn('flex items-center gap-1 mt-1', isOutbound ? 'justify-end' : 'justify-start')}>
                   <span className={cn('text-[10px]', isOutbound && !isFailed ? 'text-green-200' : 'text-muted-foreground')}>
                     {format(new Date(msg.created_at), 'HH:mm', { locale: ptBR })}
@@ -134,4 +132,64 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
       </div>
     </ScrollArea>
   );
+}
+
+function MessageContent({ msg, isOutbound }: { msg: Message; isOutbound: boolean }) {
+  const type = msg.message_type;
+
+  if (type === 'audio' && msg.media_url) {
+    return (
+      <div className="min-w-[200px]">
+        <audio controls className="w-full max-w-[280px] h-8" preload="none">
+          <source src={msg.media_url} />
+        </audio>
+        {msg.content && msg.content !== '[Mídia recebida]' && (
+          <p className="whitespace-pre-wrap break-words mt-1 text-xs opacity-80">{msg.content}</p>
+        )}
+      </div>
+    );
+  }
+
+  if (type === 'image' && msg.media_url) {
+    return (
+      <div>
+        <img
+          src={msg.media_url}
+          alt="Imagem"
+          className="rounded-lg max-w-[260px] max-h-[300px] object-cover cursor-pointer"
+          onClick={() => window.open(msg.media_url!, '_blank')}
+        />
+        {msg.content && msg.content !== '[Mídia recebida]' && (
+          <p className="whitespace-pre-wrap break-words mt-1">{msg.content}</p>
+        )}
+      </div>
+    );
+  }
+
+  if (type === 'video' && msg.media_url) {
+    return (
+      <div>
+        <video controls className="rounded-lg max-w-[260px] max-h-[300px]" preload="none">
+          <source src={msg.media_url} />
+        </video>
+        {msg.content && msg.content !== '[Mídia recebida]' && (
+          <p className="whitespace-pre-wrap break-words mt-1">{msg.content}</p>
+        )}
+      </div>
+    );
+  }
+
+  if (type === 'document' && msg.media_url) {
+    return (
+      <a href={msg.media_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-lg bg-background/20 hover:bg-background/30 transition-colors">
+        <FileIcon className="h-8 w-8 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium truncate">{msg.content || 'Documento'}</p>
+        </div>
+        <Download className="h-4 w-4 shrink-0 opacity-60" />
+      </a>
+    );
+  }
+
+  return <p className="whitespace-pre-wrap break-words">{msg.content || '[sem conteúdo]'}</p>;
 }

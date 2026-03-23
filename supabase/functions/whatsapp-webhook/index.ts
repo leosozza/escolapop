@@ -123,6 +123,14 @@ Deno.serve(async (req) => {
         : message.videoMessage ? "video"
         : "text";
 
+      // Extract media URL if available
+      const mediaUrl =
+        message.imageMessage?.url || message.imageMessage?.directPath ||
+        message.audioMessage?.url || message.audioMessage?.directPath ||
+        message.videoMessage?.url || message.videoMessage?.directPath ||
+        message.documentMessage?.url || message.documentMessage?.directPath ||
+        null;
+
       // Find lead by phone
       const cleanPhone = phone.replace(/^55/, "");
       const lastDigits = cleanPhone.slice(-8);
@@ -133,7 +141,7 @@ Deno.serve(async (req) => {
         .limit(1)
         .maybeSingle();
 
-      console.log("Lead match:", lead?.id || "none", "content:", content.slice(0, 60));
+      console.log("Lead match:", lead?.id || "none", "content:", content.slice(0, 60), "mediaUrl:", mediaUrl?.slice(0, 60) || "none");
 
       const { error: insertErr } = await supabase.from("whatsapp_messages").insert({
         phone,
@@ -141,6 +149,7 @@ Deno.serve(async (req) => {
         lead_id: lead?.id || null,
         direction: "inbound",
         message_type: messageType,
+        media_url: mediaUrl,
         wuzapi_message_id: msgId || null,
         status: "received",
         instance_id: instanceId,

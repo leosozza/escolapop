@@ -20,7 +20,7 @@ const routeNames: Record<string, { title: string; icon?: string }> = {
   '/classes': { title: 'Turmas' },
   '/courses': { title: 'Cursos' },
   '/lms': { title: 'Aulas (LMS)' },
-  '/academic-support': { title: 'Atendimento Matrícula' },
+  '/whatsapp': { title: 'WhatsApp' },
   '/certificates': { title: 'Certificados' },
   '/billing': { title: 'Cobrança' },
   '/contracts': { title: 'Contratos' },

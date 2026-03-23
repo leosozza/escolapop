@@ -650,13 +650,59 @@ const WhatsApp = () => {
                         {getInitials(selectedContact.full_name)}
                       </div>
                       <div>
-                        <p className="font-semibold">{selectedContact.full_name}</p>
+                        <p className="font-semibold">{selectedContact._isVirtual ? formatPhone(selectedContact.phone) : selectedContact.full_name}</p>
                         <p className="text-sm text-muted-foreground">{formatPhone(selectedContact.phone)}</p>
+                        {selectedContact._isVirtual && (
+                          <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-700 mt-1">Contato novo</Badge>
+                        )}
                       </div>
                     </div>
 
+                    {/* Register as Lead (virtual contacts only) */}
+                    {selectedContact._isVirtual && (
+                      <>
+                        <div className="rounded-lg border border-dashed border-green-300 bg-green-50 p-3">
+                          <p className="text-xs text-muted-foreground mb-2">Este contato ainda não está cadastrado.</p>
+                          <Button
+                            size="sm"
+                            className="w-full h-8 text-xs"
+                            onClick={async () => {
+                              try {
+                                const { data: newLead, error } = await supabase
+                                  .from('leads')
+                                  .insert({
+                                    full_name: selectedContact.phone,
+                                    phone: selectedContact.phone,
+                                    source: 'whatsapp' as any,
+                                    origin_sector: 'comercial',
+                                  })
+                                  .select()
+                                  .single();
+                                if (error) throw error;
+                                // Link existing messages to this lead
+                                await supabase
+                                  .from('whatsapp_messages')
+                                  .update({ lead_id: newLead.id })
+                                  .eq('phone', selectedContact.phone);
+                                toast.success('Lead cadastrado com sucesso!');
+                                await fetchContacts();
+                                // Select the new real contact
+                                setSelectedContact(prev => prev ? { ...prev, id: newLead.id, _isVirtual: false } as any : null);
+                              } catch {
+                                toast.error('Erro ao cadastrar lead');
+                              }
+                            }}
+                          >
+                            <Plus className="h-3.5 w-3.5 mr-1.5" />
+                            Cadastrar como Lead
+                          </Button>
+                        </div>
+                        <Separator />
+                      </>
+                    )}
+
                     {/* Wait Time Indicator */}
-                    {(() => {
+                    {!selectedContact._isVirtual && (() => {
                       const indicator = getWaitTimeIndicator();
                       if (!indicator) return null;
                       return (

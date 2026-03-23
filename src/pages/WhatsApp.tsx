@@ -266,7 +266,7 @@ const WhatsApp = () => {
 
       const { data: leads, error } = await supabase
         .from('leads')
-        .select('id, full_name, guardian_name, phone, email, source, status, external_id, external_source, notes, created_at, updated_at, assigned_agent_id')
+        .select('id, full_name, guardian_name, phone, email, source, status, external_id, external_source, notes, created_at, updated_at, assigned_agent_id, maxsystem_contract_number, maxsystem_record_id')
         .order('updated_at', { ascending: false })
         .limit(500);
 

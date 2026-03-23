@@ -1129,6 +1129,8 @@ export type Database = {
           guardian_name: string | null
           id: string
           lost_at: string | null
+          maxsystem_contract_number: string | null
+          maxsystem_record_id: string | null
           notes: string | null
           origin_sector: string
           phone: string
@@ -1156,6 +1158,8 @@ export type Database = {
           guardian_name?: string | null
           id?: string
           lost_at?: string | null
+          maxsystem_contract_number?: string | null
+          maxsystem_record_id?: string | null
           notes?: string | null
           origin_sector?: string
           phone: string
@@ -1183,6 +1187,8 @@ export type Database = {
           guardian_name?: string | null
           id?: string
           lost_at?: string | null
+          maxsystem_contract_number?: string | null
+          maxsystem_record_id?: string | null
           notes?: string | null
           origin_sector?: string
           phone?: string

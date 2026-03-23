@@ -843,33 +843,59 @@ const WhatsApp = () => {
 
                     <Separator />
 
-                    {/* Contact Info */}
-                    <div className="space-y-3">
-                      {selectedContact.guardian_name && (
-                        <div>
-                          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Responsável</p>
-                          <p className="text-sm flex items-center gap-2">
-                            <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                            {selectedContact.guardian_name}
-                          </p>
+                    {/* Contact Info - Editable */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">📇 Dados do Contato</p>
+                        {!isEditingDetails ? (
+                          <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={handleStartEditDetails}>
+                            <Edit3 className="h-3 w-3 mr-1" />
+                            Editar
+                          </Button>
+                        ) : (
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setIsEditingDetails(false)}>
+                              Cancelar
+                            </Button>
+                            <Button size="sm" className="h-6 text-xs" onClick={handleSaveDetails} disabled={isSaving}>
+                              <Save className="h-3 w-3 mr-1" /> Salvar
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      {isEditingDetails ? (
+                        <div className="space-y-2.5">
+                          <div>
+                            <Label className="text-xs">Nome do Modelo</Label>
+                            <Input className="h-8 text-sm" value={editDetails.full_name} onChange={e => setEditDetails(p => ({ ...p, full_name: e.target.value }))} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Responsável</Label>
+                            <Input className="h-8 text-sm" value={editDetails.guardian_name} onChange={e => setEditDetails(p => ({ ...p, guardian_name: e.target.value }))} placeholder="Nome do responsável" />
+                          </div>
+                          <div>
+                            <Label className="text-xs">ID Bitrix</Label>
+                            <Input className="h-8 text-sm" value={editDetails.external_id} onChange={e => setEditDetails(p => ({ ...p, external_id: e.target.value }))} placeholder="ID externo" />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Nº Contrato MaxSystem</Label>
+                            <Input className="h-8 text-sm" value={editDetails.maxsystem_contract_number} onChange={e => setEditDetails(p => ({ ...p, maxsystem_contract_number: e.target.value }))} placeholder="Nº do contrato" />
+                          </div>
+                          <div>
+                            <Label className="text-xs">ID Ficha MaxSystem</Label>
+                            <Input className="h-8 text-sm" value={editDetails.maxsystem_record_id} onChange={e => setEditDetails(p => ({ ...p, maxsystem_record_id: e.target.value }))} placeholder="ID da ficha" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between"><span className="text-muted-foreground">Responsável</span><span>{selectedContact.guardian_name || '—'}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">ID Bitrix</span><span>{selectedContact.external_id || '—'}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Contrato MaxSystem</span><span>{(selectedContact as any).maxsystem_contract_number || '—'}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Ficha MaxSystem</span><span>{(selectedContact as any).maxsystem_record_id || '—'}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Origem</span><span className="capitalize">{selectedContact.source}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Cadastrado em</span><span>{format(new Date(selectedContact.created_at), 'dd/MM/yyyy', { locale: ptBR })}</span></div>
                         </div>
                       )}
-                      {selectedContact.email && (
-                        <div>
-                          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Email</p>
-                          <p className="text-sm">{selectedContact.email}</p>
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Origem</p>
-                        <p className="text-sm capitalize">{selectedContact.source}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Cadastrado em</p>
-                        <p className="text-sm">
-                          {format(new Date(selectedContact.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                        </p>
-                      </div>
                     </div>
 
                     <Separator />

@@ -155,6 +155,25 @@ const WhatsApp = () => {
   const [notes, setNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  // Read tracking via localStorage
+  const getReadTimestamps = (): Record<string, string> => {
+    try {
+      return JSON.parse(localStorage.getItem('whatsapp_read_at') || '{}');
+    } catch { return {}; }
+  };
+
+  const markAsRead = (phoneKey: string) => {
+    const timestamps = getReadTimestamps();
+    timestamps[phoneKey] = new Date().toISOString();
+    localStorage.setItem('whatsapp_read_at', JSON.stringify(timestamps));
+    // Update unread count in contacts list
+    setContacts(prev => prev.map(c => {
+      const cp = c.phone.replace(/\D/g, '').slice(-8);
+      if (cp === phoneKey) return { ...c, unread_count: 0 };
+      return c;
+    }));
+  };
+
   useEffect(() => {
     fetchContacts();
     fetchInstances();
@@ -179,6 +198,10 @@ const WhatsApp = () => {
 
   useEffect(() => {
     if (selectedContact) {
+      // Mark conversation as read
+      const phoneKey = selectedContact.phone.replace(/\D/g, '').slice(-8);
+      markAsRead(phoneKey);
+
       setNotes(selectedContact.notes || '');
       setIsEditingNotes(false);
       if (!selectedContact._isVirtual) {
@@ -271,6 +294,10 @@ const WhatsApp = () => {
       const messageMap = new Map<string, { content: string | null; created_at: string; direction: string; rawPhone: string }>();
       const phonesWithMessages = new Set<string>();
       const phonesWithInbound = new Set<string>();
+      const unreadCounts = new Map<string, number>();
+      const readTimestamps = getReadTimestamps();
+      const selectedPhoneKey = selectedContact?.phone.replace(/\D/g, '').slice(-8);
+
       if (lastMessages) {
         for (const msg of lastMessages) {
           const cleanPhone = msg.phone.replace(/\D/g, '').slice(-8);
@@ -281,6 +308,15 @@ const WhatsApp = () => {
             }
           }
           phonesWithMessages.add(cleanPhone);
+
+          // Count unread inbound messages (after last read timestamp)
+          if (msg.direction === 'inbound') {
+            const lastRead = readTimestamps[cleanPhone];
+            const isCurrentlyOpen = cleanPhone === selectedPhoneKey;
+            if (!isCurrentlyOpen && (!lastRead || new Date(msg.created_at) > new Date(lastRead))) {
+              unreadCounts.set(cleanPhone, (unreadCounts.get(cleanPhone) || 0) + 1);
+            }
+          }
         }
       }
 
@@ -299,6 +335,7 @@ const WhatsApp = () => {
           ...lead,
           last_message: lastMsg?.content || null,
           last_message_at: lastMsg?.created_at || null,
+          unread_count: unreadCounts.get(cleanPhone) || 0,
           _hasConversation: phonesWithMessages.has(cleanPhone),
           _hasNewInbound: phonesWithInbound.has(cleanPhone),
           _isVirtual: false,
@@ -329,6 +366,7 @@ const WhatsApp = () => {
             assigned_agent_id: null,
             last_message: msgData.content,
             last_message_at: msgData.created_at,
+            unread_count: unreadCounts.get(cleanPhone) || 0,
             _isVirtual: true,
             _hasConversation: true,
             _hasNewInbound: phonesWithInbound.has(cleanPhone),
@@ -634,6 +672,7 @@ const WhatsApp = () => {
                 const contactCreated = new Date(contact.created_at);
                 const waitHours = differenceInHours(new Date(), contactCreated);
                 const showWaitBadge = !contact._isVirtual && ['lead', 'em_atendimento'].includes(contact.status) && waitHours >= 12;
+                const hasUnread = (contact.unread_count || 0) > 0;
 
                 return (
                   <div
@@ -648,7 +687,11 @@ const WhatsApp = () => {
                       <div className={cn('h-11 w-11 rounded-full flex items-center justify-center text-white', avatarBg)}>
                         <AvatarIcon className="h-5 w-5" />
                       </div>
-                      {showWaitBadge && (
+                      {hasUnread ? (
+                        <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full border-2 border-background bg-green-500 flex items-center justify-center">
+                          <span className="text-[9px] font-bold text-white">{contact.unread_count! > 99 ? '99+' : contact.unread_count}</span>
+                        </div>
+                      ) : showWaitBadge && (
                         <div className={cn(
                           'absolute -top-1 -right-1 h-4 w-4 rounded-full border-2 border-background flex items-center justify-center text-[8px] font-bold text-white',
                           waitHours >= 48 ? 'bg-destructive' : waitHours >= 24 ? 'bg-orange-500' : 'bg-yellow-500'
@@ -660,23 +703,25 @@ const WhatsApp = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <p className="font-medium text-sm truncate">{contact._isVirtual ? formatPhone(contact.phone) : contact.full_name}</p>
+                          <p className={cn('text-sm truncate', hasUnread ? 'font-bold text-foreground' : 'font-medium')}>{contact._isVirtual ? formatPhone(contact.phone) : contact.full_name}</p>
                           {contact._isVirtual && (
                             <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-green-100 text-green-700 shrink-0">Novo</Badge>
                           )}
                         </div>
-                        {contact.last_message_at && (
-                          <span className="text-[11px] text-muted-foreground shrink-0 ml-2">
-                            {(() => {
-                              const d = new Date(contact.last_message_at);
-                              if (isToday(d)) return format(d, 'HH:mm');
-                              if (isYesterday(d)) return 'Ontem';
-                              return format(d, 'dd/MM/yyyy');
-                            })()}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                          {contact.last_message_at && (
+                            <span className={cn('text-[11px] shrink-0', hasUnread ? 'text-green-600 font-semibold' : 'text-muted-foreground')}>
+                              {(() => {
+                                const d = new Date(contact.last_message_at);
+                                if (isToday(d)) return format(d, 'HH:mm');
+                                if (isYesterday(d)) return 'Ontem';
+                                return format(d, 'dd/MM/yyyy');
+                              })()}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                      <p className={cn('text-xs mt-0.5 line-clamp-2', hasUnread ? 'text-foreground font-medium' : 'text-muted-foreground')}>
                         {contact.last_message || contact.phone}
                       </p>
                     </div>

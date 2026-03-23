@@ -285,7 +285,7 @@ const WhatsApp = () => {
       const virtualContacts: WhatsAppContact[] = [];
       const seenVirtualPhones = new Set<string>();
 
-      for (const [cleanPhone, msgData] of messageMap.entries()) {
+      for (const [cleanPhone, msgData] of Array.from(messageMap.entries())) {
         if (!leadPhones.has(cleanPhone) && !seenVirtualPhones.has(cleanPhone)) {
           seenVirtualPhones.add(cleanPhone);
           virtualContacts.push({

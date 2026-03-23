@@ -196,9 +196,22 @@ Deno.serve(async (req) => {
 
     // ============ CHAT PRESENCE (typing) ============
     if (eventType === "ChatPresence") {
-      // Not persisted — just log
       const state = eventData.State || "";
-      console.log("ChatPresence:", state);
+      const presencePhone = extractPhone(eventData.Chat || eventData.JID || "");
+      console.log("ChatPresence:", state, "phone:", presencePhone);
+
+      if (presencePhone && (state === "composing" || state === "paused")) {
+        // Broadcast typing state via Supabase Realtime
+        const channel = supabase.channel("whatsapp-typing");
+        await channel.send({
+          type: "broadcast",
+          event: "typing",
+          payload: { phone: presencePhone, state, instanceId: instanceId || "" },
+        });
+        supabase.removeChannel(channel);
+        console.log("✅ Broadcast typing:", state, presencePhone);
+      }
+
       return okResponse();
     }
 

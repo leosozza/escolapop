@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   MessageCircle,
   Phone,
@@ -81,6 +81,39 @@ export function WhatsAppConversation({
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notes, setNotes] = useState(contact.notes || '');
   const [isSaving, setIsSaving] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Listen for typing broadcast
+  useEffect(() => {
+    const cleanPhone = contact.phone.replace(/\D/g, '');
+    const channel = supabase
+      .channel('whatsapp-typing-ui')
+      .on('broadcast', { event: 'typing' }, (payload: any) => {
+        const data = payload.payload;
+        if (!data?.phone) return;
+        const eventPhone = data.phone.replace(/\D/g, '');
+        const match = eventPhone === cleanPhone ||
+          eventPhone === `55${cleanPhone}` ||
+          cleanPhone.endsWith(eventPhone.slice(-8));
+
+        if (match) {
+          if (data.state === 'composing') {
+            setIsTyping(true);
+            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+            typingTimeoutRef.current = setTimeout(() => setIsTyping(false), 5000);
+          } else {
+            setIsTyping(false);
+          }
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, [contact.phone]);
 
   const handleSaveNotes = async () => {
     setIsSaving(true);
@@ -135,18 +168,30 @@ export function WhatsAppConversation({
             </div>
             <div>
               <CardTitle className="text-xl">{contact.full_name}</CardTitle>
-              <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Phone className="h-3.5 w-3.5" />
-                  {formatPhoneForDisplay(contact.phone)}
-                </span>
-                {contact.external_id && (
-                  <span className="flex items-center gap-1">
-                    <Tag className="h-3.5 w-3.5" />
-                    {contact.external_id}
+              {isTyping && (
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-xs text-green-500 font-medium">digitando</span>
+                  <span className="flex gap-0.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-bounce" style={{ animationDelay: '300ms' }} />
                   </span>
-                )}
-              </div>
+                </div>
+              )}
+              {!isTyping && (
+                <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Phone className="h-3.5 w-3.5" />
+                    {formatPhoneForDisplay(contact.phone)}
+                  </span>
+                  {contact.external_id && (
+                    <span className="flex items-center gap-1">
+                      <Tag className="h-3.5 w-3.5" />
+                      {contact.external_id}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           <Button

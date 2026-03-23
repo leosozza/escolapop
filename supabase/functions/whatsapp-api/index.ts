@@ -555,10 +555,81 @@ Deno.serve(async (req) => {
         return json({ success: res.ok, data: res.data }, res.ok ? 200 : 500);
       }
 
+      case "send-audio": {
+        const { phone, audio, leadId } = params;
+        if (!instanceId || !phone || !audio) {
+          return json({ error: "instanceId, phone and audio required" }, 400);
+        }
+
+        const inst = await resolveInstanceAuth(instanceId);
+        if (!inst?.wuzapi_token) return json({ error: "Instance not found" }, 404);
+
+        const isConnected = await ensureConnected(instanceId, inst.wuzapi_token);
+        if (!isConnected) return json({ error: "WhatsApp disconnected" }, 503);
+
+        const audioPhone = phone.replace(/\D/g, "");
+        const audioPhoneNumber = audioPhone.startsWith("55") ? audioPhone : `55${audioPhone}`;
+
+        const res = await instanceFetch(inst.wuzapi_token, "/chat/send/audio", {
+          method: "POST",
+          body: JSON.stringify({ Phone: audioPhoneNumber, Audio: audio }),
+        });
+
+        const wuzapiMsgId = res.data?.data?.MessageID || res.data?.data?.Id || null;
+
+        await supabase.from("whatsapp_messages").insert({
+          phone: audioPhone, content: "🎤 Áudio",
+          lead_id: leadId || null, direction: "outbound",
+          message_type: "audio", media_url: null,
+          status: res.ok ? "sent" : "failed",
+          error_message: res.ok ? null : (res.data?.message || "Send failed"),
+          wuzapi_message_id: wuzapiMsgId,
+          instance_id: instanceId,
+        });
+
+        return json({ success: res.ok, data: res.data }, res.ok ? 200 : 500);
+      }
+
+      case "send-image": {
+        const { phone, image, caption, leadId } = params;
+        if (!instanceId || !phone || !image) {
+          return json({ error: "instanceId, phone and image required" }, 400);
+        }
+
+        const inst = await resolveInstanceAuth(instanceId);
+        if (!inst?.wuzapi_token) return json({ error: "Instance not found" }, 404);
+
+        const isConnected = await ensureConnected(instanceId, inst.wuzapi_token);
+        if (!isConnected) return json({ error: "WhatsApp disconnected" }, 503);
+
+        const imgPhone = phone.replace(/\D/g, "");
+        const imgPhoneNumber = imgPhone.startsWith("55") ? imgPhone : `55${imgPhone}`;
+
+        const res = await instanceFetch(inst.wuzapi_token, "/chat/send/image", {
+          method: "POST",
+          body: JSON.stringify({ Phone: imgPhoneNumber, Image: image, Caption: caption || "" }),
+        });
+
+        const wuzapiMsgId = res.data?.data?.MessageID || res.data?.data?.Id || null;
+
+        await supabase.from("whatsapp_messages").insert({
+          phone: imgPhone, content: caption || "📷 Imagem",
+          lead_id: leadId || null, direction: "outbound",
+          message_type: "image", media_url: null,
+          status: res.ok ? "sent" : "failed",
+          error_message: res.ok ? null : (res.data?.message || "Send failed"),
+          wuzapi_message_id: wuzapiMsgId,
+          instance_id: instanceId,
+        });
+
+        return json({ success: res.ok, data: res.data }, res.ok ? 200 : 500);
+      }
+
       case "send-document": {
-        const { phone, documentUrl, fileName, caption, leadId } = params;
-        if (!instanceId || !phone || !documentUrl) {
-          return json({ error: "instanceId, phone and documentUrl required" }, 400);
+        const { phone, document: documentData, documentUrl, fileName, caption, leadId } = params;
+        const docSource = documentData || documentUrl;
+        if (!instanceId || !phone || !docSource) {
+          return json({ error: "instanceId, phone and document/documentUrl required" }, 400);
         }
 
         const inst = await resolveInstanceAuth(instanceId);
@@ -568,24 +639,25 @@ Deno.serve(async (req) => {
         if (!isConnected) return json({ error: "WhatsApp disconnected" }, 503);
 
         const docPhone = phone.replace(/\D/g, "");
-        const docPhoneNumber = docPhone.startsWith("55")
-          ? docPhone
-          : `55${docPhone}`;
+        const docPhoneNumber = docPhone.startsWith("55") ? docPhone : `55${docPhone}`;
 
         const res = await instanceFetch(inst.wuzapi_token, "/chat/send/document", {
           method: "POST",
           body: JSON.stringify({
-            Phone: docPhoneNumber, Document: documentUrl,
+            Phone: docPhoneNumber, Document: docSource,
             FileName: fileName || "document.pdf", Caption: caption || "",
           }),
         });
 
+        const wuzapiMsgId = res.data?.data?.MessageID || res.data?.data?.Id || null;
+
         await supabase.from("whatsapp_messages").insert({
-          phone: docPhone, content: caption || fileName || "Documento",
+          phone: docPhone, content: caption || fileName || "📄 Documento",
           lead_id: leadId || null, direction: "outbound",
-          message_type: "document", media_url: documentUrl,
+          message_type: "document", media_url: null,
           status: res.ok ? "sent" : "failed",
           error_message: res.ok ? null : (res.data?.message || "Send failed"),
+          wuzapi_message_id: wuzapiMsgId,
           instance_id: instanceId,
         });
 

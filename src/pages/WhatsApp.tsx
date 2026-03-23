@@ -131,6 +131,8 @@ const WhatsApp = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [showAllContacts, setShowAllContacts] = useState(false);
   const [enrollmentDialogOpen, setEnrollmentDialogOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<string>('todas');
+  const [enrollmentStatusMap, setEnrollmentStatusMap] = useState<Record<string, string[]>>({});
 
   // Info panel data
   const [enrollments, setEnrollments] = useState<EnrollmentInfo[]>([]);
@@ -227,11 +229,15 @@ const WhatsApp = () => {
 
       const messageMap = new Map<string, { content: string | null; created_at: string; direction: string; rawPhone: string }>();
       const phonesWithMessages = new Set<string>();
+      const phonesWithInbound = new Set<string>();
       if (lastMessages) {
         for (const msg of lastMessages) {
           const cleanPhone = msg.phone.replace(/\D/g, '').slice(-8);
           if (!messageMap.has(cleanPhone)) {
             messageMap.set(cleanPhone, { ...msg, rawPhone: msg.phone });
+            if (msg.direction === 'inbound') {
+              phonesWithInbound.add(cleanPhone);
+            }
           }
           phonesWithMessages.add(cleanPhone);
         }
@@ -245,7 +251,7 @@ const WhatsApp = () => {
 
       if (error) throw error;
 
-      const contactsWithMessages: WhatsAppContact[] = (leads || []).map(lead => {
+      const contactsWithMessages = (leads || []).map(lead => {
         const cleanPhone = lead.phone.replace(/\D/g, '').slice(-8);
         const lastMsg = messageMap.get(cleanPhone);
         return {
@@ -253,8 +259,9 @@ const WhatsApp = () => {
           last_message: lastMsg?.content || null,
           last_message_at: lastMsg?.created_at || null,
           _hasConversation: phonesWithMessages.has(cleanPhone),
+          _hasNewInbound: phonesWithInbound.has(cleanPhone),
         };
-      }) as (WhatsAppContact & { _hasConversation: boolean })[];
+      });
 
       contactsWithMessages.sort((a, b) => {
         const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
@@ -265,7 +272,27 @@ const WhatsApp = () => {
         return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
       });
 
-      setContacts(contactsWithMessages);
+      setContacts(contactsWithMessages as WhatsAppContact[]);
+
+      // Fetch enrollment statuses for all leads
+      const leadIds = (leads || []).map(l => l.id);
+      if (leadIds.length > 0) {
+        const { data: allEnrollments } = await supabase
+          .from('enrollments')
+          .select('lead_id, status, class_id')
+          .in('lead_id', leadIds);
+        
+        const esMap: Record<string, string[]> = {};
+        if (allEnrollments) {
+          for (const e of allEnrollments) {
+            if (e.lead_id) {
+              if (!esMap[e.lead_id]) esMap[e.lead_id] = [];
+              esMap[e.lead_id].push(e.status);
+            }
+          }
+        }
+        setEnrollmentStatusMap(esMap);
+      }
     } catch (error) {
       console.error('Error fetching contacts:', error);
     } finally {

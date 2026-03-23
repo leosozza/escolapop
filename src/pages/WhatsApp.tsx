@@ -558,7 +558,12 @@ const WhatsApp = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className="font-medium text-sm truncate">{contact.full_name}</p>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="font-medium text-sm truncate">{contact._isVirtual ? formatPhone(contact.phone) : contact.full_name}</p>
+                        {contact._isVirtual && (
+                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-green-100 text-green-700 shrink-0">Novo</Badge>
+                        )}
+                      </div>
                       {contact.last_message_at && (
                         <span className="text-[11px] text-muted-foreground shrink-0 ml-2">
                           {formatDistanceToNow(new Date(contact.last_message_at), { addSuffix: false, locale: ptBR })}

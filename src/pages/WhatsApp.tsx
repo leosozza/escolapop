@@ -593,17 +593,19 @@ const WhatsApp = () => {
           <div className="h-16 px-4 flex items-center justify-between border-b bg-background shrink-0">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-green-600 flex items-center justify-center text-white font-medium text-sm">
-                {getInitials(selectedContact.full_name)}
+                {getInitials(selectedContact._isVirtual ? '?' : selectedContact.full_name)}
               </div>
               <div>
-                <p className="font-semibold text-sm">{selectedContact.full_name}</p>
+                <p className="font-semibold text-sm">{selectedContact._isVirtual ? formatPhone(selectedContact.phone) : selectedContact.full_name}</p>
                 <p className="text-xs text-muted-foreground">{formatPhone(selectedContact.phone)}</p>
               </div>
-              <Badge
-                className={cn('text-[10px] text-white ml-2', STATUS_CONFIG[selectedContact.status]?.color)}
-              >
-                {STATUS_CONFIG[selectedContact.status]?.label || selectedContact.status}
-              </Badge>
+              {selectedContact._isVirtual ? (
+                <Badge variant="secondary" className="text-[10px] ml-2 bg-green-100 text-green-700">Novo</Badge>
+              ) : (
+                <Badge className={cn('text-[10px] text-white ml-2', STATUS_CONFIG[selectedContact.status]?.color)}>
+                  {STATUS_CONFIG[selectedContact.status]?.label || selectedContact.status}
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-1">
               <Button

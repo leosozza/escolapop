@@ -198,6 +198,10 @@ const WhatsApp = () => {
 
   useEffect(() => {
     if (selectedContact) {
+      // Mark conversation as read
+      const phoneKey = selectedContact.phone.replace(/\D/g, '').slice(-8);
+      markAsRead(phoneKey);
+
       setNotes(selectedContact.notes || '');
       setIsEditingNotes(false);
       if (!selectedContact._isVirtual) {

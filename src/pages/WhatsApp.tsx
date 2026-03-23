@@ -335,6 +335,7 @@ const WhatsApp = () => {
           ...lead,
           last_message: lastMsg?.content || null,
           last_message_at: lastMsg?.created_at || null,
+          unread_count: unreadCounts.get(cleanPhone) || 0,
           _hasConversation: phonesWithMessages.has(cleanPhone),
           _hasNewInbound: phonesWithInbound.has(cleanPhone),
           _isVirtual: false,

@@ -1,61 +1,56 @@
 
 
-# Plano: Suporte a Áudio e Arquivos no WhatsApp
+# Plano: Sistema de Respostas Rápidas Editáveis no WhatsApp
 
-## O que será feito
+## Resumo
 
-Adicionar envio e recebimento de áudio e arquivos na interface do WhatsApp, tanto no frontend (input e lista de mensagens) quanto no backend (edge functions).
+Criar um sistema de respostas rápidas (templates de mensagem) que o operador pode selecionar com `/`, editar antes de enviar, e gerenciar (criar, editar, excluir) suas próprias respostas.
 
 ## Mudanças
 
-### 1. Frontend — `WhatsAppChatInput.tsx`
-- Adicionar botão de **gravar áudio** (microfone) usando `MediaRecorder` API do navegador
-- Adicionar botão de **anexar arquivo** (clip) com `<input type="file">` oculto
-- Ao gravar áudio: converter para base64, enviar via action `send-audio`
-- Ao anexar arquivo: converter para base64, enviar via action `send-document` (já existe) ou `send-image`/`send-audio` conforme tipo MIME
-- UI: botão de microfone à esquerda do send, botão de clip ao lado; durante gravação, mostrar indicador vermelho com timer e botão de cancelar/enviar
+### 1. Nova tabela `whatsapp_quick_replies`
+Campos: `id`, `title` (nome curto), `content` (texto do template), `shortcut` (atalho tipo `/boas-vindas`), `created_by` (uuid), `is_global` (boolean — visível para todos ou só do criador), `created_at`, `updated_at`.
+RLS: staff pode ver globais + próprias, staff pode criar/editar/excluir as próprias, admin pode gerenciar todas.
 
-### 2. Frontend — `WhatsAppMessageList.tsx`
-- Renderizar mensagens de tipo `audio` com player `<audio>` inline (controles nativos)
-- Renderizar mensagens de tipo `image` com `<img>` clicável
-- Renderizar mensagens de tipo `document` com ícone de arquivo e link para download
-- Renderizar mensagens de tipo `video` com player `<video>` inline
-- Usar `media_url` da mensagem para o src
+### 2. Frontend — `WhatsAppChatInput.tsx`
+- Ao digitar `/` no início da mensagem, abrir popup acima do textarea com lista filtrada de respostas rápidas
+- Ao selecionar uma resposta, inserir o conteúdo no textarea (substituindo o `/comando`) para o operador **editar antes de enviar**
+- Suporte a variáveis simples: `{nome}`, `{curso}` — substituídas automaticamente com dados do lead selecionado
+- Botão de atalho (ícone de raio/zap) ao lado do clip para abrir o menu completo sem digitar `/`
 
-### 3. Backend — `whatsapp-api/index.ts`
-- Adicionar action `send-audio`: enviar áudio via WuzAPI endpoint `/chat/send/audio` com `Audio` (base64 ou URL)
-- Adicionar action `send-image`: enviar imagem via `/chat/send/image` com `Image` (base64 ou URL)
-- Salvar mensagens com `message_type` correto e `media_url`
+### 3. Frontend — Gerenciador de Respostas Rápidas
+- Dialog/Sheet acessível pelo ícone de configuração no chat ou pelo menu do botão de raio
+- Lista de respostas com título, atalho e preview do conteúdo
+- Formulário para criar/editar: título, atalho, conteúdo (textarea), checkbox "disponível para todos"
+- Botão excluir com confirmação
 
-### 4. Backend — `whatsapp-webhook/index.ts`
-- No handler de mensagens inbound, quando `message.audioMessage`, `message.imageMessage`, `message.documentMessage` ou `message.videoMessage` estiver presente:
-  - Extrair `media_url` se disponível no payload (WuzAPI pode incluir URL de download)
-  - Salvar `message_type` correto (`audio`, `image`, `document`, `video`)
-  - Salvar `media_url` no registro
-
-## Arquivos a modificar
+## Arquivos a modificar/criar
 
 | Arquivo | Ação |
 |---------|------|
-| `src/components/whatsapp/WhatsAppChatInput.tsx` | Adicionar gravação de áudio e upload de arquivo |
-| `src/components/whatsapp/WhatsAppMessageList.tsx` | Renderizar áudio, imagem, documento e vídeo |
-| `supabase/functions/whatsapp-api/index.ts` | Adicionar actions `send-audio` e `send-image` |
-| `supabase/functions/whatsapp-webhook/index.ts` | Extrair e salvar media_url de mensagens recebidas |
+| **migração SQL** | Criar tabela `whatsapp_quick_replies` com RLS |
+| `src/components/whatsapp/WhatsAppChatInput.tsx` | Adicionar popup de `/` e botão de respostas rápidas |
+| `src/components/whatsapp/QuickRepliesManager.tsx` | **Novo** — Dialog para CRUD de respostas rápidas |
+| `src/components/whatsapp/QuickReplyPopup.tsx` | **Novo** — Popup que aparece ao digitar `/` |
+
+## Fluxo do operador
+
+1. Operador digita `/` → popup aparece com respostas filtráveis
+2. Digita `/boa` → filtra para "Boas-vindas", "Boa sorte", etc.
+3. Clica ou pressiona Enter → texto é inserido no campo de mensagem
+4. Variáveis como `{nome}` são substituídas pelo nome do lead
+5. Operador edita livremente o texto e envia quando pronto
 
 ## Detalhes técnicos
 
-**Gravação de áudio:**
-- Usar `navigator.mediaDevices.getUserMedia({ audio: true })` + `MediaRecorder`
-- Formato: `audio/ogg; codecs=opus` (compatível com WhatsApp)
-- Converter blob para base64 para enviar na edge function
+**Variáveis suportadas inicialmente:**
+- `{nome}` — primeiro nome do lead
+- `{nome_completo}` — nome completo
+- `{curso}` — curso de interesse
 
-**WuzAPI endpoints:**
-- `/chat/send/audio` — `{ Phone, Audio }` (base64 com prefixo data URI)
-- `/chat/send/image` — `{ Phone, Image, Caption }` (base64 ou URL)
-- `/chat/send/document` — já implementado
-
-**Upload de arquivo no input:**
-- Aceitar: `image/*`, `audio/*`, `video/*`, `.pdf,.doc,.docx,.xls,.xlsx`
-- Limite: 16MB (limite do WhatsApp)
-- Converter para base64 antes de enviar
+**Popup de seleção:**
+- Posicionado acima do textarea (absolute, bottom)
+- Navegação por setas ↑↓ e Enter
+- Fecha com Escape ou ao clicar fora
+- Máximo 5 resultados visíveis com scroll
 

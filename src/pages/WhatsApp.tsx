@@ -443,6 +443,22 @@ const WhatsApp = () => {
             </Select>
           )}
 
+          {/* Filter chips */}
+          <div className="flex flex-wrap gap-1">
+            {FILTER_OPTIONS.map(f => (
+              <Button
+                key={f.key}
+                size="sm"
+                variant={activeFilter === f.key ? 'default' : 'outline'}
+                className="h-7 text-[11px] px-2 gap-1"
+                onClick={() => setActiveFilter(f.key)}
+              >
+                <f.icon className="h-3 w-3" />
+                {f.label}
+              </Button>
+            ))}
+          </div>
+
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

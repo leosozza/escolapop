@@ -104,14 +104,7 @@ const App = () => (
                 </AppLayout>
               }
             />
-            <Route
-              path="/academic-support"
-              element={
-                <AppLayout>
-                  <AcademicSupport />
-                </AppLayout>
-              }
-            />
+            {/* Academic Support removed - integrated into /whatsapp */}
             <Route
               path="/reception"
               element={

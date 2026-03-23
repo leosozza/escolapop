@@ -65,6 +65,7 @@ interface WhatsAppContact {
   last_message?: string | null;
   last_message_at?: string | null;
   unread_count?: number;
+  _isVirtual?: boolean;
 }
 
 interface EnrollmentInfo {
@@ -146,13 +147,28 @@ const WhatsApp = () => {
   useEffect(() => {
     fetchContacts();
     fetchInstances();
+
+    // Realtime listener for new messages to auto-refresh contact list
+    const channel = supabase
+      .channel('whatsapp-contacts-refresh')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'whatsapp_messages' }, () => {
+        fetchContacts();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   useEffect(() => {
     if (selectedContact) {
       setNotes(selectedContact.notes || '');
       setIsEditingNotes(false);
-      fetchContactAcademicData(selectedContact.id);
+      if (!selectedContact._isVirtual) {
+        fetchContactAcademicData(selectedContact.id);
+      } else {
+        setEnrollments([]);
+        setResponseTracking(null);
+      }
     } else {
       setEnrollments([]);
       setResponseTracking(null);
@@ -260,10 +276,44 @@ const WhatsApp = () => {
           last_message_at: lastMsg?.created_at || null,
           _hasConversation: phonesWithMessages.has(cleanPhone),
           _hasNewInbound: phonesWithInbound.has(cleanPhone),
+          _isVirtual: false,
         };
       });
 
-      contactsWithMessages.sort((a, b) => {
+      // Find phones with messages that don't match any lead
+      const leadPhones = new Set((leads || []).map(l => l.phone.replace(/\D/g, '').slice(-8)));
+      const virtualContacts: WhatsAppContact[] = [];
+      const seenVirtualPhones = new Set<string>();
+
+      for (const [cleanPhone, msgData] of Array.from(messageMap.entries())) {
+        if (!leadPhones.has(cleanPhone) && !seenVirtualPhones.has(cleanPhone)) {
+          seenVirtualPhones.add(cleanPhone);
+          virtualContacts.push({
+            id: `virtual-${msgData.rawPhone}`,
+            full_name: msgData.rawPhone,
+            guardian_name: null,
+            phone: msgData.rawPhone,
+            email: null,
+            source: 'whatsapp' as any,
+            status: 'lead' as LeadStatus,
+            external_id: null,
+            external_source: null,
+            notes: null,
+            created_at: msgData.created_at,
+            updated_at: msgData.created_at,
+            assigned_agent_id: null,
+            last_message: msgData.content,
+            last_message_at: msgData.created_at,
+            _isVirtual: true,
+            _hasConversation: true,
+            _hasNewInbound: phonesWithInbound.has(cleanPhone),
+          } as any);
+        }
+      }
+
+      const allContacts = [...contactsWithMessages, ...virtualContacts];
+
+      allContacts.sort((a, b) => {
         const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
         const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
         if (aTime && bTime) return bTime - aTime;
@@ -272,9 +322,9 @@ const WhatsApp = () => {
         return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
       });
 
-      setContacts(contactsWithMessages as WhatsAppContact[]);
+      setContacts(allContacts as WhatsAppContact[]);
 
-      // Fetch enrollment statuses for all leads
+      // Fetch enrollment statuses for all leads (non-virtual only)
       const leadIds = (leads || []).map(l => l.id);
       if (leadIds.length > 0) {
         const { data: allEnrollments } = await supabase
@@ -513,7 +563,12 @@ const WhatsApp = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className="font-medium text-sm truncate">{contact.full_name}</p>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="font-medium text-sm truncate">{contact._isVirtual ? formatPhone(contact.phone) : contact.full_name}</p>
+                        {contact._isVirtual && (
+                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-green-100 text-green-700 shrink-0">Novo</Badge>
+                        )}
+                      </div>
                       {contact.last_message_at && (
                         <span className="text-[11px] text-muted-foreground shrink-0 ml-2">
                           {formatDistanceToNow(new Date(contact.last_message_at), { addSuffix: false, locale: ptBR })}
@@ -538,17 +593,19 @@ const WhatsApp = () => {
           <div className="h-16 px-4 flex items-center justify-between border-b bg-background shrink-0">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-green-600 flex items-center justify-center text-white font-medium text-sm">
-                {getInitials(selectedContact.full_name)}
+                {getInitials(selectedContact._isVirtual ? '?' : selectedContact.full_name)}
               </div>
               <div>
-                <p className="font-semibold text-sm">{selectedContact.full_name}</p>
+                <p className="font-semibold text-sm">{selectedContact._isVirtual ? formatPhone(selectedContact.phone) : selectedContact.full_name}</p>
                 <p className="text-xs text-muted-foreground">{formatPhone(selectedContact.phone)}</p>
               </div>
-              <Badge
-                className={cn('text-[10px] text-white ml-2', STATUS_CONFIG[selectedContact.status]?.color)}
-              >
-                {STATUS_CONFIG[selectedContact.status]?.label || selectedContact.status}
-              </Badge>
+              {selectedContact._isVirtual ? (
+                <Badge variant="secondary" className="text-[10px] ml-2 bg-green-100 text-green-700">Novo</Badge>
+              ) : (
+                <Badge className={cn('text-[10px] text-white ml-2', STATUS_CONFIG[selectedContact.status]?.color)}>
+                  {STATUS_CONFIG[selectedContact.status]?.label || selectedContact.status}
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-1">
               <Button
@@ -600,13 +657,59 @@ const WhatsApp = () => {
                         {getInitials(selectedContact.full_name)}
                       </div>
                       <div>
-                        <p className="font-semibold">{selectedContact.full_name}</p>
+                        <p className="font-semibold">{selectedContact._isVirtual ? formatPhone(selectedContact.phone) : selectedContact.full_name}</p>
                         <p className="text-sm text-muted-foreground">{formatPhone(selectedContact.phone)}</p>
+                        {selectedContact._isVirtual && (
+                          <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-700 mt-1">Contato novo</Badge>
+                        )}
                       </div>
                     </div>
 
+                    {/* Register as Lead (virtual contacts only) */}
+                    {selectedContact._isVirtual && (
+                      <>
+                        <div className="rounded-lg border border-dashed border-green-300 bg-green-50 p-3">
+                          <p className="text-xs text-muted-foreground mb-2">Este contato ainda não está cadastrado.</p>
+                          <Button
+                            size="sm"
+                            className="w-full h-8 text-xs"
+                            onClick={async () => {
+                              try {
+                                const { data: newLead, error } = await supabase
+                                  .from('leads')
+                                  .insert({
+                                    full_name: selectedContact.phone,
+                                    phone: selectedContact.phone,
+                                    source: 'whatsapp' as any,
+                                    origin_sector: 'comercial',
+                                  })
+                                  .select()
+                                  .single();
+                                if (error) throw error;
+                                // Link existing messages to this lead
+                                await supabase
+                                  .from('whatsapp_messages')
+                                  .update({ lead_id: newLead.id })
+                                  .eq('phone', selectedContact.phone);
+                                toast.success('Lead cadastrado com sucesso!');
+                                await fetchContacts();
+                                // Select the new real contact
+                                setSelectedContact(prev => prev ? { ...prev, id: newLead.id, _isVirtual: false } as any : null);
+                              } catch {
+                                toast.error('Erro ao cadastrar lead');
+                              }
+                            }}
+                          >
+                            <Plus className="h-3.5 w-3.5 mr-1.5" />
+                            Cadastrar como Lead
+                          </Button>
+                        </div>
+                        <Separator />
+                      </>
+                    )}
+
                     {/* Wait Time Indicator */}
-                    {(() => {
+                    {!selectedContact._isVirtual && (() => {
                       const indicator = getWaitTimeIndicator();
                       if (!indicator) return null;
                       return (
@@ -619,6 +722,7 @@ const WhatsApp = () => {
 
                     <Separator />
 
+                    {!selectedContact._isVirtual && <>
                     {/* Quick Actions */}
                     <div>
                       <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">⚡ Ações Rápidas</p>
@@ -778,6 +882,7 @@ const WhatsApp = () => {
                         </p>
                       )}
                     </div>
+                    </>}
                   </div>
                 </ScrollArea>
               </div>

@@ -677,9 +677,15 @@ const WhatsApp = () => {
           {/* Chat Header */}
           <div className="h-16 px-4 flex items-center justify-between border-b bg-background shrink-0">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-green-600 flex items-center justify-center text-white font-medium text-sm">
-                {getInitials(selectedContact._isVirtual ? '?' : selectedContact.full_name)}
-              </div>
+              {(() => {
+                const sc = STATUS_CONFIG[selectedContact.status];
+                const Icon = sc?.icon || User;
+                return (
+                  <div className={cn('h-10 w-10 rounded-full flex items-center justify-center text-white', sc?.color || 'bg-muted')}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                );
+              })()}
               <div>
                 <p className="font-semibold text-sm">{selectedContact._isVirtual ? formatPhone(selectedContact.phone) : selectedContact.full_name}</p>
                 <p className="text-xs text-muted-foreground">{formatPhone(selectedContact.phone)}</p>
@@ -691,6 +697,18 @@ const WhatsApp = () => {
                   {STATUS_CONFIG[selectedContact.status]?.label || selectedContact.status}
                 </Badge>
               )}
+              {/* Wait timer */}
+              {!selectedContact._isVirtual && ['lead', 'em_atendimento'].includes(selectedContact.status) && (() => {
+                const hours = differenceInHours(new Date(), new Date(selectedContact.created_at));
+                if (hours < 1) return null;
+                const color = hours >= 48 ? 'text-destructive' : hours >= 24 ? 'text-orange-500' : hours >= 12 ? 'text-yellow-600' : 'text-muted-foreground';
+                return (
+                  <div className={cn('flex items-center gap-1 ml-2 text-xs font-medium', color)}>
+                    <Timer className="h-3.5 w-3.5" />
+                    <span>{hours}h</span>
+                  </div>
+                );
+              })()}
             </div>
             <div className="flex items-center gap-1">
               <Button

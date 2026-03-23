@@ -144,6 +144,7 @@ const WhatsApp = () => {
   const [enrollmentDialogOpen, setEnrollmentDialogOpen] = useState(false);
   const [registerLeadDialogOpen, setRegisterLeadDialogOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>('todas');
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [enrollmentStatusMap, setEnrollmentStatusMap] = useState<Record<string, string[]>>({});
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [editDetails, setEditDetails] = useState({ full_name: '', guardian_name: '', external_id: '', maxsystem_contract_number: '', maxsystem_record_id: '' });

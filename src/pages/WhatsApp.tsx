@@ -757,9 +757,15 @@ const WhatsApp = () => {
                   <div className="p-4 space-y-4">
                     {/* Avatar + Name */}
                     <div className="flex flex-col items-center text-center gap-2">
-                      <div className="h-20 w-20 rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-2xl">
-                        {getInitials(selectedContact.full_name)}
-                      </div>
+                      {(() => {
+                        const sc = STATUS_CONFIG[selectedContact.status];
+                        const Icon = sc?.icon || User;
+                        return (
+                          <div className={cn('h-20 w-20 rounded-full flex items-center justify-center text-white', sc?.color || 'bg-muted')}>
+                            <Icon className="h-8 w-8" />
+                          </div>
+                        );
+                      })()}
                       <div>
                         <p className="font-semibold">{selectedContact._isVirtual ? formatPhone(selectedContact.phone) : selectedContact.full_name}</p>
                         <p className="text-sm text-muted-foreground">{formatPhone(selectedContact.phone)}</p>

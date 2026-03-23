@@ -59,6 +59,14 @@ export const WEEKDAYS = [
 // Número de semanas do curso (2 meses = ~8 semanas)
 export const COURSE_WEEKS = 8;
 
+// Faixas etárias disponíveis para turmas
+export const AGE_RANGES = [
+  { id: 'todas', label: 'Todas as idades' },
+  { id: '4_a_7', label: '4 a 7 anos' },
+  { id: '8_a_12', label: '8 a 12 anos' },
+  { id: '13_mais', label: '13+ anos' },
+] as const;
+
 // Calcular todas as datas de aula a partir da data inicial
 export const calculateClassDates = (startDate: Date, weekday: string): Date[] => {
   const dates: Date[] = [];

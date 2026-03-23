@@ -971,6 +971,18 @@ const WhatsApp = () => {
           preSelectedLeadId={selectedContact.id}
         />
       )}
+
+      {selectedContact?._isVirtual && (
+        <RegisterLeadDialog
+          open={registerLeadDialogOpen}
+          onOpenChange={setRegisterLeadDialogOpen}
+          phone={selectedContact.phone}
+          onSuccess={async (leadId) => {
+            await fetchContacts();
+            setSelectedContact(prev => prev ? { ...prev, id: leadId, _isVirtual: false } as any : null);
+          }}
+        />
+      )}
     </div>
   );
 };

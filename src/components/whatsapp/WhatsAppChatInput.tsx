@@ -1,12 +1,15 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Loader2, Mic, X, Paperclip, FileIcon, ImageIcon, Zap, Settings } from 'lucide-react';
+import { Send, Loader2, Mic, X, Paperclip, FileIcon, ImageIcon, Zap, Settings, Smile, Bold, Italic, Strikethrough, Code } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { QuickReplyPopup } from './QuickReplyPopup';
 import { QuickRepliesManager } from './QuickRepliesManager';
+import data from '@emoji-mart/data';
+import Picker from '@emoji-mart/react';
 
 interface WhatsAppChatInputProps {
   phone: string;
@@ -34,10 +37,12 @@ export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, le
   const [quickReplyFilter, setQuickReplyFilter] = useState('');
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
   const [showManager, setShowManager] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const fetchQuickReplies = useCallback(async () => {
     const { data } = await supabase.from('whatsapp_quick_replies' as any).select('id, title, content, shortcut').order('title');
@@ -64,7 +69,6 @@ export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, le
   const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setMessage(val);
-
     if (val.startsWith('/') && val.length >= 1) {
       setShowQuickReplies(true);
       setQuickReplyFilter(val.slice(1));
@@ -72,6 +76,35 @@ export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, le
       setShowQuickReplies(false);
       setQuickReplyFilter('');
     }
+  };
+
+  // Text formatting helpers
+  const wrapSelection = (prefix: string, suffix: string) => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const selected = message.substring(start, end);
+    const before = message.substring(0, start);
+    const after = message.substring(end);
+    const newText = `${before}${prefix}${selected}${suffix}${after}`;
+    setMessage(newText);
+    setTimeout(() => {
+      ta.focus();
+      ta.setSelectionRange(start + prefix.length, end + prefix.length);
+    }, 0);
+  };
+
+  const handleEmojiSelect = (emoji: any) => {
+    const ta = textareaRef.current;
+    const cursor = ta?.selectionStart || message.length;
+    const newMsg = message.slice(0, cursor) + emoji.native + message.slice(cursor);
+    setMessage(newMsg);
+    setShowEmojiPicker(false);
+    setTimeout(() => {
+      ta?.focus();
+      ta?.setSelectionRange(cursor + emoji.native.length, cursor + emoji.native.length);
+    }, 0);
   };
 
   const handleSend = async () => {
@@ -100,7 +133,7 @@ export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, le
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (showQuickReplies) return; // let popup handle keys
+    if (showQuickReplies) return;
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
@@ -191,7 +224,7 @@ export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, le
 
   if (isRecording) {
     return (
-      <div className="flex gap-2 items-center border-t pt-3 px-1">
+      <div className="flex gap-2 items-center pt-1 px-1">
         <Button variant="ghost" size="icon" onClick={cancelRecording} className="text-destructive h-9 w-9">
           <X className="h-4 w-4" />
         </Button>
@@ -209,7 +242,7 @@ export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, le
 
   return (
     <>
-      <div className="border-t pt-3 space-y-2 px-1">
+      <div className="space-y-1 px-1">
         {selectedFile && (
           <div className="flex items-center gap-2 p-2 bg-muted rounded-lg text-xs">
             {selectedFile.type.startsWith('image/') ? <ImageIcon className="h-4 w-4 text-blue-500" /> : <FileIcon className="h-4 w-4 text-muted-foreground" />}
@@ -218,7 +251,24 @@ export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, le
             <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setSelectedFile(null)}><X className="h-3 w-3" /></Button>
           </div>
         )}
-        <div className="relative flex gap-2 items-end">
+
+        {/* Formatting toolbar */}
+        <div className="flex items-center gap-0.5">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => wrapSelection('*', '*')} title="Negrito" disabled={!instanceId}>
+            <Bold className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => wrapSelection('_', '_')} title="Itálico" disabled={!instanceId}>
+            <Italic className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => wrapSelection('~', '~')} title="Tachado" disabled={!instanceId}>
+            <Strikethrough className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => wrapSelection('```', '```')} title="Código" disabled={!instanceId}>
+            <Code className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+
+        <div className="relative flex gap-1.5 items-end">
           {showQuickReplies && (
             <QuickReplyPopup
               replies={quickReplies}
@@ -228,16 +278,34 @@ export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, le
             />
           )}
           <input ref={fileInputRef} type="file" className="hidden" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx" onChange={handleFileSelect} />
-          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => fileInputRef.current?.click()} disabled={isSending || !instanceId}>
-            <Paperclip className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => { setShowQuickReplies(!showQuickReplies); setQuickReplyFilter(''); }} disabled={isSending || !instanceId} title="Respostas rápidas">
-            <Zap className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => setShowManager(true)} disabled={!instanceId} title="Gerenciar respostas">
-            <Settings className="h-4 w-4" />
-          </Button>
+          
+          <div className="flex flex-col gap-0.5">
+            <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" disabled={!instanceId}>
+                  <Smile className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="start" className="w-auto p-0 border-0 shadow-xl">
+                <Picker data={data} onEmojiSelect={handleEmojiSelect} theme="light" locale="pt" previewPosition="none" skinTonePosition="none" />
+              </PopoverContent>
+            </Popover>
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => fileInputRef.current?.click()} disabled={isSending || !instanceId}>
+              <Paperclip className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="flex flex-col gap-0.5">
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => { setShowQuickReplies(!showQuickReplies); setQuickReplyFilter(''); }} disabled={isSending || !instanceId} title="Respostas rápidas">
+              <Zap className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setShowManager(true)} disabled={!instanceId} title="Gerenciar respostas">
+              <Settings className="h-4 w-4" />
+            </Button>
+          </div>
+
           <Textarea
+            ref={textareaRef}
             placeholder={instanceId ? "Digite / para respostas rápidas..." : "Selecione uma instância"}
             value={message}
             onChange={handleMessageChange}

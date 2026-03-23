@@ -7,7 +7,10 @@ import {
   X,
   Users,
   User,
+  UserPlus,
   Calendar,
+  CalendarCheck,
+  CheckCircle2,
   Tag,
   Edit3,
   Save,
@@ -17,6 +20,9 @@ import {
   FileText,
   ExternalLink,
   AlertTriangle,
+  XCircle,
+  Star,
+  Timer,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -86,15 +92,15 @@ interface ResponseTracking {
   auto_tabulated: boolean;
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  lead: { label: 'Lead', color: 'bg-blue-500' },
-  em_atendimento: { label: 'Atendendo', color: 'bg-yellow-500' },
-  agendado: { label: 'Agendado', color: 'bg-purple-500' },
-  confirmado: { label: 'Confirmado', color: 'bg-green-500' },
-  compareceu: { label: 'Compareceu', color: 'bg-emerald-600' },
-  proposta: { label: 'Proposta', color: 'bg-orange-500' },
-  matriculado: { label: 'Matriculado', color: 'bg-teal-500' },
-  perdido: { label: 'Perdido', color: 'bg-destructive' },
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: typeof MessageCircle }> = {
+  lead: { label: 'Lead', color: 'bg-blue-500', bg: 'bg-blue-100 text-blue-700', icon: UserPlus },
+  em_atendimento: { label: 'Atendendo', color: 'bg-yellow-500', bg: 'bg-yellow-100 text-yellow-700', icon: MessageCircle },
+  agendado: { label: 'Agendado', color: 'bg-purple-500', bg: 'bg-purple-100 text-purple-700', icon: Calendar },
+  confirmado: { label: 'Confirmado', color: 'bg-green-500', bg: 'bg-green-100 text-green-700', icon: CalendarCheck },
+  compareceu: { label: 'Compareceu', color: 'bg-emerald-600', bg: 'bg-emerald-100 text-emerald-700', icon: CheckCircle2 },
+  proposta: { label: 'Proposta', color: 'bg-orange-500', bg: 'bg-orange-100 text-orange-700', icon: FileText },
+  matriculado: { label: 'Matriculado', color: 'bg-teal-500', bg: 'bg-teal-100 text-teal-700', icon: GraduationCap },
+  perdido: { label: 'Perdido', color: 'bg-destructive', bg: 'bg-red-100 text-red-700', icon: XCircle },
 };
 
 const STATUS_OPTIONS: { value: LeadStatus; label: string; color: string }[] = [
@@ -593,51 +599,73 @@ const WhatsApp = () => {
                 Nenhum contato
               </div>
             ) : (
-              filteredContacts.map(contact => (
-                <div
-                  key={contact.id}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-3 cursor-pointer transition-colors hover:bg-muted/50',
-                    selectedContact?.id === contact.id && 'bg-muted'
-                  )}
-                  onClick={() => setSelectedContact(contact)}
-                >
-                  <div className="relative shrink-0">
-                    <div className="h-11 w-11 rounded-full bg-green-600 flex items-center justify-center text-white font-medium text-sm">
-                      {getInitials(contact.full_name)}
-                    </div>
-                    <div
-                      className={cn(
-                        'absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background',
-                        STATUS_CONFIG[contact.status]?.color || 'bg-muted'
+              filteredContacts.map(contact => {
+                const statusCfg = STATUS_CONFIG[contact.status];
+                const StatusIcon = statusCfg?.icon || User;
+                const contactEnrollStatuses = enrollmentStatusMap[contact.id] || [];
+                const isEnrolled = contactEnrollStatuses.some(s => ['matriculado', 'em_curso', 'ativo'].includes(s));
+                const isCompleted = contactEnrollStatuses.some(s => ['concluido', 'formado'].includes(s));
+                
+                // Determine avatar icon/color based on status
+                let avatarBg = statusCfg?.color || 'bg-muted';
+                let AvatarIcon = StatusIcon;
+                if (contact._isVirtual) { avatarBg = 'bg-green-500'; AvatarIcon = Star; }
+                else if (isCompleted) { avatarBg = 'bg-amber-500'; AvatarIcon = Award; }
+                else if (isEnrolled) { avatarBg = 'bg-teal-500'; AvatarIcon = GraduationCap; }
+
+                // Wait time for this contact
+                const contactCreated = new Date(contact.created_at);
+                const waitHours = differenceInHours(new Date(), contactCreated);
+                const showWaitBadge = !contact._isVirtual && ['lead', 'em_atendimento'].includes(contact.status) && waitHours >= 12;
+
+                return (
+                  <div
+                    key={contact.id}
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-3 cursor-pointer transition-colors hover:bg-muted/50',
+                      selectedContact?.id === contact.id && 'bg-muted'
+                    )}
+                    onClick={() => setSelectedContact(contact)}
+                  >
+                    <div className="relative shrink-0">
+                      <div className={cn('h-11 w-11 rounded-full flex items-center justify-center text-white', avatarBg)}>
+                        <AvatarIcon className="h-5 w-5" />
+                      </div>
+                      {showWaitBadge && (
+                        <div className={cn(
+                          'absolute -top-1 -right-1 h-4 w-4 rounded-full border-2 border-background flex items-center justify-center text-[8px] font-bold text-white',
+                          waitHours >= 48 ? 'bg-destructive' : waitHours >= 24 ? 'bg-orange-500' : 'bg-yellow-500'
+                        )}>
+                          <Timer className="h-2.5 w-2.5" />
+                        </div>
                       )}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <p className="font-medium text-sm truncate">{contact._isVirtual ? formatPhone(contact.phone) : contact.full_name}</p>
-                        {contact._isVirtual && (
-                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-green-100 text-green-700 shrink-0">Novo</Badge>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <p className="font-medium text-sm truncate">{contact._isVirtual ? formatPhone(contact.phone) : contact.full_name}</p>
+                          {contact._isVirtual && (
+                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-green-100 text-green-700 shrink-0">Novo</Badge>
+                          )}
+                        </div>
+                        {contact.last_message_at && (
+                          <span className="text-[11px] text-muted-foreground shrink-0 ml-2">
+                            {(() => {
+                              const d = new Date(contact.last_message_at);
+                              if (isToday(d)) return format(d, 'HH:mm');
+                              if (isYesterday(d)) return 'Ontem';
+                              return format(d, 'dd/MM/yyyy');
+                            })()}
+                          </span>
                         )}
                       </div>
-                      {contact.last_message_at && (
-                        <span className="text-[11px] text-muted-foreground shrink-0 ml-2">
-                          {(() => {
-                            const d = new Date(contact.last_message_at);
-                            if (isToday(d)) return format(d, 'HH:mm');
-                            if (isYesterday(d)) return 'Ontem';
-                            return format(d, 'dd/MM/yyyy');
-                          })()}
-                        </span>
-                      )}
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                        {contact.last_message || contact.phone}
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                      {contact.last_message || contact.phone}
-                    </p>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </ScrollArea>
@@ -649,9 +677,15 @@ const WhatsApp = () => {
           {/* Chat Header */}
           <div className="h-16 px-4 flex items-center justify-between border-b bg-background shrink-0">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-green-600 flex items-center justify-center text-white font-medium text-sm">
-                {getInitials(selectedContact._isVirtual ? '?' : selectedContact.full_name)}
-              </div>
+              {(() => {
+                const sc = STATUS_CONFIG[selectedContact.status];
+                const Icon = sc?.icon || User;
+                return (
+                  <div className={cn('h-10 w-10 rounded-full flex items-center justify-center text-white', sc?.color || 'bg-muted')}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                );
+              })()}
               <div>
                 <p className="font-semibold text-sm">{selectedContact._isVirtual ? formatPhone(selectedContact.phone) : selectedContact.full_name}</p>
                 <p className="text-xs text-muted-foreground">{formatPhone(selectedContact.phone)}</p>
@@ -663,6 +697,18 @@ const WhatsApp = () => {
                   {STATUS_CONFIG[selectedContact.status]?.label || selectedContact.status}
                 </Badge>
               )}
+              {/* Wait timer */}
+              {!selectedContact._isVirtual && ['lead', 'em_atendimento'].includes(selectedContact.status) && (() => {
+                const hours = differenceInHours(new Date(), new Date(selectedContact.created_at));
+                if (hours < 1) return null;
+                const color = hours >= 48 ? 'text-destructive' : hours >= 24 ? 'text-orange-500' : hours >= 12 ? 'text-yellow-600' : 'text-muted-foreground';
+                return (
+                  <div className={cn('flex items-center gap-1 ml-2 text-xs font-medium', color)}>
+                    <Timer className="h-3.5 w-3.5" />
+                    <span>{hours}h</span>
+                  </div>
+                );
+              })()}
             </div>
             <div className="flex items-center gap-1">
               <Button
@@ -711,9 +757,15 @@ const WhatsApp = () => {
                   <div className="p-4 space-y-4">
                     {/* Avatar + Name */}
                     <div className="flex flex-col items-center text-center gap-2">
-                      <div className="h-20 w-20 rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-2xl">
-                        {getInitials(selectedContact.full_name)}
-                      </div>
+                      {(() => {
+                        const sc = STATUS_CONFIG[selectedContact.status];
+                        const Icon = sc?.icon || User;
+                        return (
+                          <div className={cn('h-20 w-20 rounded-full flex items-center justify-center text-white', sc?.color || 'bg-muted')}>
+                            <Icon className="h-8 w-8" />
+                          </div>
+                        );
+                      })()}
                       <div>
                         <p className="font-semibold">{selectedContact._isVirtual ? formatPhone(selectedContact.phone) : selectedContact.full_name}</p>
                         <p className="text-sm text-muted-foreground">{formatPhone(selectedContact.phone)}</p>

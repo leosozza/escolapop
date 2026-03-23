@@ -694,7 +694,6 @@ const WhatsApp = () => {
                   instanceId={selectedInstanceId}
                   onMessageSent={() => setRefreshKey(k => k + 1)}
                   leadName={selectedContact.full_name}
-                  courseName={selectedContact.course_interest_id ? undefined : undefined}
                 />
               </div>
             </div>

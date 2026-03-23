@@ -1,56 +1,35 @@
 
 
-# Plano: Sistema de Respostas Rápidas Editáveis no WhatsApp
+# Plano: Realtime + Indicador de Digitando no WhatsApp
 
-## Resumo
+## 1. Ativar Realtime na tabela `whatsapp_messages`
 
-Criar um sistema de respostas rápidas (templates de mensagem) que o operador pode selecionar com `/`, editar antes de enviar, e gerenciar (criar, editar, excluir) suas próprias respostas.
+Migração SQL:
+```sql
+ALTER PUBLICATION supabase_realtime ADD TABLE public.whatsapp_messages;
+```
 
-## Mudanças
+Isso garante que INSERT e UPDATE na tabela sejam propagados automaticamente via WebSocket para o frontend. O código em `WhatsAppMessageList.tsx` já escuta `postgres_changes` — só falta a publicação estar ativa.
 
-### 1. Nova tabela `whatsapp_quick_replies`
-Campos: `id`, `title` (nome curto), `content` (texto do template), `shortcut` (atalho tipo `/boas-vindas`), `created_by` (uuid), `is_global` (boolean — visível para todos ou só do criador), `created_at`, `updated_at`.
-RLS: staff pode ver globais + próprias, staff pode criar/editar/excluir as próprias, admin pode gerenciar todas.
+## 2. Indicador de "digitando..." via Broadcast
 
-### 2. Frontend — `WhatsAppChatInput.tsx`
-- Ao digitar `/` no início da mensagem, abrir popup acima do textarea com lista filtrada de respostas rápidas
-- Ao selecionar uma resposta, inserir o conteúdo no textarea (substituindo o `/comando`) para o operador **editar antes de enviar**
-- Suporte a variáveis simples: `{nome}`, `{curso}` — substituídas automaticamente com dados do lead selecionado
-- Botão de atalho (ícone de raio/zap) ao lado do clip para abrir o menu completo sem digitar `/`
+### Backend — `whatsapp-webhook/index.ts`
+No handler de `ChatPresence`, em vez de apenas logar, fazer broadcast via Supabase Realtime:
+- Extrair o telefone e o estado (`composing` / `paused`)
+- Usar o Supabase client para enviar broadcast no canal `whatsapp-typing`
+- Payload: `{ phone, state, instanceId }`
 
-### 3. Frontend — Gerenciador de Respostas Rápidas
-- Dialog/Sheet acessível pelo ícone de configuração no chat ou pelo menu do botão de raio
-- Lista de respostas com título, atalho e preview do conteúdo
-- Formulário para criar/editar: título, atalho, conteúdo (textarea), checkbox "disponível para todos"
-- Botão excluir com confirmação
+### Frontend — `WhatsAppConversation.tsx`
+- Adicionar listener no canal `whatsapp-typing` (Broadcast)
+- Quando `state === "composing"` e o phone corresponde ao contato aberto, mostrar "digitando..." abaixo do nome no header
+- Auto-ocultar após 5 segundos sem novo evento
+- Animação com 3 pontos pulsantes
 
-## Arquivos a modificar/criar
+## Arquivos a modificar
 
 | Arquivo | Ação |
 |---------|------|
-| **migração SQL** | Criar tabela `whatsapp_quick_replies` com RLS |
-| `src/components/whatsapp/WhatsAppChatInput.tsx` | Adicionar popup de `/` e botão de respostas rápidas |
-| `src/components/whatsapp/QuickRepliesManager.tsx` | **Novo** — Dialog para CRUD de respostas rápidas |
-| `src/components/whatsapp/QuickReplyPopup.tsx` | **Novo** — Popup que aparece ao digitar `/` |
-
-## Fluxo do operador
-
-1. Operador digita `/` → popup aparece com respostas filtráveis
-2. Digita `/boa` → filtra para "Boas-vindas", "Boa sorte", etc.
-3. Clica ou pressiona Enter → texto é inserido no campo de mensagem
-4. Variáveis como `{nome}` são substituídas pelo nome do lead
-5. Operador edita livremente o texto e envia quando pronto
-
-## Detalhes técnicos
-
-**Variáveis suportadas inicialmente:**
-- `{nome}` — primeiro nome do lead
-- `{nome_completo}` — nome completo
-- `{curso}` — curso de interesse
-
-**Popup de seleção:**
-- Posicionado acima do textarea (absolute, bottom)
-- Navegação por setas ↑↓ e Enter
-- Fecha com Escape ou ao clicar fora
-- Máximo 5 resultados visíveis com scroll
+| **migração SQL** | `ALTER PUBLICATION supabase_realtime ADD TABLE public.whatsapp_messages` |
+| `supabase/functions/whatsapp-webhook/index.ts` | Broadcast do ChatPresence via Supabase Realtime |
+| `src/components/whatsapp/WhatsAppConversation.tsx` | Listener de typing + indicador visual |
 

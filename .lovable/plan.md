@@ -1,110 +1,38 @@
 
-## Plano: corrigir o recebimento real dos eventos do WhatsApp
 
-## Diagnóstico confirmado
+# Plano: Carregar Mensagens de Clientes Novos no WhatsApp
 
-O problema principal não é mais “webhook não configurado”. O webhook está sendo chamado, mas o sistema está interpretando o payload errado.
+## Problema
 
-### O que os logs mostram
-Os eventos que chegam hoje têm formato como este:
+A lista de contatos em `/whatsapp` é construída exclusivamente a partir da tabela `leads`. Quando um cliente novo (sem cadastro como lead) envia mensagem, ela é salva em `whatsapp_messages` com `lead_id = null`, mas nunca aparece na interface porque não existe lead correspondente.
 
-```json
-{
-  "event": { ...payload... },
-  "instanceName": "Escola de modelo",
-  "state": "Delivered",
-  "type": "ReadReceipt",
-  "userID": "9bbb96dc59e3f6b1d1efa579c6be8450"
-}
-```
+Além disso, a lista não atualiza automaticamente quando chegam novas mensagens.
 
-### Onde o código falha
-No `whatsapp-webhook` atual:
-- `const eventType = body.event || body.type`
-- como `body.event` é um objeto, `eventType` vira o objeto inteiro, não `"ReadReceipt"` ou `"Message"`
-- por isso os blocos `if (eventType === "Message")`, `if (eventType === "Receipt")`, etc. nunca executam
+## O que será feito
 
-Além disso:
-- o código tenta ler `body.instance`, mas os logs mostram `instanceName` e `userID`
-- os eventos de status/receipt estão chegando, mas não são aplicados no banco
-- na tabela `whatsapp_messages`, as mensagens outbound estão com `wuzapi_message_id = null`, então mesmo quando o receipt for processado, hoje ele não terá como localizar a mensagem enviada para marcar como `delivered/read`
-- no banco há apenas mensagens outbound e zero inbound, confirmando que nada do retorno está sendo persistido
+### 1. Mostrar contatos sem lead na lista
 
-## O que vou ajustar
+Na função `fetchContacts`, após buscar leads e cruzar com mensagens, adicionar uma segunda etapa:
+- Identificar telefones em `whatsapp_messages` que **não** correspondem a nenhum lead
+- Criar entradas de contato "virtuais" para esses telefones (usando o `phone` e PushName quando disponível)
+- Exibi-los na lista com badge "Novo" para indicar que não têm cadastro
 
-### 1. Reescrever o parser do `whatsapp-webhook`
-Adaptar para aceitar o payload real que está chegando agora:
-- `type` como tipo do evento
-- `event` como objeto de dados
-- `instanceName` e `userID` para localizar a instância
-- compatibilidade com o formato antigo já tratado, para não quebrar se a WuzAPI variar o schema
+### 2. Botão para criar lead a partir de contato novo
 
-### 2. Corrigir o mapeamento da instância
-A resolução da instância deve buscar por:
-1. `userID -> whatsapp_instances.wuzapi_user_id`
-2. `instanceName -> whatsapp_instances.name`
-3. fallback por telefone/JID quando existir
+No painel de info, quando o contato selecionado não tem lead, mostrar botão "Cadastrar como Lead" que cria o registro na tabela `leads` e associa as mensagens existentes.
 
-Isso é essencial para salvar inbound e atualizar status na instância correta.
+### 3. Auto-refresh da lista ao receber mensagens
 
-### 3. Corrigir eventos de mensagem recebida
-No handler de mensagem:
-- ler texto a partir do payload real (`event.Info`, `event.Message`, `event.RawMessage`, etc.)
-- identificar telefone remoto corretamente
-- ignorar mensagens de grupo
-- ignorar mensagens enviadas pela própria instância (`IsFromMe`)
-- salvar inbound em `whatsapp_messages`
-- vincular ao lead pelo telefone
+Adicionar listener realtime em `whatsapp_messages` (INSERT) para atualizar a lista de contatos quando chega uma nova mensagem, incluindo de números desconhecidos.
 
-### 4. Corrigir eventos de entrega e leitura
-No handler de receipt/read receipt:
-- ler IDs de mensagem a partir de `event.MessageIDs` e campos equivalentes
-- converter `state/type` para status internos:
-  - `Delivered` -> `delivered`
-  - `Read` / `read` / `played` -> `read`
-- atualizar mensagens outbound existentes
+### 4. Webhook: salvar PushName para identificação
 
-### 5. Corrigir o envio para salvar o ID real da mensagem
-No `whatsapp-api`:
-- revisar a resposta real de `/chat/send/text`
-- capturar corretamente o ID retornado pela WuzAPI
-- salvar esse ID em `wuzapi_message_id`
+No `whatsapp-webhook`, quando salvar mensagem inbound sem lead, incluir o `PushName` (nome do contato no WhatsApp) no campo `content` de metadado ou em um campo auxiliar para exibição.
 
-Sem isso, os receipts nunca conseguirão marcar `delivered/read`.
-
-### 6. Melhorar observabilidade
-Adicionar logs objetivos no webhook:
-- tipo recebido
-- instância resolvida
-- mensagem ignorada e motivo
-- IDs de receipt processados
-- quantidade de linhas afetadas no update
-
-Isso vai permitir validar rapidamente se o retorno está funcionando.
-
-### 7. Preparar o suporte a presença/digitando
-Hoje `ChatPresence` só faz log. Vou estruturar o plano para:
-- primeiro estabilizar inbound + delivered + read
-- depois, em etapa seguinte, expor “digitando...” em tempo real se o payload realmente estiver chegando
-
-## Arquivos a modificar
+## Arquivos a Modificar
 
 | Arquivo | Ação |
-|---|---|
-| `supabase/functions/whatsapp-webhook/index.ts` | Reescrever parser dos eventos reais, mapear instância corretamente, salvar inbound, processar receipt/read |
-| `supabase/functions/whatsapp-api/index.ts` | Corrigir captura do `wuzapi_message_id` no envio e adicionar logs de resposta |
-| `src/components/whatsapp/WhatsAppMessageList.tsx` | Validar renderização de status `sent/delivered/read` após correção backend |
+|---------|------|
+| `src/pages/WhatsApp.tsx` | Buscar contatos sem lead; auto-refresh via realtime; botão cadastrar lead |
+| `supabase/functions/whatsapp-webhook/index.ts` | Incluir log de PushName e garantir que mensagens sem lead sejam salvas corretamente |
 
-## Resultado esperado
-
-Depois da correção:
-- mensagens recebidas passam a entrar na conversa
-- mensagens enviadas passam de `sent` para `delivered/read`
-- o chat interno reflete os eventos reais da WuzAPI
-- os logs deixam claro se um evento foi recebido, processado ou descartado
-
-## Observação importante
-Pelos logs atuais, o webhook já está ativo. O problema agora é principalmente de compatibilidade com o formato real dos eventos e de persistência do ID da mensagem enviada. Não parece ser mais um problema de conexão da instância.
-
-## Sem migração
-A princípio, essa correção pode ser feita sem nova tabela. Só revisarei migração se for necessário guardar presença/digitando de forma persistente.

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
@@ -37,6 +38,7 @@ import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 
 import { AddWhatsAppContactDialog } from '@/components/whatsapp/AddWhatsAppContactDialog';
+import { RegisterLeadDialog } from '@/components/whatsapp/RegisterLeadDialog';
 import { WhatsAppMessageList } from '@/components/whatsapp/WhatsAppMessageList';
 import { WhatsAppChatInput } from '@/components/whatsapp/WhatsAppChatInput';
 import { WhatsAppStatusIndicator } from '@/components/whatsapp/WhatsAppStatusIndicator';
@@ -132,8 +134,11 @@ const WhatsApp = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [showAllContacts, setShowAllContacts] = useState(false);
   const [enrollmentDialogOpen, setEnrollmentDialogOpen] = useState(false);
+  const [registerLeadDialogOpen, setRegisterLeadDialogOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>('todas');
   const [enrollmentStatusMap, setEnrollmentStatusMap] = useState<Record<string, string[]>>({});
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [editDetails, setEditDetails] = useState({ full_name: '', guardian_name: '', external_id: '', maxsystem_contract_number: '', maxsystem_record_id: '' });
 
   // Info panel data
   const [enrollments, setEnrollments] = useState<EnrollmentInfo[]>([]);
@@ -261,7 +266,7 @@ const WhatsApp = () => {
 
       const { data: leads, error } = await supabase
         .from('leads')
-        .select('id, full_name, guardian_name, phone, email, source, status, external_id, external_source, notes, created_at, updated_at, assigned_agent_id')
+        .select('id, full_name, guardian_name, phone, email, source, status, external_id, external_source, notes, created_at, updated_at, assigned_agent_id, maxsystem_contract_number, maxsystem_record_id')
         .order('updated_at', { ascending: false })
         .limit(500);
 
@@ -436,6 +441,53 @@ const WhatsApp = () => {
       setSelectedContact(prev => prev ? { ...prev, notes } : null);
     } catch {
       toast.error('Erro ao salvar notas');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleStartEditDetails = () => {
+    if (!selectedContact) return;
+    setEditDetails({
+      full_name: selectedContact.full_name || '',
+      guardian_name: selectedContact.guardian_name || '',
+      external_id: selectedContact.external_id || '',
+      maxsystem_contract_number: (selectedContact as any).maxsystem_contract_number || '',
+      maxsystem_record_id: (selectedContact as any).maxsystem_record_id || '',
+    });
+    setIsEditingDetails(true);
+  };
+
+  const handleSaveDetails = async () => {
+    if (!selectedContact) return;
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({
+          full_name: editDetails.full_name.trim(),
+          guardian_name: editDetails.guardian_name.trim() || null,
+          external_id: editDetails.external_id.trim() || null,
+          external_source: editDetails.external_id.trim() ? 'bitrix' : null,
+          maxsystem_contract_number: editDetails.maxsystem_contract_number.trim() || null,
+          maxsystem_record_id: editDetails.maxsystem_record_id.trim() || null,
+        } as any)
+        .eq('id', selectedContact.id);
+      if (error) throw error;
+      toast.success('Dados atualizados');
+      setIsEditingDetails(false);
+      const updatedContact = {
+        ...selectedContact,
+        full_name: editDetails.full_name.trim(),
+        guardian_name: editDetails.guardian_name.trim() || null,
+        external_id: editDetails.external_id.trim() || null,
+        maxsystem_contract_number: editDetails.maxsystem_contract_number.trim() || null,
+        maxsystem_record_id: editDetails.maxsystem_record_id.trim() || null,
+      };
+      setContacts(prev => prev.map(c => c.id === selectedContact.id ? { ...c, ...updatedContact } : c));
+      setSelectedContact(updatedContact as any);
+    } catch {
+      toast.error('Erro ao salvar dados');
     } finally {
       setIsSaving(false);
     }
@@ -673,32 +725,7 @@ const WhatsApp = () => {
                           <Button
                             size="sm"
                             className="w-full h-8 text-xs"
-                            onClick={async () => {
-                              try {
-                                const { data: newLead, error } = await supabase
-                                  .from('leads')
-                                  .insert({
-                                    full_name: selectedContact.phone,
-                                    phone: selectedContact.phone,
-                                    source: 'whatsapp' as any,
-                                    origin_sector: 'comercial',
-                                  })
-                                  .select()
-                                  .single();
-                                if (error) throw error;
-                                // Link existing messages to this lead
-                                await supabase
-                                  .from('whatsapp_messages')
-                                  .update({ lead_id: newLead.id })
-                                  .eq('phone', selectedContact.phone);
-                                toast.success('Lead cadastrado com sucesso!');
-                                await fetchContacts();
-                                // Select the new real contact
-                                setSelectedContact(prev => prev ? { ...prev, id: newLead.id, _isVirtual: false } as any : null);
-                              } catch {
-                                toast.error('Erro ao cadastrar lead');
-                              }
-                            }}
+                            onClick={() => setRegisterLeadDialogOpen(true)}
                           >
                             <Plus className="h-3.5 w-3.5 mr-1.5" />
                             Cadastrar como Lead
@@ -708,7 +735,7 @@ const WhatsApp = () => {
                       </>
                     )}
 
-                    {/* Wait Time Indicator */}
+
                     {!selectedContact._isVirtual && (() => {
                       const indicator = getWaitTimeIndicator();
                       if (!indicator) return null;
@@ -817,33 +844,59 @@ const WhatsApp = () => {
 
                     <Separator />
 
-                    {/* Contact Info */}
-                    <div className="space-y-3">
-                      {selectedContact.guardian_name && (
-                        <div>
-                          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Responsável</p>
-                          <p className="text-sm flex items-center gap-2">
-                            <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                            {selectedContact.guardian_name}
-                          </p>
+                    {/* Contact Info - Editable */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">📇 Dados do Contato</p>
+                        {!isEditingDetails ? (
+                          <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={handleStartEditDetails}>
+                            <Edit3 className="h-3 w-3 mr-1" />
+                            Editar
+                          </Button>
+                        ) : (
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setIsEditingDetails(false)}>
+                              Cancelar
+                            </Button>
+                            <Button size="sm" className="h-6 text-xs" onClick={handleSaveDetails} disabled={isSaving}>
+                              <Save className="h-3 w-3 mr-1" /> Salvar
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      {isEditingDetails ? (
+                        <div className="space-y-2.5">
+                          <div>
+                            <Label className="text-xs">Nome do Modelo</Label>
+                            <Input className="h-8 text-sm" value={editDetails.full_name} onChange={e => setEditDetails(p => ({ ...p, full_name: e.target.value }))} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Responsável</Label>
+                            <Input className="h-8 text-sm" value={editDetails.guardian_name} onChange={e => setEditDetails(p => ({ ...p, guardian_name: e.target.value }))} placeholder="Nome do responsável" />
+                          </div>
+                          <div>
+                            <Label className="text-xs">ID Bitrix</Label>
+                            <Input className="h-8 text-sm" value={editDetails.external_id} onChange={e => setEditDetails(p => ({ ...p, external_id: e.target.value }))} placeholder="ID externo" />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Nº Contrato MaxSystem</Label>
+                            <Input className="h-8 text-sm" value={editDetails.maxsystem_contract_number} onChange={e => setEditDetails(p => ({ ...p, maxsystem_contract_number: e.target.value }))} placeholder="Nº do contrato" />
+                          </div>
+                          <div>
+                            <Label className="text-xs">ID Ficha MaxSystem</Label>
+                            <Input className="h-8 text-sm" value={editDetails.maxsystem_record_id} onChange={e => setEditDetails(p => ({ ...p, maxsystem_record_id: e.target.value }))} placeholder="ID da ficha" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between"><span className="text-muted-foreground">Responsável</span><span>{selectedContact.guardian_name || '—'}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">ID Bitrix</span><span>{selectedContact.external_id || '—'}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Contrato MaxSystem</span><span>{(selectedContact as any).maxsystem_contract_number || '—'}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Ficha MaxSystem</span><span>{(selectedContact as any).maxsystem_record_id || '—'}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Origem</span><span className="capitalize">{selectedContact.source}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Cadastrado em</span><span>{format(new Date(selectedContact.created_at), 'dd/MM/yyyy', { locale: ptBR })}</span></div>
                         </div>
                       )}
-                      {selectedContact.email && (
-                        <div>
-                          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Email</p>
-                          <p className="text-sm">{selectedContact.email}</p>
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Origem</p>
-                        <p className="text-sm capitalize">{selectedContact.source}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Cadastrado em</p>
-                        <p className="text-sm">
-                          {format(new Date(selectedContact.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                        </p>
-                      </div>
                     </div>
 
                     <Separator />
@@ -916,6 +969,18 @@ const WhatsApp = () => {
             toast.success('Matrícula realizada com sucesso!');
           }}
           preSelectedLeadId={selectedContact.id}
+        />
+      )}
+
+      {selectedContact?._isVirtual && (
+        <RegisterLeadDialog
+          open={registerLeadDialogOpen}
+          onOpenChange={setRegisterLeadDialogOpen}
+          phone={selectedContact.phone}
+          onSuccess={async (leadId) => {
+            await fetchContacts();
+            setSelectedContact(prev => prev ? { ...prev, id: leadId, _isVirtual: false } as any : null);
+          }}
         />
       )}
     </div>

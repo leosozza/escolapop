@@ -133,8 +133,11 @@ const WhatsApp = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [showAllContacts, setShowAllContacts] = useState(false);
   const [enrollmentDialogOpen, setEnrollmentDialogOpen] = useState(false);
+  const [registerLeadDialogOpen, setRegisterLeadDialogOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>('todas');
   const [enrollmentStatusMap, setEnrollmentStatusMap] = useState<Record<string, string[]>>({});
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [editDetails, setEditDetails] = useState({ full_name: '', guardian_name: '', external_id: '', maxsystem_contract_number: '', maxsystem_record_id: '' });
 
   // Info panel data
   const [enrollments, setEnrollments] = useState<EnrollmentInfo[]>([]);

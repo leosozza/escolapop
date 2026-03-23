@@ -136,7 +136,7 @@ const WhatsApp = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | undefined>();
-  const [instances, setInstances] = useState<{ id: string; name: string; status: string }[]>([]);
+  const [instances, setInstances] = useState<{ id: string; name: string; status: string; phone_number: string | null }[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [showAllContacts, setShowAllContacts] = useState(false);
   const [enrollmentDialogOpen, setEnrollmentDialogOpen] = useState(false);
@@ -169,6 +169,13 @@ const WhatsApp = () => {
 
     return () => { supabase.removeChannel(channel); };
   }, []);
+
+  // Re-fetch contacts when instance changes
+  useEffect(() => {
+    if (selectedInstanceId) {
+      fetchContacts();
+    }
+  }, [selectedInstanceId]);
 
   useEffect(() => {
     if (selectedContact) {
@@ -234,12 +241,13 @@ const WhatsApp = () => {
   const fetchInstances = async () => {
     const { data } = await supabase
       .from('whatsapp_instances')
-      .select('id, name, status')
-      .eq('status', 'connected');
+      .select('id, name, status, phone_number')
+      .order('name');
 
     if (data && data.length > 0) {
       setInstances(data);
-      setSelectedInstanceId(data[0].id);
+      const connected = data.find(d => d.status === 'connected');
+      setSelectedInstanceId(connected?.id || data[0].id);
     } else {
       setInstances([]);
       setSelectedInstanceId(undefined);
@@ -248,11 +256,17 @@ const WhatsApp = () => {
 
   const fetchContacts = async () => {
     try {
-      const { data: lastMessages } = await supabase
+      let msgQuery = supabase
         .from('whatsapp_messages')
         .select('phone, content, created_at, direction')
         .order('created_at', { ascending: false })
         .limit(1000);
+
+      if (selectedInstanceId) {
+        msgQuery = msgQuery.eq('instance_id', selectedInstanceId);
+      }
+
+      const { data: lastMessages } = await msgQuery;
 
       const messageMap = new Map<string, { content: string | null; created_at: string; direction: string; rawPhone: string }>();
       const phonesWithMessages = new Set<string>();
@@ -544,17 +558,20 @@ const WhatsApp = () => {
             </div>
           </div>
 
-          {instances.length > 1 && (
-            <Select value={selectedInstanceId} onValueChange={setSelectedInstanceId}>
-              <SelectTrigger className="h-7 text-xs">
-                <SelectValue placeholder="Instância" />
+          {instances.length > 0 && (
+            <Select value={selectedInstanceId} onValueChange={(v) => { setSelectedInstanceId(v); setSelectedContact(null); }}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Selecionar instância" />
               </SelectTrigger>
               <SelectContent>
                 {instances.map(inst => (
                   <SelectItem key={inst.id} value={inst.id}>
                     <div className="flex items-center gap-2">
-                      <div className={cn('h-2 w-2 rounded-full', inst.status === 'connected' ? 'bg-green-500' : 'bg-muted-foreground')} />
-                      {inst.name}
+                      <div className={cn('h-2.5 w-2.5 rounded-full', inst.status === 'connected' ? 'bg-green-500' : inst.status === 'connecting' ? 'bg-yellow-500' : 'bg-muted-foreground')} />
+                      <span className="font-medium">{inst.name}</span>
+                      {inst.phone_number && (
+                        <span className="text-muted-foreground">({inst.phone_number})</span>
+                      )}
                     </div>
                   </SelectItem>
                 ))}

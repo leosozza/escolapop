@@ -47,6 +47,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { AddWhatsAppContactDialog } from '@/components/whatsapp/AddWhatsAppContactDialog';
 import { RegisterLeadDialog } from '@/components/whatsapp/RegisterLeadDialog';
+import { RegisterSiblingDialog } from '@/components/whatsapp/RegisterSiblingDialog';
 import { WhatsAppMessageList } from '@/components/whatsapp/WhatsAppMessageList';
 import { WhatsAppChatInput } from '@/components/whatsapp/WhatsAppChatInput';
 import { WhatsAppStatusIndicator } from '@/components/whatsapp/WhatsAppStatusIndicator';
@@ -143,6 +144,7 @@ const WhatsApp = () => {
   const [showAllContacts, setShowAllContacts] = useState(false);
   const [enrollmentDialogOpen, setEnrollmentDialogOpen] = useState(false);
   const [registerLeadDialogOpen, setRegisterLeadDialogOpen] = useState(false);
+  const [siblingDialogOpen, setSiblingDialogOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>('todas');
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [enrollmentStatusMap, setEnrollmentStatusMap] = useState<Record<string, string[]>>({});
@@ -922,6 +924,15 @@ const WhatsApp = () => {
                         <Button
                           size="sm"
                           variant="outline"
+                          className="h-9 text-xs justify-start"
+                          onClick={() => setSiblingDialogOpen(true)}
+                        >
+                          <Users className="h-3.5 w-3.5 mr-1.5" />
+                          Novo Irmão
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
                           className="h-9 text-xs justify-start col-span-2"
                           onClick={() => navigate(`/students/${selectedContact.id}`)}
                         >
@@ -1127,6 +1138,19 @@ const WhatsApp = () => {
           onSuccess={async (leadId) => {
             await fetchContacts();
             setSelectedContact(prev => prev ? { ...prev, id: leadId, _isVirtual: false } as any : null);
+          }}
+        />
+      )}
+
+      {selectedContact && !selectedContact._isVirtual && (
+        <RegisterSiblingDialog
+          open={siblingDialogOpen}
+          onOpenChange={setSiblingDialogOpen}
+          guardianName={selectedContact.guardian_name || selectedContact.full_name}
+          guardianPhone={selectedContact.phone}
+          onSiblingCreated={async (leadId) => {
+            await fetchContacts();
+            setEnrollmentDialogOpen(true);
           }}
         />
       )}

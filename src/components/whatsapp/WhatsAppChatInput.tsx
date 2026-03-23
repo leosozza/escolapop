@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Loader2, Mic, X, Paperclip, FileIcon, ImageIcon, Zap, Settings, Smile, Bold, Italic, Strikethrough, Code } from 'lucide-react';
+import { Send, Loader2, Mic, X, Paperclip, FileIcon, ImageIcon, Zap, Settings, Smile, Bold, Italic, Strikethrough, Code, Plus, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -38,6 +38,7 @@ export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, le
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
   const [showManager, setShowManager] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showToolsMenu, setShowToolsMenu] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
@@ -78,7 +79,6 @@ export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, le
     }
   };
 
-  // Text formatting helpers
   const wrapSelection = (prefix: string, suffix: string) => {
     const ta = textareaRef.current;
     if (!ta) return;
@@ -101,6 +101,7 @@ export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, le
     const newMsg = message.slice(0, cursor) + emoji.native + message.slice(cursor);
     setMessage(newMsg);
     setShowEmojiPicker(false);
+    setShowToolsMenu(false);
     setTimeout(() => {
       ta?.focus();
       ta?.setSelectionRange(cursor + emoji.native.length, cursor + emoji.native.length);
@@ -137,7 +138,6 @@ export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, le
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  // Audio recording
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -192,12 +192,12 @@ export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, le
     chunksRef.current = [];
   };
 
-  // File handling
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 16 * 1024 * 1024) { toast.error('Arquivo excede 16MB'); return; }
     setSelectedFile(file);
+    setShowToolsMenu(false);
   };
 
   const handleSendFile = async () => {
@@ -252,22 +252,6 @@ export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, le
           </div>
         )}
 
-        {/* Formatting toolbar */}
-        <div className="flex items-center gap-0.5">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => wrapSelection('*', '*')} title="Negrito" disabled={!instanceId}>
-            <Bold className="h-3.5 w-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => wrapSelection('_', '_')} title="Itálico" disabled={!instanceId}>
-            <Italic className="h-3.5 w-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => wrapSelection('~', '~')} title="Tachado" disabled={!instanceId}>
-            <Strikethrough className="h-3.5 w-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => wrapSelection('```', '```')} title="Código" disabled={!instanceId}>
-            <Code className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-
         <div className="relative flex gap-1.5 items-end">
           {showQuickReplies && (
             <QuickReplyPopup
@@ -278,31 +262,64 @@ export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, le
             />
           )}
           <input ref={fileInputRef} type="file" className="hidden" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx" onChange={handleFileSelect} />
-          
-          <div className="flex flex-col gap-0.5">
-            <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" disabled={!instanceId}>
-                  <Smile className="h-4 w-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent side="top" align="start" className="w-auto p-0 border-0 shadow-xl">
-                <Picker data={data} onEmojiSelect={handleEmojiSelect} theme="light" locale="pt" previewPosition="none" skinTonePosition="none" />
-              </PopoverContent>
-            </Popover>
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => fileInputRef.current?.click()} disabled={isSending || !instanceId}>
-              <Paperclip className="h-4 w-4" />
-            </Button>
-          </div>
 
-          <div className="flex flex-col gap-0.5">
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => { setShowQuickReplies(!showQuickReplies); setQuickReplyFilter(''); }} disabled={isSending || !instanceId} title="Respostas rápidas">
-              <Zap className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setShowManager(true)} disabled={!instanceId} title="Gerenciar respostas">
-              <Settings className="h-4 w-4" />
-            </Button>
-          </div>
+          {/* Collapsible tools menu button */}
+          <Popover open={showToolsMenu} onOpenChange={setShowToolsMenu}>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" disabled={!instanceId}>
+                {showToolsMenu ? <ChevronUp className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent side="top" align="start" className="w-56 p-2">
+              <div className="space-y-1">
+                {/* Emoji */}
+                <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="w-full justify-start h-8 text-xs">
+                      <Smile className="h-3.5 w-3.5 mr-2" /> Emoji
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent side="top" align="start" className="w-auto p-0 border-0 shadow-xl">
+                    <Picker data={data} onEmojiSelect={handleEmojiSelect} theme="light" locale="pt" previewPosition="none" skinTonePosition="none" />
+                  </PopoverContent>
+                </Popover>
+
+                {/* Attach file */}
+                <Button variant="ghost" size="sm" className="w-full justify-start h-8 text-xs" onClick={() => { fileInputRef.current?.click(); }}>
+                  <Paperclip className="h-3.5 w-3.5 mr-2" /> Anexar arquivo
+                </Button>
+
+                {/* Formatting sub-group */}
+                <div className="border-t pt-1 mt-1">
+                  <p className="text-[10px] text-muted-foreground px-2 py-0.5 uppercase">Formatação</p>
+                  <div className="flex items-center gap-0.5 px-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { wrapSelection('*', '*'); setShowToolsMenu(false); }} title="Negrito">
+                      <Bold className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { wrapSelection('_', '_'); setShowToolsMenu(false); }} title="Itálico">
+                      <Italic className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { wrapSelection('~', '~'); setShowToolsMenu(false); }} title="Tachado">
+                      <Strikethrough className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { wrapSelection('```', '```'); setShowToolsMenu(false); }} title="Código">
+                      <Code className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Quick replies */}
+                <div className="border-t pt-1 mt-1">
+                  <Button variant="ghost" size="sm" className="w-full justify-start h-8 text-xs" onClick={() => { setShowQuickReplies(!showQuickReplies); setQuickReplyFilter(''); setShowToolsMenu(false); }}>
+                    <Zap className="h-3.5 w-3.5 mr-2" /> Respostas rápidas
+                  </Button>
+                  <Button variant="ghost" size="sm" className="w-full justify-start h-8 text-xs" onClick={() => { setShowManager(true); setShowToolsMenu(false); }}>
+                    <Settings className="h-3.5 w-3.5 mr-2" /> Gerenciar respostas
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
 
           <Textarea
             ref={textareaRef}
@@ -310,8 +327,8 @@ export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, le
             value={message}
             onChange={handleMessageChange}
             onKeyDown={handleKeyDown}
-            rows={1}
-            className="resize-none flex-1 min-h-[36px] text-sm"
+            rows={4}
+            className="resize-none flex-1 min-h-[100px] text-sm"
             disabled={isSending || !instanceId}
           />
           {message.trim() || selectedFile ? (

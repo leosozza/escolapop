@@ -136,7 +136,7 @@ const WhatsApp = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | undefined>();
-  const [instances, setInstances] = useState<{ id: string; name: string; status: string }[]>([]);
+  const [instances, setInstances] = useState<{ id: string; name: string; status: string; phone_number: string | null }[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [showAllContacts, setShowAllContacts] = useState(false);
   const [enrollmentDialogOpen, setEnrollmentDialogOpen] = useState(false);
@@ -169,6 +169,13 @@ const WhatsApp = () => {
 
     return () => { supabase.removeChannel(channel); };
   }, []);
+
+  // Re-fetch contacts when instance changes
+  useEffect(() => {
+    if (selectedInstanceId) {
+      fetchContacts();
+    }
+  }, [selectedInstanceId]);
 
   useEffect(() => {
     if (selectedContact) {

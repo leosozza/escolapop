@@ -294,6 +294,10 @@ const WhatsApp = () => {
       const messageMap = new Map<string, { content: string | null; created_at: string; direction: string; rawPhone: string }>();
       const phonesWithMessages = new Set<string>();
       const phonesWithInbound = new Set<string>();
+      const unreadCounts = new Map<string, number>();
+      const readTimestamps = getReadTimestamps();
+      const selectedPhoneKey = selectedContact?.phone.replace(/\D/g, '').slice(-8);
+
       if (lastMessages) {
         for (const msg of lastMessages) {
           const cleanPhone = msg.phone.replace(/\D/g, '').slice(-8);
@@ -304,6 +308,15 @@ const WhatsApp = () => {
             }
           }
           phonesWithMessages.add(cleanPhone);
+
+          // Count unread inbound messages (after last read timestamp)
+          if (msg.direction === 'inbound') {
+            const lastRead = readTimestamps[cleanPhone];
+            const isCurrentlyOpen = cleanPhone === selectedPhoneKey;
+            if (!isCurrentlyOpen && (!lastRead || new Date(msg.created_at) > new Date(lastRead))) {
+              unreadCounts.set(cleanPhone, (unreadCounts.get(cleanPhone) || 0) + 1);
+            }
+          }
         }
       }
 

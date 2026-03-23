@@ -558,17 +558,20 @@ const WhatsApp = () => {
             </div>
           </div>
 
-          {instances.length > 1 && (
-            <Select value={selectedInstanceId} onValueChange={setSelectedInstanceId}>
-              <SelectTrigger className="h-7 text-xs">
-                <SelectValue placeholder="Instância" />
+          {instances.length > 0 && (
+            <Select value={selectedInstanceId} onValueChange={(v) => { setSelectedInstanceId(v); setSelectedContact(null); }}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Selecionar instância" />
               </SelectTrigger>
               <SelectContent>
                 {instances.map(inst => (
                   <SelectItem key={inst.id} value={inst.id}>
                     <div className="flex items-center gap-2">
-                      <div className={cn('h-2 w-2 rounded-full', inst.status === 'connected' ? 'bg-green-500' : 'bg-muted-foreground')} />
-                      {inst.name}
+                      <div className={cn('h-2.5 w-2.5 rounded-full', inst.status === 'connected' ? 'bg-green-500' : inst.status === 'connecting' ? 'bg-yellow-500' : 'bg-muted-foreground')} />
+                      <span className="font-medium">{inst.name}</span>
+                      {inst.phone_number && (
+                        <span className="text-muted-foreground">({inst.phone_number})</span>
+                      )}
                     </div>
                   </SelectItem>
                 ))}

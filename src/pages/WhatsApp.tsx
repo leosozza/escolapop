@@ -256,11 +256,17 @@ const WhatsApp = () => {
 
   const fetchContacts = async () => {
     try {
-      const { data: lastMessages } = await supabase
+      let msgQuery = supabase
         .from('whatsapp_messages')
         .select('phone, content, created_at, direction')
         .order('created_at', { ascending: false })
         .limit(1000);
+
+      if (selectedInstanceId) {
+        msgQuery = msgQuery.eq('instance_id', selectedInstanceId);
+      }
+
+      const { data: lastMessages } = await msgQuery;
 
       const messageMap = new Map<string, { content: string | null; created_at: string; direction: string; rawPhone: string }>();
       const phonesWithMessages = new Set<string>();

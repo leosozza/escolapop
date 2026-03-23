@@ -378,9 +378,19 @@ export default function Classes() {
       <CardContent className="space-y-3">
         {/* Schedule prominently displayed */}
         <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-          <div className="flex items-center gap-2 text-sm font-medium text-primary">
-            <Clock className="h-4 w-4" />
-            <span>{formatSchedule(classItem.schedule)}</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-medium text-primary">
+              <Clock className="h-4 w-4" />
+              <span>{formatSchedule(classItem.schedule)}</span>
+            </div>
+            {(classItem as any).age_range && (classItem as any).age_range !== 'todas' && (
+              <Badge variant="outline" className="text-xs">
+                {AGE_RANGES.find(r => r.id === (classItem as any).age_range)?.label || (classItem as any).age_range}
+              </Badge>
+            )}
+            {(classItem as any).age_range === 'todas' && (
+              <Badge variant="secondary" className="text-xs">Todas as idades</Badge>
+            )}
           </div>
         </div>
 

@@ -1043,6 +1043,8 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
                   )}
                 />
 
+                {selectedCourseIdExisting && renderClassFilters()}
+
                 <FormField
                   control={existingLeadForm.control}
                   name="class_id"
@@ -1056,15 +1058,15 @@ export function AddEnrollmentDialog({ open, onOpenChange, onSuccess, preSelected
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {classesExisting?.map((c) => (
+                          {classesExisting?.map((c: any) => (
                             <SelectItem key={c.id} value={c.id}>
-                              {c.name} - {c.room} ({formatSchedule(c.schedule as Record<string, string>)})
+                              {renderClassLabel(c)}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                       {classesExisting?.length === 0 && selectedCourseIdExisting && (
-                        <p className="text-xs text-destructive">Nenhuma turma ativa para este curso</p>
+                        <p className="text-xs text-destructive">Nenhuma turma encontrada com esses filtros</p>
                       )}
                       <FormMessage />
                     </FormItem>

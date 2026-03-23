@@ -37,6 +37,7 @@ import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 
 import { AddWhatsAppContactDialog } from '@/components/whatsapp/AddWhatsAppContactDialog';
+import { RegisterLeadDialog } from '@/components/whatsapp/RegisterLeadDialog';
 import { WhatsAppMessageList } from '@/components/whatsapp/WhatsAppMessageList';
 import { WhatsAppChatInput } from '@/components/whatsapp/WhatsAppChatInput';
 import { WhatsAppStatusIndicator } from '@/components/whatsapp/WhatsAppStatusIndicator';

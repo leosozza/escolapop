@@ -45,7 +45,7 @@ import { AddClassDialog } from '@/components/classes/AddClassDialog';
 import { EditClassDialog } from '@/components/classes/EditClassDialog';
 import { ClassStudentsList } from '@/components/classes/ClassStudentsList';
 import { ClassCalendarDialog } from '@/components/classes/ClassCalendarDialog';
-import { WEEKDAYS, COURSE_WEEKS } from '@/lib/course-schedule-config';
+import { WEEKDAYS, COURSE_WEEKS, AGE_RANGES } from '@/lib/course-schedule-config';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -80,6 +80,7 @@ interface Class {
   max_students: number;
   is_active: boolean;
   created_at: string;
+  age_range?: string | null;
   course?: { name: string; duration_hours: number | null };
   teacher?: { full_name: string };
   student_count?: number;
@@ -110,6 +111,8 @@ export default function Classes() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [selectedRoom, setSelectedRoom] = useState<string>('all');
+  const [selectedAgeRange, setSelectedAgeRange] = useState<string>('all');
+  const [selectedDay, setSelectedDay] = useState<string>('all');
   const { toast } = useToast();
 
   const handleDeleteClass = async () => {
@@ -269,7 +272,9 @@ export default function Classes() {
     const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.course?.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRoom = selectedRoom === 'all' || c.room === selectedRoom;
-    return matchesSearch && matchesRoom;
+    const matchesAge = selectedAgeRange === 'all' || (c as any).age_range === selectedAgeRange;
+    const matchesDay = selectedDay === 'all' || (c.schedule && Object.keys(c.schedule).includes(selectedDay));
+    return matchesSearch && matchesRoom && matchesAge && matchesDay;
   });
 
   // Separate active and completed classes
@@ -527,6 +532,28 @@ export default function Classes() {
             <CalendarDays className="h-4 w-4" />
             Calendário
           </Button>
+          <Select value={selectedAgeRange} onValueChange={setSelectedAgeRange}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Faixa Etária" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas Faixas</SelectItem>
+              {AGE_RANGES.map((range) => (
+                <SelectItem key={range.id} value={range.id}>{range.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={selectedDay} onValueChange={setSelectedDay}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Dia" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Dias</SelectItem>
+              {WEEKDAYS.map((day) => (
+                <SelectItem key={day.id} value={day.id}>{day.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={selectedRoom} onValueChange={setSelectedRoom}>
             <SelectTrigger className="w-40">
               <MapPin className="h-4 w-4 mr-2" />

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   MessageCircle,
   Search,
@@ -23,6 +23,8 @@ import {
   XCircle,
   Star,
   Timer,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -142,6 +144,7 @@ const WhatsApp = () => {
   const [enrollmentDialogOpen, setEnrollmentDialogOpen] = useState(false);
   const [registerLeadDialogOpen, setRegisterLeadDialogOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>('todas');
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [enrollmentStatusMap, setEnrollmentStatusMap] = useState<Record<string, string[]>>({});
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [editDetails, setEditDetails] = useState({ full_name: '', guardian_name: '', external_id: '', maxsystem_contract_number: '', maxsystem_record_id: '' });
@@ -617,21 +620,57 @@ const WhatsApp = () => {
             </Select>
           )}
 
-          {/* Filter chips - single scrollable row */}
-          <div className="flex gap-1 overflow-x-auto no-scrollbar">
-            {FILTER_OPTIONS.map(f => (
-              <Button
-                key={f.key}
-                size="sm"
-                variant={activeFilter === f.key ? 'default' : 'outline'}
-                className="h-6 text-[10px] px-1.5 gap-0.5 shrink-0"
-                onClick={() => setActiveFilter(f.key)}
-              >
-                <f.icon className="h-3 w-3" />
-                {f.label}
-              </Button>
-            ))}
-          </div>
+          {/* Filter chips - collapsible */}
+          {(() => {
+            const visible = FILTER_OPTIONS.slice(0, 4);
+            const extra = FILTER_OPTIONS.slice(4);
+            const isActiveInExtra = extra.some(f => f.key === activeFilter);
+            return (
+              <div className="space-y-1">
+                <div className="flex gap-1 flex-wrap items-center">
+                  {visible.map(f => (
+                    <Button
+                      key={f.key}
+                      size="sm"
+                      variant={activeFilter === f.key ? 'default' : 'outline'}
+                      className="h-6 text-[10px] px-1.5 gap-0.5"
+                      onClick={() => setActiveFilter(f.key)}
+                    >
+                      <f.icon className="h-3 w-3" />
+                      {f.label}
+                    </Button>
+                  ))}
+                  {extra.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant={isActiveInExtra && !filtersExpanded ? 'default' : 'outline'}
+                      className="h-6 text-[10px] px-1.5 gap-0.5"
+                      onClick={() => setFiltersExpanded(!filtersExpanded)}
+                    >
+                      {filtersExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      Mais
+                    </Button>
+                  )}
+                </div>
+                {filtersExpanded && extra.length > 0 && (
+                  <div className="flex gap-1 flex-wrap">
+                    {extra.map(f => (
+                      <Button
+                        key={f.key}
+                        size="sm"
+                        variant={activeFilter === f.key ? 'default' : 'outline'}
+                        className="h-6 text-[10px] px-1.5 gap-0.5"
+                        onClick={() => setActiveFilter(f.key)}
+                      >
+                        <f.icon className="h-3 w-3" />
+                        {f.label}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />

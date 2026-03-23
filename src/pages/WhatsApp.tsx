@@ -155,6 +155,25 @@ const WhatsApp = () => {
   const [notes, setNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  // Read tracking via localStorage
+  const getReadTimestamps = (): Record<string, string> => {
+    try {
+      return JSON.parse(localStorage.getItem('whatsapp_read_at') || '{}');
+    } catch { return {}; }
+  };
+
+  const markAsRead = (phoneKey: string) => {
+    const timestamps = getReadTimestamps();
+    timestamps[phoneKey] = new Date().toISOString();
+    localStorage.setItem('whatsapp_read_at', JSON.stringify(timestamps));
+    // Update unread count in contacts list
+    setContacts(prev => prev.map(c => {
+      const cp = c.phone.replace(/\D/g, '').slice(-8);
+      if (cp === phoneKey) return { ...c, unread_count: 0 };
+      return c;
+    }));
+  };
+
   useEffect(() => {
     fetchContacts();
     fetchInstances();

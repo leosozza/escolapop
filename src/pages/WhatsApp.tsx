@@ -366,6 +366,7 @@ const WhatsApp = () => {
             assigned_agent_id: null,
             last_message: msgData.content,
             last_message_at: msgData.created_at,
+            unread_count: unreadCounts.get(cleanPhone) || 0,
             _isVirtual: true,
             _hasConversation: true,
             _hasNewInbound: phonesWithInbound.has(cleanPhone),

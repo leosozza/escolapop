@@ -43,7 +43,7 @@ import { WhatsAppMessageList } from '@/components/whatsapp/WhatsAppMessageList';
 import { WhatsAppChatInput } from '@/components/whatsapp/WhatsAppChatInput';
 import { WhatsAppStatusIndicator } from '@/components/whatsapp/WhatsAppStatusIndicator';
 import { AddEnrollmentDialog } from '@/components/students/AddEnrollmentDialog';
-import { format, formatDistanceToNow, differenceInHours } from 'date-fns';
+import { format, isToday, isYesterday, differenceInHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Tables } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -512,9 +512,9 @@ const WhatsApp = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex bg-muted/30">
+    <div className="h-[calc(100vh-3.5rem)] flex bg-muted/30">
       {/* ─── Sidebar: Contact List ─── */}
-      <div className="w-[340px] flex flex-col border-r bg-background">
+      <div className="w-[380px] flex flex-col border-r bg-background shrink-0">
         <div className="p-3 border-b space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -623,7 +623,12 @@ const WhatsApp = () => {
                       </div>
                       {contact.last_message_at && (
                         <span className="text-[11px] text-muted-foreground shrink-0 ml-2">
-                          {formatDistanceToNow(new Date(contact.last_message_at), { addSuffix: false, locale: ptBR })}
+                          {(() => {
+                            const d = new Date(contact.last_message_at);
+                            if (isToday(d)) return format(d, 'HH:mm');
+                            if (isYesterday(d)) return 'Ontem';
+                            return format(d, 'dd/MM/yyyy');
+                          })()}
                         </span>
                       )}
                     </div>
@@ -694,7 +699,7 @@ const WhatsApp = () => {
 
             {/* ─── Info Panel ─── */}
             {showInfoPanel && (
-              <div className="w-[340px] border-l bg-background flex flex-col shrink-0">
+              <div className="w-[380px] border-l bg-background flex flex-col shrink-0">
                 <div className="p-4 border-b flex items-center justify-between">
                   <span className="font-semibold text-sm">Info do contato</span>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowInfoPanel(false)}>

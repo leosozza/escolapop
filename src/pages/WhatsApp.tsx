@@ -728,11 +728,7 @@ const WhatsApp = () => {
                       <div className={cn('h-11 w-11 rounded-full flex items-center justify-center text-white', avatarBg)}>
                         <AvatarIcon className="h-5 w-5" />
                       </div>
-                      {hasUnread ? (
-                        <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full border-2 border-background bg-green-500 flex items-center justify-center">
-                          <span className="text-[9px] font-bold text-white">{contact.unread_count! > 99 ? '99+' : contact.unread_count}</span>
-                        </div>
-                      ) : showWaitBadge && (
+                      {showWaitBadge && !hasUnread && (
                         <div className={cn(
                           'absolute -top-1 -right-1 h-4 w-4 rounded-full border-2 border-background flex items-center justify-center text-[8px] font-bold text-white',
                           waitHours >= 48 ? 'bg-destructive' : waitHours >= 24 ? 'bg-orange-500' : 'bg-yellow-500'
@@ -749,7 +745,7 @@ const WhatsApp = () => {
                             <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-green-100 text-green-700 shrink-0">Novo</Badge>
                           )}
                         </div>
-                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                        <div className="flex flex-col items-end gap-0.5 shrink-0 ml-2">
                           {contact.last_message_at && (
                             <span className={cn('text-[11px] shrink-0', hasUnread ? 'text-green-600 font-semibold' : 'text-muted-foreground')}>
                               {(() => {
@@ -759,6 +755,11 @@ const WhatsApp = () => {
                                 return format(d, 'dd/MM/yyyy');
                               })()}
                             </span>
+                          )}
+                          {hasUnread && (
+                            <div className="h-5 min-w-5 px-1 rounded-full bg-green-500 flex items-center justify-center">
+                              <span className="text-[10px] font-bold text-white">{contact.unread_count! > 99 ? '99+' : contact.unread_count}</span>
+                            </div>
                           )}
                         </div>
                       </div>

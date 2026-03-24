@@ -570,10 +570,11 @@ Deno.serve(async (req) => {
         const audioPhone = phone.replace(/\D/g, "");
         const audioPhoneNumber = audioPhone.startsWith("55") ? audioPhone : `55${audioPhone}`;
 
-        const audioBase64Clean = audio.replace(/^data:[^,]+,/, "");
+        // WuzAPI expects Audio with data URI prefix (e.g. "data:audio/ogg;base64,...")
+        const audioWithPrefix = audio.startsWith("data:") ? audio : `data:audio/ogg;codecs=opus;base64,${audio}`;
         const res = await instanceFetch(inst.wuzapi_token, "/chat/send/audio", {
           method: "POST",
-          body: JSON.stringify({ Phone: audioPhoneNumber, Audio: audioBase64Clean, PTT: true, MimeType: "audio/ogg; codecs=opus" }),
+          body: JSON.stringify({ Phone: audioPhoneNumber, Audio: audioWithPrefix, PTT: true, MimeType: "audio/ogg; codecs=opus" }),
         });
 
         const wuzapiMsgId = res.data?.data?.MessageID || res.data?.data?.Id || null;

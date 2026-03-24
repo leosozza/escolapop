@@ -138,15 +138,17 @@ export function AppSidebar() {
         <Link to="/dashboard" className="flex items-center justify-center overflow-hidden">
           {isCollapsed ? (
             <img
+              key="favicon"
               src={faviconImg}
               alt="Logo PEP"
               className="h-10 w-10 object-contain animate-spin-in"
             />
           ) : (
             <img
+              key="logo"
               src={logoImg}
               alt="Logo PEP"
-              className="h-28 object-contain animate-fade-scale-in"
+              className="h-28 object-contain animate-spin-in"
             />
           )}
         </Link>

@@ -207,7 +207,7 @@ function MessageContent({ msg, isOutbound }: { msg: Message; isOutbound: boolean
     if (hasValidMedia) {
       return (
         <div>
-          <InlineAudioPlayer src={msg.media_url!} isOutbound={isOutbound} />
+          <WaveSurferPlayer src={msg.media_url!} isOutbound={isOutbound} />
           {msg.content && msg.content !== '[Mídia recebida]' && msg.content !== '🎤 Áudio' && (
             <p className="whitespace-pre-wrap break-words mt-1 text-xs opacity-80">{msg.content}</p>
           )}

@@ -783,6 +783,124 @@ Deno.serve(async (req) => {
         return json({ success: true, reconfigured: false, webhook: currentWebhook, details: getRes.data });
       }
 
+      case "reprocess-media": {
+        const { phone: reprocessPhone, limit: reprocessLimit } = params;
+        const maxMessages = Math.min(reprocessLimit || 20, 50);
+
+        let query = supabase
+          .from("whatsapp_messages")
+          .select("id, phone, message_type, wuzapi_message_id, instance_id")
+          .is("media_url", null)
+          .in("message_type", ["audio", "image", "video", "document"])
+          .not("wuzapi_message_id", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(maxMessages);
+
+        if (reprocessPhone) {
+          const cleanP = reprocessPhone.replace(/\D/g, "");
+          query = query.or(`phone.eq.${cleanP},phone.eq.55${cleanP},phone.like.%${cleanP.slice(-8)}%`);
+        }
+
+        const { data: pendingMessages, error: queryErr } = await query;
+        if (queryErr) return json({ error: queryErr.message }, 500);
+        if (!pendingMessages || pendingMessages.length === 0) {
+          return json({ success: true, processed: 0, message: "No media messages to reprocess" });
+        }
+
+        console.log("Reprocessing", pendingMessages.length, "media messages");
+
+        const endpointMap: Record<string, string> = {
+          image: "/chat/downloadimage",
+          audio: "/chat/downloadaudio",
+          video: "/chat/downloadvideo",
+          document: "/chat/downloaddocument",
+        };
+
+        let processed = 0;
+        let failed = 0;
+
+        for (const msg of pendingMessages) {
+          if (!msg.wuzapi_message_id || !msg.instance_id) { failed++; continue; }
+
+          // Get instance token
+          const { data: instData } = await supabase
+            .from("whatsapp_instances")
+            .select("wuzapi_token")
+            .eq("id", msg.instance_id)
+            .single();
+
+          if (!instData?.wuzapi_token) { failed++; continue; }
+
+          const endpoint = endpointMap[msg.message_type] || "/chat/downloadimage";
+          try {
+            const dlRes = await instanceFetch(instData.wuzapi_token, endpoint, {
+              method: "POST",
+              body: JSON.stringify({ MessageID: msg.wuzapi_message_id }),
+            });
+
+            if (!dlRes.ok) { 
+              console.log("Reprocess download failed for", msg.id, ":", dlRes.status);
+              failed++; 
+              continue; 
+            }
+
+            const base64Media = dlRes.data?.data?.Data || dlRes.data?.data?.Media || dlRes.data?.Data || dlRes.data?.Media || null;
+            if (!base64Media || typeof base64Media !== "string") { 
+              console.log("Reprocess: no base64 data for", msg.id);
+              failed++; 
+              continue; 
+            }
+
+            // Decode base64 safely
+            const clean = base64Media.replace(/^data:[^,]+,/, "").replace(/\s/g, "");
+            let bytes: Uint8Array;
+            try {
+              const binaryStr = atob(clean);
+              bytes = new Uint8Array(binaryStr.length);
+              for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+            } catch {
+              console.log("Reprocess: base64 decode failed for", msg.id);
+              failed++;
+              continue;
+            }
+
+            if (bytes.length < 100) { failed++; continue; }
+
+            const mimeMap: Record<string, string> = { audio: "audio/ogg", image: "image/jpeg", video: "video/mp4", document: "application/octet-stream" };
+            const extMap: Record<string, string> = { audio: "ogg", image: "jpg", video: "mp4", document: "bin" };
+            const mimetype = dlRes.data?.data?.Mimetype || mimeMap[msg.message_type] || "application/octet-stream";
+            const ext = extMap[msg.message_type] || "bin";
+            const storagePath = `${msg.instance_id}/${msg.wuzapi_message_id}.${ext}`;
+
+            const { error: upErr } = await supabase.storage
+              .from("whatsapp-media")
+              .upload(storagePath, bytes, { contentType: mimetype, upsert: true });
+
+            if (upErr) {
+              console.log("Reprocess upload error for", msg.id, ":", upErr.message);
+              failed++;
+              continue;
+            }
+
+            const { data: urlData } = supabase.storage.from("whatsapp-media").getPublicUrl(storagePath);
+            const newMediaUrl = urlData?.publicUrl || null;
+
+            if (newMediaUrl) {
+              await supabase.from("whatsapp_messages").update({ media_url: newMediaUrl }).eq("id", msg.id);
+              processed++;
+              console.log("✅ Reprocessed media for", msg.id);
+            } else {
+              failed++;
+            }
+          } catch (e) {
+            console.log("Reprocess error for", msg.id, ":", e instanceof Error ? e.message : String(e));
+            failed++;
+          }
+        }
+
+        return json({ success: true, processed, failed, total: pendingMessages.length });
+      }
+
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }

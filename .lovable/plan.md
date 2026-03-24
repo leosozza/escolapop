@@ -10,3 +10,7 @@
 
 ### `supabase/functions/whatsapp-webhook/index.ts`
 3. ✅ `MessageID: msgId` adicionado de volta ao body do download de midia
+4. ✅ Log do payload completo do mediaMessage para diagnostico
+5. ✅ Checagem de midia embutida (base64) no evento antes de tentar download
+6. ✅ `DirectPath` adicionado ao body do download
+7. ✅ Fallback CDN usando DirectPath quando Url esta vazio

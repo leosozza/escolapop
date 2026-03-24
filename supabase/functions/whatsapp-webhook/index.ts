@@ -111,6 +111,29 @@ Deno.serve(async (req) => {
         console.log("Reaction:", { emoji, originalMsgId, phone });
 
         if (emoji && originalMsgId) {
+          // Lookup lead_id from the original message
+          let reactionLeadId: string | null = null;
+          const { data: origMsg } = await supabase
+            .from("whatsapp_messages")
+            .select("lead_id")
+            .eq("wuzapi_message_id", originalMsgId)
+            .limit(1)
+            .maybeSingle();
+          if (origMsg) {
+            reactionLeadId = origMsg.lead_id;
+          } else {
+            // Fallback: find lead by phone
+            const cleanP = phone.replace(/^55/, "");
+            const lastD = cleanP.slice(-8);
+            const { data: lead } = await supabase
+              .from("leads")
+              .select("id")
+              .or(`phone.eq.${phone},phone.eq.${cleanP},phone.like.%${lastD}%`)
+              .limit(1)
+              .maybeSingle();
+            reactionLeadId = lead?.id || null;
+          }
+
           const { error: reactErr } = await supabase.from("whatsapp_messages").insert({
             phone,
             content: emoji,
@@ -119,12 +142,13 @@ Deno.serve(async (req) => {
             reaction_to_id: originalMsgId,
             status: "received",
             instance_id: instanceId,
+            lead_id: reactionLeadId,
           });
 
           if (reactErr) {
             console.log("Reaction insert error:", reactErr.message);
           } else {
-            console.log("✅ Reaction saved:", emoji, "→", originalMsgId);
+            console.log("✅ Reaction saved:", emoji, "→", originalMsgId, "lead:", reactionLeadId);
           }
         }
         return okResponse();
@@ -156,20 +180,49 @@ Deno.serve(async (req) => {
 
       if (hasMedia && msgId && instanceToken && WUZAPI_URL) {
         try {
-          console.log("Downloading media for msgId:", msgId);
-          const downloadResp = await fetch(`${WUZAPI_URL}/chat/downloadmedia`, {
+          // Determine correct endpoint and extract media metadata
+          const mediaMessage = isImage ? message.imageMessage
+            : isAudio ? message.audioMessage
+            : isVideo ? message.videoMessage
+            : message.documentMessage;
+
+          const endpointMap: Record<string, string> = {
+            image: "/chat/downloadimage",
+            audio: "/chat/downloadaudio",
+            video: "/chat/downloadvideo",
+            document: "/chat/downloaddocument",
+          };
+          const endpoint = endpointMap[messageType] || "/chat/downloadimage";
+
+          // Extract media fields from the payload
+          const mediaFields = {
+            Url: mediaMessage?.url || mediaMessage?.Url || "",
+            MediaKey: mediaMessage?.mediaKey || mediaMessage?.MediaKey || "",
+            Mimetype: mediaMessage?.mimetype || mediaMessage?.Mimetype || "application/octet-stream",
+            FileSHA256: mediaMessage?.fileSha256 || mediaMessage?.FileSHA256 || "",
+            FileEncSHA256: mediaMessage?.fileEncSha256 || mediaMessage?.FileEncSHA256 || "",
+            FileLength: mediaMessage?.fileLength || mediaMessage?.FileLength || 0,
+            DirectPath: mediaMessage?.directPath || mediaMessage?.DirectPath || "",
+          };
+
+          console.log(`Downloading media via ${endpoint}, msgId: ${msgId}, mime: ${mediaFields.Mimetype}`);
+
+          const downloadResp = await fetch(`${WUZAPI_URL}${endpoint}`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               "token": instanceToken,
             },
-            body: JSON.stringify({ MessageID: msgId }),
+            body: JSON.stringify({
+              MessageID: msgId,
+              ...mediaFields,
+            }),
           });
 
           if (downloadResp.ok) {
             const downloadData = await downloadResp.json();
             const base64Media = downloadData?.data?.Media || downloadData?.Media || null;
-            const mimetype = downloadData?.data?.Mimetype || downloadData?.Mimetype || "application/octet-stream";
+            const mimetype = downloadData?.data?.Mimetype || downloadData?.Mimetype || mediaFields.Mimetype;
 
             if (base64Media) {
               const ext = getExtFromMime(mimetype);
@@ -199,10 +252,43 @@ Deno.serve(async (req) => {
                 console.log("✅ Media uploaded:", mediaUrl?.slice(0, 80));
               }
             } else {
-              console.log("No base64 media in download response");
+              console.log("No base64 media in download response, keys:", Object.keys(downloadData?.data || downloadData || {}));
             }
           } else {
-            console.log("Download media failed:", downloadResp.status, await downloadResp.text().catch(() => ""));
+            const errText = await downloadResp.text().catch(() => "");
+            console.log(`Download media failed (${endpoint}):`, downloadResp.status, errText.slice(0, 200));
+
+            // Fallback: try generic /chat/downloadmedia
+            console.log("Trying fallback /chat/downloadmedia...");
+            const fallbackResp = await fetch(`${WUZAPI_URL}/chat/downloadmedia`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "token": instanceToken },
+              body: JSON.stringify({ MessageID: msgId }),
+            });
+            if (fallbackResp.ok) {
+              const fbData = await fallbackResp.json();
+              const fbBase64 = fbData?.data?.Media || fbData?.Media || null;
+              const fbMime = fbData?.data?.Mimetype || fbData?.Mimetype || mediaFields.Mimetype;
+              if (fbBase64) {
+                const ext = getExtFromMime(fbMime);
+                const storagePath = `${instanceId || "unknown"}/${msgId}.${ext}`;
+                const binaryStr = atob(fbBase64);
+                const bytes = new Uint8Array(binaryStr.length);
+                for (let i = 0; i < binaryStr.length; i++) {
+                  bytes[i] = binaryStr.charCodeAt(i);
+                }
+                const { error: uploadErr } = await supabase.storage
+                  .from("whatsapp-media")
+                  .upload(storagePath, bytes, { contentType: fbMime, upsert: true });
+                if (!uploadErr) {
+                  const { data: urlData } = supabase.storage.from("whatsapp-media").getPublicUrl(storagePath);
+                  mediaUrl = urlData?.publicUrl || null;
+                  console.log("✅ Media uploaded via fallback:", mediaUrl?.slice(0, 80));
+                }
+              }
+            } else {
+              console.log("Fallback downloadmedia also failed:", fallbackResp.status);
+            }
           }
         } catch (dlErr) {
           console.log("Media download error:", dlErr instanceof Error ? dlErr.message : String(dlErr));

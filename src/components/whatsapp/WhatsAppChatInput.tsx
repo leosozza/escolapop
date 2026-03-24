@@ -207,10 +207,12 @@ export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, le
       const base64 = await blobToBase64(selectedFile);
       const isImage = selectedFile.type.startsWith('image/');
       const isAudio = selectedFile.type.startsWith('audio/');
-      const action = isImage ? 'send-image' : isAudio ? 'send-audio' : 'send-document';
+      const isVideo = selectedFile.type.startsWith('video/');
+      const action = isImage ? 'send-image' : isAudio ? 'send-audio' : isVideo ? 'send-video' : 'send-document';
       const body: Record<string, unknown> = { action, instanceId, phone, leadId };
       if (isImage) { body.image = base64; body.caption = message.trim() || undefined; }
       else if (isAudio) { body.audio = base64; }
+      else if (isVideo) { body.video = base64; body.caption = message.trim() || undefined; }
       else { body.document = base64; body.fileName = selectedFile.name; body.caption = message.trim() || undefined; }
       const { data, error } = await supabase.functions.invoke('whatsapp-api', { body });
       if (error) throw error;

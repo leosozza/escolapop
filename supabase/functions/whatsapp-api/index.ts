@@ -625,6 +625,41 @@ Deno.serve(async (req) => {
         return json({ success: res.ok, data: res.data }, res.ok ? 200 : 500);
       }
 
+      case "send-video": {
+        const { phone, video, caption, leadId } = params;
+        if (!instanceId || !phone || !video) {
+          return json({ error: "instanceId, phone and video required" }, 400);
+        }
+
+        const inst = await resolveInstanceAuth(instanceId);
+        if (!inst?.wuzapi_token) return json({ error: "Instance not found" }, 404);
+
+        const isConnected = await ensureConnected(instanceId, inst.wuzapi_token);
+        if (!isConnected) return json({ error: "WhatsApp disconnected" }, 503);
+
+        const vidPhone = phone.replace(/\D/g, "");
+        const vidPhoneNumber = vidPhone.startsWith("55") ? vidPhone : `55${vidPhone}`;
+
+        const res = await instanceFetch(inst.wuzapi_token, "/chat/send/video", {
+          method: "POST",
+          body: JSON.stringify({ Phone: vidPhoneNumber, Video: video, Caption: caption || "" }),
+        });
+
+        const wuzapiMsgId = res.data?.data?.MessageID || res.data?.data?.Id || null;
+
+        await supabase.from("whatsapp_messages").insert({
+          phone: vidPhone, content: caption || "🎬 Vídeo",
+          lead_id: leadId || null, direction: "outbound",
+          message_type: "video", media_url: null,
+          status: res.ok ? "sent" : "failed",
+          error_message: res.ok ? null : (res.data?.message || "Send failed"),
+          wuzapi_message_id: wuzapiMsgId,
+          instance_id: instanceId,
+        });
+
+        return json({ success: res.ok, data: res.data }, res.ok ? 200 : 500);
+      }
+
       case "send-document": {
         const { phone, document: documentData, documentUrl, fileName, caption, leadId } = params;
         const docSource = documentData || documentUrl;

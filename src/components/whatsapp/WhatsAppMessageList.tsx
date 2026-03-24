@@ -26,6 +26,11 @@ interface WhatsAppMessageListProps {
   leadId?: string;
 }
 
+function isValidMediaUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  return url.startsWith('http://') || url.startsWith('https://');
+}
+
 export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -114,10 +119,10 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
 
           return (
             <div key={msg.id} className={cn('flex', isOutbound ? 'justify-end' : 'justify-start')}>
-              <div className="relative">
+              <div className="relative max-w-[75%]">
                 <div
                   className={cn(
-                    'max-w-[75%] rounded-xl px-3 py-2 text-sm',
+                    'rounded-xl px-3 py-2 text-sm',
                     isOutbound
                       ? isFailed
                         ? 'bg-destructive/10 border border-destructive/30 text-destructive'
@@ -194,7 +199,7 @@ function InlineAudioPlayer({ src, isOutbound }: { src: string; isOutbound: boole
     if (isPlaying) {
       audio.pause();
     } else {
-      audio.play();
+      audio.play().catch(() => setIsPlaying(false));
     }
     setIsPlaying(!isPlaying);
   };
@@ -221,6 +226,7 @@ function InlineAudioPlayer({ src, isOutbound }: { src: string; isOutbound: boole
           }
         }}
         onEnded={() => { setIsPlaying(false); setProgress(0); setCurrentTime(0); }}
+        onError={() => setIsPlaying(false)}
       />
       <Button
         variant="ghost"
@@ -254,50 +260,76 @@ function FormattedText({ text, className }: { text: string; className?: string }
 
 function MessageContent({ msg, isOutbound }: { msg: Message; isOutbound: boolean }) {
   const type = msg.message_type;
+  const hasValidMedia = isValidMediaUrl(msg.media_url);
 
-  if (type === 'audio' && msg.media_url) {
+  if (type === 'audio') {
+    if (hasValidMedia) {
+      return (
+        <div>
+          <InlineAudioPlayer src={msg.media_url!} isOutbound={isOutbound} />
+          {msg.content && msg.content !== '[Mídia recebida]' && msg.content !== '🎤 Áudio' && (
+            <p className="whitespace-pre-wrap break-words mt-1 text-xs opacity-80">{msg.content}</p>
+          )}
+        </div>
+      );
+    }
+    // No valid URL — show fallback
     return (
-      <div>
-        <InlineAudioPlayer src={msg.media_url} isOutbound={isOutbound} />
-        {msg.content && msg.content !== '[Mídia recebida]' && (
-          <p className="whitespace-pre-wrap break-words mt-1 text-xs opacity-80">{msg.content}</p>
-        )}
+      <div className="flex items-center gap-2 text-xs opacity-70">
+        <Play className="h-4 w-4" />
+        <span>🎤 Áudio (mídia indisponível)</span>
       </div>
     );
   }
 
-  if (type === 'image' && msg.media_url) {
+  if (type === 'image') {
+    if (hasValidMedia) {
+      return (
+        <div>
+          <img
+            src={msg.media_url!}
+            alt="Imagem"
+            className="rounded-lg max-w-[260px] max-h-[300px] object-cover cursor-pointer"
+            onClick={() => window.open(msg.media_url!, '_blank')}
+          />
+          {msg.content && msg.content !== '[Mídia recebida]' && msg.content !== '📷 Imagem' && (
+            <FormattedText text={msg.content} className="mt-1" />
+          )}
+        </div>
+      );
+    }
     return (
-      <div>
-        <img
-          src={msg.media_url}
-          alt="Imagem"
-          className="rounded-lg max-w-[260px] max-h-[300px] object-cover cursor-pointer"
-          onClick={() => window.open(msg.media_url!, '_blank')}
-        />
-        {msg.content && msg.content !== '[Mídia recebida]' && (
-          <FormattedText text={msg.content} className="mt-1" />
-        )}
+      <div className="flex items-center gap-2 text-xs opacity-70">
+        <FileIcon className="h-4 w-4" />
+        <span>📷 Imagem (mídia indisponível)</span>
       </div>
     );
   }
 
-  if (type === 'video' && msg.media_url) {
+  if (type === 'video') {
+    if (hasValidMedia) {
+      return (
+        <div>
+          <video controls className="rounded-lg max-w-[260px] max-h-[300px]" preload="metadata">
+            <source src={msg.media_url!} />
+          </video>
+          {msg.content && msg.content !== '[Mídia recebida]' && msg.content !== '🎬 Vídeo' && (
+            <FormattedText text={msg.content} className="mt-1" />
+          )}
+        </div>
+      );
+    }
     return (
-      <div>
-        <video controls className="rounded-lg max-w-[260px] max-h-[300px]" preload="metadata">
-          <source src={msg.media_url} />
-        </video>
-        {msg.content && msg.content !== '[Mídia recebida]' && (
-          <FormattedText text={msg.content} className="mt-1" />
-        )}
+      <div className="flex items-center gap-2 text-xs opacity-70">
+        <Play className="h-4 w-4" />
+        <span>🎬 Vídeo (mídia indisponível)</span>
       </div>
     );
   }
 
-  if (type === 'document' && msg.media_url) {
+  if (type === 'document' && hasValidMedia) {
     return (
-      <a href={msg.media_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-lg bg-background/20 hover:bg-background/30 transition-colors">
+      <a href={msg.media_url!} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-lg bg-background/20 hover:bg-background/30 transition-colors">
         <FileIcon className="h-8 w-8 shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-xs font-medium truncate">{msg.content || 'Documento'}</p>

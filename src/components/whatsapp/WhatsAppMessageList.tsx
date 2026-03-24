@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { AlertCircle, Check, CheckCheck, Clock, Download, FileIcon, Play, Pause } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,8 @@ interface Message {
   status: string | null;
   error_message: string | null;
   created_at: string;
+  wuzapi_message_id: string | null;
+  reaction_to_id: string | null;
 }
 
 interface WhatsAppMessageListProps {
@@ -35,7 +37,7 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
       .from('whatsapp_messages')
       .select('*')
       .order('created_at', { ascending: true })
-      .limit(100);
+      .limit(200);
 
     if (leadId) {
       query = query.eq('lead_id', leadId);
@@ -44,7 +46,7 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
     }
 
     const { data } = await query;
-    setMessages(data || []);
+    setMessages((data as Message[]) || []);
   };
 
   useEffect(() => {
@@ -76,7 +78,25 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  if (messages.length === 0) {
+  // Separate reactions from regular messages
+  const { regularMessages, reactionMap } = useMemo(() => {
+    const regular: Message[] = [];
+    const reactions = new Map<string, string[]>(); // wuzapi_message_id -> emoji[]
+
+    for (const msg of messages) {
+      if (msg.message_type === 'reaction' && msg.reaction_to_id) {
+        const existing = reactions.get(msg.reaction_to_id) || [];
+        existing.push(msg.content || '');
+        reactions.set(msg.reaction_to_id, existing);
+      } else {
+        regular.push(msg);
+      }
+    }
+
+    return { regularMessages: regular, reactionMap: reactions };
+  }, [messages]);
+
+  if (regularMessages.length === 0) {
     return (
       <div className="flex items-center justify-center p-8 text-sm text-muted-foreground">
         Nenhuma mensagem registrada
@@ -87,43 +107,61 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
   return (
     <ScrollArea className="flex-1 h-full">
       <div className="space-y-2 p-3">
-        {messages.map((msg) => {
+        {regularMessages.map((msg) => {
           const isOutbound = msg.direction === 'outbound';
           const isFailed = msg.status === 'failed';
+          const reactions = msg.wuzapi_message_id ? reactionMap.get(msg.wuzapi_message_id) : undefined;
 
           return (
             <div key={msg.id} className={cn('flex', isOutbound ? 'justify-end' : 'justify-start')}>
-              <div
-                className={cn(
-                  'max-w-[75%] rounded-xl px-3 py-2 text-sm',
-                  isOutbound
-                    ? isFailed
-                      ? 'bg-destructive/10 border border-destructive/30 text-destructive'
-                      : 'bg-green-600 text-white'
-                    : 'bg-muted'
-                )}
-              >
-                <MessageContent msg={msg} isOutbound={isOutbound} />
-                <div className={cn('flex items-center gap-1 mt-1', isOutbound ? 'justify-end' : 'justify-start')}>
-                  <span className={cn('text-[10px]', isOutbound && !isFailed ? 'text-green-200' : 'text-muted-foreground')}>
-                    {format(new Date(msg.created_at), 'HH:mm', { locale: ptBR })}
-                  </span>
-                  {isOutbound && (
-                    isFailed ? (
-                      <AlertCircle className="h-3 w-3 text-destructive" />
-                    ) : msg.status === 'read' ? (
-                      <CheckCheck className="h-3 w-3 text-blue-400" />
-                    ) : msg.status === 'delivered' ? (
-                      <CheckCheck className="h-3 w-3 text-green-200" />
-                    ) : msg.status === 'sent' ? (
-                      <Check className="h-3 w-3 text-green-200" />
-                    ) : (
-                      <Clock className="h-3 w-3 text-green-200" />
-                    )
+              <div className="relative">
+                <div
+                  className={cn(
+                    'max-w-[75%] rounded-xl px-3 py-2 text-sm',
+                    isOutbound
+                      ? isFailed
+                        ? 'bg-destructive/10 border border-destructive/30 text-destructive'
+                        : 'bg-green-600 text-white'
+                      : 'bg-muted'
+                  )}
+                >
+                  <MessageContent msg={msg} isOutbound={isOutbound} />
+                  <div className={cn('flex items-center gap-1 mt-1', isOutbound ? 'justify-end' : 'justify-start')}>
+                    <span className={cn('text-[10px]', isOutbound && !isFailed ? 'text-green-200' : 'text-muted-foreground')}>
+                      {format(new Date(msg.created_at), 'HH:mm', { locale: ptBR })}
+                    </span>
+                    {isOutbound && (
+                      isFailed ? (
+                        <AlertCircle className="h-3 w-3 text-destructive" />
+                      ) : msg.status === 'read' ? (
+                        <CheckCheck className="h-3 w-3 text-blue-400" />
+                      ) : msg.status === 'delivered' ? (
+                        <CheckCheck className="h-3 w-3 text-green-200" />
+                      ) : msg.status === 'sent' ? (
+                        <Check className="h-3 w-3 text-green-200" />
+                      ) : (
+                        <Clock className="h-3 w-3 text-green-200" />
+                      )
+                    )}
+                  </div>
+                  {isFailed && msg.error_message && (
+                    <p className="text-[10px] text-destructive mt-1">{msg.error_message}</p>
                   )}
                 </div>
-                {isFailed && msg.error_message && (
-                  <p className="text-[10px] text-destructive mt-1">{msg.error_message}</p>
+                {/* Reaction badges */}
+                {reactions && reactions.length > 0 && (
+                  <div className={cn(
+                    'flex gap-0.5 -mt-1.5 relative z-10',
+                    isOutbound ? 'justify-end pr-1' : 'justify-start pl-1'
+                  )}>
+                    <div className="flex items-center gap-0.5 bg-background border rounded-full px-1.5 py-0.5 shadow-sm">
+                      {groupReactions(reactions).map(({ emoji, count }) => (
+                        <span key={emoji} className="text-xs">
+                          {emoji}{count > 1 && <span className="text-[10px] text-muted-foreground ml-0.5">{count}</span>}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
@@ -133,6 +171,14 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
       </div>
     </ScrollArea>
   );
+}
+
+function groupReactions(emojis: string[]): { emoji: string; count: number }[] {
+  const map = new Map<string, number>();
+  for (const e of emojis) {
+    if (e) map.set(e, (map.get(e) || 0) + 1);
+  }
+  return Array.from(map.entries()).map(([emoji, count]) => ({ emoji, count }));
 }
 
 function InlineAudioPlayer({ src, isOutbound }: { src: string; isOutbound: boolean }) {
@@ -197,19 +243,6 @@ function InlineAudioPlayer({ src, isOutbound }: { src: string; isOutbound: boole
 }
 
 function FormattedText({ text, className }: { text: string; className?: string }) {
-  // Parse WhatsApp-style formatting: *bold*, _italic_, ~strikethrough~, ```code```
-  const parts: React.ReactNode[] = [];
-  let remaining = text;
-  let key = 0;
-
-  const patterns = [
-    { regex: /\*([^*]+)\*/, tag: 'strong' },
-    { regex: /_([^_]+)_/, tag: 'em' },
-    { regex: /~([^~]+)~/, tag: 's' },
-    { regex: /```([^`]+)```/, tag: 'code' },
-  ];
-
-  // Simple approach: render with dangerouslySetInnerHTML alternative
   const formatted = text
     .replace(/```([^`]+)```/g, '<code class="bg-background/20 px-1 rounded text-xs font-mono">$1</code>')
     .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
@@ -252,7 +285,7 @@ function MessageContent({ msg, isOutbound }: { msg: Message; isOutbound: boolean
   if (type === 'video' && msg.media_url) {
     return (
       <div>
-        <video controls className="rounded-lg max-w-[260px] max-h-[300px]" preload="none">
+        <video controls className="rounded-lg max-w-[260px] max-h-[300px]" preload="metadata">
           <source src={msg.media_url} />
         </video>
         {msg.content && msg.content !== '[Mídia recebida]' && (

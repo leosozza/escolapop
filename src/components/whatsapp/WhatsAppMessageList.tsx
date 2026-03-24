@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { AlertCircle, Check, CheckCheck, Clock, Download, FileIcon, Play, FileText, Loader2 } from 'lucide-react';
+import { AlertCircle, Check, CheckCheck, Clock, Download, FileIcon, Play, FileText, Loader2, RefreshCw } from 'lucide-react';
 import { WaveSurferPlayer } from './WaveSurferPlayer';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface Message {
   id: string;
@@ -102,6 +103,55 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
     return { regularMessages: regular, reactionMap: reactions };
   }, [messages]);
 
+  // Check if there are media messages without URLs
+  const hasMediaWithoutUrl = useMemo(() => {
+    return regularMessages.some(
+      (m) => ['audio', 'image', 'video', 'document'].includes(m.message_type) && !m.media_url
+    );
+  }, [regularMessages]);
+
+  const [isReprocessing, setIsReprocessing] = useState(false);
+
+  const handleReprocessMedia = useCallback(async () => {
+    if (isReprocessing) return;
+    setIsReprocessing(true);
+    try {
+      // Get first connected instance
+      const { data: instances } = await supabase
+        .from('whatsapp_instances')
+        .select('id')
+        .eq('status', 'connected')
+        .limit(1);
+
+      const instanceId = instances?.[0]?.id;
+      if (!instanceId) {
+        toast.error('Nenhuma instância WhatsApp conectada');
+        return;
+      }
+
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ action: 'reprocess-media', instanceId, phone: cleanPhone }),
+      });
+
+      const data = await resp.json();
+      if (data.processed > 0) {
+        toast.success(`${data.processed} mídia(s) recuperada(s)`);
+        fetchMessages();
+      } else {
+        toast.info('Nenhuma mídia pôde ser recuperada');
+      }
+    } catch {
+      toast.error('Erro ao reprocessar mídias');
+    } finally {
+      setIsReprocessing(false);
+    }
+  }, [isReprocessing, cleanPhone, fetchMessages]);
+
   if (regularMessages.length === 0) {
     return (
       <div className="flex items-center justify-center p-8 text-sm text-muted-foreground">
@@ -113,6 +163,20 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
   return (
     <ScrollArea className="flex-1 h-full">
       <div className="space-y-2 p-3">
+        {hasMediaWithoutUrl && (
+          <div className="flex justify-center pb-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReprocessMedia}
+              disabled={isReprocessing}
+              className="text-xs gap-1.5"
+            >
+              {isReprocessing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+              {isReprocessing ? 'Reprocessando...' : 'Recuperar mídias'}
+            </Button>
+          </div>
+        )}
         {regularMessages.map((msg) => {
           const isOutbound = msg.direction === 'outbound';
           const isFailed = msg.status === 'failed';

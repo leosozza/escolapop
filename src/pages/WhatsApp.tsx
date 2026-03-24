@@ -772,41 +772,37 @@ const WhatsApp = () => {
                         </div>
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
-                          <p className={cn('text-sm truncate', hasUnread ? 'font-bold text-foreground' : 'font-medium')}>{contact._isVirtual ? formatPhone(contact.phone) : contact.full_name}</p>
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="flex items-center gap-2 w-full min-w-0">
+                        <span className={cn('font-medium truncate min-w-0 flex-1', hasUnread ? 'font-bold text-foreground' : '')}>
+                          {contact._isVirtual ? formatPhone(contact.phone) : contact.full_name}
+                        </span>
                           {contact._isVirtual && (
-                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-green-100 text-green-700 shrink-0">
+                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-green-100 text-green-700 shrink-0 whitespace-nowrap">
                               {contact.id.startsWith('search-') ? 'Iniciar conversa' : 'Novo'}
                             </Badge>
                           )}
-                        </div>
-                        <div className="flex flex-col items-end gap-0.5 shrink-0 ml-2">
-                          {contact.last_message_at && (
-                            <span className={cn('text-[11px] shrink-0', hasUnread ? 'text-green-600 font-semibold' : 'text-muted-foreground')}>
-                              {(() => {
-                                const d = new Date(contact.last_message_at);
-                                if (isToday(d)) return format(d, 'HH:mm');
-                                if (isYesterday(d)) return 'Ontem';
-                                return format(d, 'dd/MM/yyyy');
-                              })()}
-                            </span>
-                          )}
-                          {hasUnread && (
-                            <div className="h-5 min-w-5 px-1 rounded-full bg-green-500 flex items-center justify-center">
-                              <span className="text-[10px] font-bold text-white">{contact.unread_count! > 99 ? '99+' : contact.unread_count}</span>
-                            </div>
-                          )}
-                        </div>
+                        {hasUnread && (
+                          <Badge variant="default" className="bg-green-500 hover:bg-green-500 h-5 min-w-5 shrink-0 flex items-center justify-center text-xs text-white">
+                            {contact.unread_count! > 99 ? '99+' : contact.unread_count}
+                          </Badge>
+                        )}
+                        <span className={cn('text-xs whitespace-nowrap shrink-0 min-w-fit', hasUnread ? 'text-green-600 font-semibold' : 'text-muted-foreground/60')}>
+                          {contact.last_message_at ? (() => {
+                            const d = new Date(contact.last_message_at);
+                            if (isToday(d)) return format(d, 'HH:mm');
+                            if (isYesterday(d)) return 'Ontem';
+                            return format(d, 'dd/MM/yyyy');
+                          })() : ''}
+                        </span>
                       </div>
                       {!contact._isVirtual && contact.guardian_name && (
                         <p className="text-[10px] text-muted-foreground truncate -mt-0.5">Resp: {contact.guardian_name}</p>
                       )}
                       <p
                         className={cn(
-                          'text-xs mt-0.5 overflow-hidden text-ellipsis break-words [overflow-wrap:anywhere] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3]',
-                          hasUnread ? 'text-foreground font-medium' : 'text-muted-foreground'
+                          'text-xs mt-0.5 line-clamp-2 break-words',
+                          hasUnread ? 'text-foreground font-semibold' : 'text-muted-foreground font-normal'
                         )}
                       >
                         {contact.last_message || contact.phone}

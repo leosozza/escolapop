@@ -1,78 +1,33 @@
 
 
-# Corrigir Download de Midia WhatsApp + Recuperar Midias Antigas
+## Ajuste do Layout da Lista de Conversas (Referencia)
 
-## Problema
+O layout atual ja esta bastante proximo da referencia. As diferencas identificadas sao pontuais:
 
-Os logs mostram que tanto audio quanto imagem do numero 5515996045202 falharam com:
-```
-Media download error: Failed to decode base64
-```
+### Mudancas planejadas
 
-Isso acontece na linha `atob(base64Media)` no webhook. O WuzAPI retorna base64 que pode conter:
-- Prefixo data URI (`data:audio/ogg;base64,...`)
-- Whitespace/newlines
-- Caracteres invalidos para `atob()`
+**1. Alinhamento vertical do item**
+- Trocar `items-center` para `items-start` no container principal do item (linha 757), para que o avatar fique alinhado ao topo quando o conteudo cresce com multiplas linhas.
 
-Resultado: todas as mensagens recentes de midia estao com `media_url: null` no banco.
+**2. Tamanho do avatar**
+- Reduzir de `h-11 w-11` para `h-10 w-10` (igual a referencia).
 
-## Correcoes
+**3. Adicionar badges de status abaixo da preview**
+- Adicionar uma linha de badges (flex-wrap) abaixo da mensagem preview mostrando:
+  - Status do lead (usando `STATUS_CONFIG` existente) com icone e cor
+  - Badge de tempo de espera (ja existe logica de `waitHours`, mover para badge inline)
+  - Badge "Em Atendimento" quando aplicavel
 
-### 1. Decodificacao base64 robusta (`whatsapp-webhook/index.ts`)
+**4. Padding do item**
+- Ajustar de `py-3` para `py-2.5` para compactar levemente a lista (mais proximo da referencia que usa `p-3` com `rounded-lg`).
 
-Substituir o `atob()` direto por uma funcao auxiliar que:
-- Remove prefixo data URI (`data:...;base64,` ou `data:...,`)
-- Remove whitespace e newlines
-- Usa `Uint8Array` via `atob()` de forma segura com try/catch interno
-- Log do tamanho e primeiros caracteres do base64 para diagnostico
+### Arquivos modificados
+- `src/pages/WhatsApp.tsx` - Ajustes no bloco de renderizacao dos itens da lista (linhas ~753-812)
 
-### 2. Log da resposta de download
-
-Antes de tentar decodificar, logar as chaves e o tamanho do campo base64 retornado pelo WuzAPI para facilitar diagnostico futuro.
-
-### 3. Fallback direto via URL do payload
-
-O payload do audioMessage e imageMessage ja contem o campo `URL` com link direto do CDN do WhatsApp. Atualmente o fallback CDN e bloqueado para URLs com `.enc` ou `/v/t62.` (que sao criptografadas). Porem, para **imagem**, a URL e descriptografada e funcional. Ajustar a logica para:
-- Permitir fallback CDN para imagens (URLs sem `.enc`)
-- Manter bloqueio apenas para URLs claramente criptografadas
-
-### 4. Endpoint para reprocessar midias antigas
-
-Adicionar uma nova action `reprocess-media` no `whatsapp-api/index.ts` que:
-- Busca mensagens com `media_url IS NULL` e `message_type IN ('audio', 'image', 'video', 'document')`
-- Para cada uma, tenta re-baixar via WuzAPI usando o `wuzapi_message_id`
-- Atualiza o `media_url` no banco se conseguir
-- Pode ser limitada por phone ou quantidade
-
-### 5. Botao na UI para reprocessar
-
-Adicionar um botao discreto no header da conversa para "Reprocessar midias" que chama a action acima.
-
-## Arquivos
-
-| Arquivo | Acao |
-|---------|------|
-| `supabase/functions/whatsapp-webhook/index.ts` | Base64 robusto + log diagnostico + fallback CDN melhorado |
-| `supabase/functions/whatsapp-api/index.ts` | Nova action `reprocess-media` |
-| `src/components/whatsapp/WhatsAppMessageList.tsx` | Botao reprocessar midias |
-
-## Detalhes tecnicos
-
-**Funcao de decodificacao segura:**
-```typescript
-function safeBase64Decode(input: string): Uint8Array | null {
-  try {
-    let clean = input.replace(/^data:[^,]+,/, "").replace(/\s/g, "");
-    const binaryStr = atob(clean);
-    const bytes = new Uint8Array(binaryStr.length);
-    for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
-    return bytes;
-  } catch (e) {
-    console.log("safeBase64Decode failed:", e instanceof Error ? e.message : String(e));
-    return null;
-  }
-}
-```
-
-**Reprocess action:** Busca ate 20 mensagens sem media_url, tenta download via WuzAPI com MessageID, e faz update no banco.
+### Detalhes tecnicos
+- Container principal: `flex items-start gap-3 px-3 py-2.5`
+- Avatar: `h-10 w-10 rounded-full`
+- Manter a estrutura existente de nome + badge + timestamp na mesma linha
+- Adicionar `<div className="flex flex-wrap items-center gap-1 mt-1">` apos a mensagem preview para os badges de status
+- Mover o indicador de tempo de espera (Timer) do canto do avatar para um badge inline no rodape do item
 

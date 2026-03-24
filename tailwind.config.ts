@@ -100,6 +100,15 @@ export default {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
         },
+        "spin-in": {
+          "0%": { transform: "rotate(0deg) scale(0.8)", opacity: "0" },
+          "60%": { transform: "rotate(540deg) scale(1.1)", opacity: "0.8" },
+          "100%": { transform: "rotate(720deg) scale(1)", opacity: "1" },
+        },
+        "fade-scale-in": {
+          "0%": { opacity: "0", transform: "scale(0.7)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -108,6 +117,8 @@ export default {
         "slide-in-left": "slide-in-left 0.3s ease-out",
         "scale-in": "scale-in 0.2s ease-out",
         shimmer: "shimmer 2s linear infinite",
+        "spin-in": "spin-in 0.5s ease-out",
+        "fade-scale-in": "fade-scale-in 0.4s ease-out",
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",

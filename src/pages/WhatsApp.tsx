@@ -773,7 +773,7 @@ const WhatsApp = () => {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
                           <p className={cn('text-sm truncate', hasUnread ? 'font-bold text-foreground' : 'font-medium')}>{contact._isVirtual ? formatPhone(contact.phone) : contact.full_name}</p>
                           {contact._isVirtual && (
@@ -803,7 +803,12 @@ const WhatsApp = () => {
                       {!contact._isVirtual && contact.guardian_name && (
                         <p className="text-[10px] text-muted-foreground truncate -mt-0.5">Resp: {contact.guardian_name}</p>
                       )}
-                      <p className={cn('text-xs mt-0.5 truncate', hasUnread ? 'text-foreground font-medium' : 'text-muted-foreground')}>
+                      <p
+                        className={cn(
+                          'text-xs mt-0.5 overflow-hidden text-ellipsis break-words [overflow-wrap:anywhere] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3]',
+                          hasUnread ? 'text-foreground font-medium' : 'text-muted-foreground'
+                        )}
+                      >
                         {contact.last_message || contact.phone}
                       </p>
                     </div>

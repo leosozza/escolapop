@@ -754,27 +754,19 @@ const WhatsApp = () => {
                   <div
                     key={contact.id}
                     className={cn(
-                      'flex items-center gap-3 px-3 py-3 cursor-pointer transition-colors hover:bg-muted/50',
+                      'flex items-start gap-3 px-3 py-2.5 cursor-pointer transition-colors hover:bg-muted/50 rounded-lg mx-1',
                       selectedContact?.id === contact.id && 'bg-muted'
                     )}
                     onClick={() => setSelectedContact(contact)}
                   >
-                    <div className="relative shrink-0">
-                      <div className={cn('h-11 w-11 rounded-full flex items-center justify-center text-white', avatarBg)}>
-                        <AvatarIcon className="h-5 w-5" />
+                    <div className="relative shrink-0 mt-0.5">
+                      <div className={cn('h-10 w-10 rounded-full flex items-center justify-center text-white', avatarBg)}>
+                        <AvatarIcon className="h-4.5 w-4.5" />
                       </div>
-                      {showWaitBadge && !hasUnread && (
-                        <div className={cn(
-                          'absolute -top-1 -right-1 h-4 w-4 rounded-full border-2 border-background flex items-center justify-center text-[8px] font-bold text-white',
-                          waitHours >= 48 ? 'bg-destructive' : waitHours >= 24 ? 'bg-orange-500' : 'bg-yellow-500'
-                        )}>
-                          <Timer className="h-2.5 w-2.5" />
-                        </div>
-                      )}
                     </div>
                     <div className="flex-1 min-w-0 overflow-hidden">
                       <div className="flex items-center gap-2 w-full min-w-0">
-                        <span className={cn('font-medium truncate min-w-0 flex-1', hasUnread ? 'font-bold text-foreground' : '')}>
+                        <span className={cn('font-medium truncate min-w-0 flex-1 text-sm', hasUnread ? 'font-bold text-foreground' : '')}>
                           {contact._isVirtual ? formatPhone(contact.phone) : contact.full_name}
                         </span>
                           {contact._isVirtual && (
@@ -801,12 +793,32 @@ const WhatsApp = () => {
                       )}
                       <p
                         className={cn(
-                          'text-xs mt-0.5 line-clamp-2 break-words',
+                          'text-xs mt-0.5 line-clamp-1 break-words',
                           hasUnread ? 'text-foreground font-semibold' : 'text-muted-foreground font-normal'
                         )}
                       >
                         {contact.last_message || contact.phone}
                       </p>
+                      {/* Status badges row */}
+                      {!contact._isVirtual && (
+                        <div className="flex flex-wrap items-center gap-1 mt-1">
+                          {statusCfg && (
+                            <span className={cn('inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0 rounded-full', statusCfg.bgColor, statusCfg.textColor)}>
+                              <StatusIcon className="h-2.5 w-2.5" />
+                              {statusCfg.label}
+                            </span>
+                          )}
+                          {showWaitBadge && (
+                            <span className={cn(
+                              'inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0 rounded-full text-white',
+                              waitHours >= 48 ? 'bg-destructive' : waitHours >= 24 ? 'bg-orange-500' : 'bg-yellow-500'
+                            )}>
+                              <Timer className="h-2.5 w-2.5" />
+                              {waitHours}h
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

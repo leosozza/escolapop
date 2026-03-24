@@ -746,7 +746,7 @@ const WhatsApp = () => {
 
                 // Wait time for this contact
                 const contactCreated = new Date(contact.created_at);
-                const waitHours = differenceInHours(new Date(), contactCreated);
+                const waitHours = differenceInHours(new Date(nowTick), contactCreated);
                 const showWaitBadge = !contact._isVirtual && ['lead', 'em_atendimento'].includes(contact.status) && waitHours >= 12;
                 const hasUnread = (contact.unread_count || 0) > 0;
 

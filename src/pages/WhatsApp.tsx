@@ -777,7 +777,9 @@ const WhatsApp = () => {
                         <div className="flex items-center gap-1.5 min-w-0">
                           <p className={cn('text-sm truncate', hasUnread ? 'font-bold text-foreground' : 'font-medium')}>{contact._isVirtual ? formatPhone(contact.phone) : contact.full_name}</p>
                           {contact._isVirtual && (
-                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-green-100 text-green-700 shrink-0">Novo</Badge>
+                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-green-100 text-green-700 shrink-0">
+                              {contact.id.startsWith('search-') ? 'Iniciar conversa' : 'Novo'}
+                            </Badge>
                           )}
                         </div>
                         <div className="flex flex-col items-end gap-0.5 shrink-0 ml-2">
@@ -798,6 +800,9 @@ const WhatsApp = () => {
                           )}
                         </div>
                       </div>
+                      {!contact._isVirtual && contact.guardian_name && (
+                        <p className="text-[10px] text-muted-foreground truncate">Resp: {contact.guardian_name}</p>
+                      )}
                       <p className={cn('text-xs mt-0.5 line-clamp-2', hasUnread ? 'text-foreground font-medium' : 'text-muted-foreground')}>
                         {contact.last_message || contact.phone}
                       </p>
@@ -828,6 +833,9 @@ const WhatsApp = () => {
               <div>
                 <p className="font-semibold text-sm">{selectedContact._isVirtual ? formatPhone(selectedContact.phone) : selectedContact.full_name}</p>
                 <p className="text-xs text-muted-foreground">{formatPhone(selectedContact.phone)}</p>
+                {!selectedContact._isVirtual && selectedContact.guardian_name && (
+                  <p className="text-[10px] text-muted-foreground">Resp: {selectedContact.guardian_name}</p>
+                )}
               </div>
               {selectedContact._isVirtual ? (
                 <Badge variant="secondary" className="text-[10px] ml-2 bg-green-100 text-green-700">Novo</Badge>

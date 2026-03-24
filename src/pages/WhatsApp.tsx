@@ -803,7 +803,7 @@ const WhatsApp = () => {
                       {!contact._isVirtual && (
                         <div className="flex flex-wrap items-center gap-1 mt-1">
                           {statusCfg && (
-                            <span className={cn('inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0 rounded-full', statusCfg.bgColor, statusCfg.textColor)}>
+                            <span className={cn('inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0 rounded-full', statusCfg.bg)}>
                               <StatusIcon className="h-2.5 w-2.5" />
                               {statusCfg.label}
                             </span>

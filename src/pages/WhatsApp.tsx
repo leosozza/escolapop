@@ -771,7 +771,7 @@ const WhatsApp = () => {
                       'flex items-start gap-3 px-3 py-3 cursor-pointer transition-colors hover:bg-muted/50 rounded-lg mx-1',
                       selectedContact?.id === contact.id && 'bg-muted'
                     )}
-                    onClick={() => setSelectedContact(contact)}
+                    onClick={() => { setSelectedContact(contact); setReplyTo(null); }}
                   >
                     <div className="relative shrink-0 mt-0.5">
                       <div className={cn('h-10 w-10 rounded-full flex items-center justify-center text-white', avatarBg)}>

@@ -156,10 +156,11 @@ Deno.serve(async (req) => {
 
       // ---- DETECT MEDIA TYPE ----
       const isImage = !!message.imageMessage;
+      const isSticker = !!message.stickerMessage;
       const isAudio = !!message.audioMessage;
       const isVideo = !!message.videoMessage;
       const isDocument = !!message.documentMessage;
-      const hasMedia = isImage || isAudio || isVideo || isDocument;
+      const hasMedia = isImage || isSticker || isAudio || isVideo || isDocument;
 
       const content =
         message.conversation ||
@@ -167,9 +168,10 @@ Deno.serve(async (req) => {
         message.imageMessage?.caption ||
         message.documentMessage?.title ||
         message.videoMessage?.caption ||
+        (isSticker ? "🏷️ Sticker" : null) ||
         (hasMedia ? "[Mídia recebida]" : "[sem conteúdo]");
 
-      const messageType = isImage ? "image"
+      const messageType = (isImage || isSticker) ? "image"
         : isDocument ? "document"
         : isAudio ? "audio"
         : isVideo ? "video"
@@ -182,6 +184,7 @@ Deno.serve(async (req) => {
         try {
           // Determine correct endpoint and extract media metadata
           const mediaMessage = isImage ? message.imageMessage
+            : isSticker ? message.stickerMessage
             : isAudio ? message.audioMessage
             : isVideo ? message.videoMessage
             : message.documentMessage;
@@ -221,7 +224,7 @@ Deno.serve(async (req) => {
 
           if (downloadResp.ok) {
             const downloadData = await downloadResp.json();
-            const base64Media = downloadData?.data?.Media || downloadData?.Media || null;
+            const base64Media = downloadData?.data?.Data || downloadData?.data?.Media || downloadData?.Data || downloadData?.Media || null;
             const mimetype = downloadData?.data?.Mimetype || downloadData?.Mimetype || mediaFields.Mimetype;
 
             if (base64Media) {
@@ -267,7 +270,7 @@ Deno.serve(async (req) => {
             });
             if (fallbackResp.ok) {
               const fbData = await fallbackResp.json();
-              const fbBase64 = fbData?.data?.Media || fbData?.Media || null;
+              const fbBase64 = fbData?.data?.Data || fbData?.data?.Media || fbData?.Data || fbData?.Media || null;
               const fbMime = fbData?.data?.Mimetype || fbData?.Mimetype || mediaFields.Mimetype;
               if (fbBase64) {
                 const ext = getExtFromMime(fbMime);

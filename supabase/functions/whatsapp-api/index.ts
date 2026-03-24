@@ -572,15 +572,32 @@ Deno.serve(async (req) => {
 
         const res = await instanceFetch(inst.wuzapi_token, "/chat/send/audio", {
           method: "POST",
-          body: JSON.stringify({ Phone: audioPhoneNumber, Audio: audio }),
+          body: JSON.stringify({ Phone: audioPhoneNumber, Audio: audio, PTT: true, MimeType: "audio/ogg; codecs=opus" }),
         });
 
         const wuzapiMsgId = res.data?.data?.MessageID || res.data?.data?.Id || null;
 
+        // Upload sent audio to storage for later playback
+        let sentMediaUrl: string | null = null;
+        if (res.ok && audio) {
+          try {
+            const audioBase64 = audio.replace(/^data:[^;]+;base64,/, "");
+            const binaryStr = atob(audioBase64);
+            const bytes = new Uint8Array(binaryStr.length);
+            for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+            const storagePath = `${instanceId}/sent_${Date.now()}.ogg`;
+            const { error: upErr } = await supabase.storage.from("whatsapp-media").upload(storagePath, bytes, { contentType: "audio/ogg", upsert: true });
+            if (!upErr) {
+              const { data: urlData } = supabase.storage.from("whatsapp-media").getPublicUrl(storagePath);
+              sentMediaUrl = urlData?.publicUrl || null;
+            }
+          } catch (e) { console.log("Audio storage upload error:", e); }
+        }
+
         await supabase.from("whatsapp_messages").insert({
           phone: audioPhone, content: "🎤 Áudio",
           lead_id: leadId || null, direction: "outbound",
-          message_type: "audio", media_url: null,
+          message_type: "audio", media_url: sentMediaUrl,
           status: res.ok ? "sent" : "failed",
           error_message: res.ok ? null : (res.data?.message || "Send failed"),
           wuzapi_message_id: wuzapiMsgId,
@@ -612,10 +629,27 @@ Deno.serve(async (req) => {
 
         const wuzapiMsgId = res.data?.data?.MessageID || res.data?.data?.Id || null;
 
+        // Upload sent image to storage
+        let sentImgUrl: string | null = null;
+        if (res.ok && image) {
+          try {
+            const imgBase64 = image.replace(/^data:[^;]+;base64,/, "");
+            const binaryStr = atob(imgBase64);
+            const bytes = new Uint8Array(binaryStr.length);
+            for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+            const storagePath = `${instanceId}/sent_${Date.now()}.jpg`;
+            const { error: upErr } = await supabase.storage.from("whatsapp-media").upload(storagePath, bytes, { contentType: "image/jpeg", upsert: true });
+            if (!upErr) {
+              const { data: urlData } = supabase.storage.from("whatsapp-media").getPublicUrl(storagePath);
+              sentImgUrl = urlData?.publicUrl || null;
+            }
+          } catch (e) { console.log("Image storage upload error:", e); }
+        }
+
         await supabase.from("whatsapp_messages").insert({
           phone: imgPhone, content: caption || "📷 Imagem",
           lead_id: leadId || null, direction: "outbound",
-          message_type: "image", media_url: null,
+          message_type: "image", media_url: sentImgUrl,
           status: res.ok ? "sent" : "failed",
           error_message: res.ok ? null : (res.data?.message || "Send failed"),
           wuzapi_message_id: wuzapiMsgId,
@@ -647,10 +681,27 @@ Deno.serve(async (req) => {
 
         const wuzapiMsgId = res.data?.data?.MessageID || res.data?.data?.Id || null;
 
+        // Upload sent video to storage
+        let sentVidUrl: string | null = null;
+        if (res.ok && video) {
+          try {
+            const vidBase64 = video.replace(/^data:[^;]+;base64,/, "");
+            const binaryStr = atob(vidBase64);
+            const bytes = new Uint8Array(binaryStr.length);
+            for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+            const storagePath = `${instanceId}/sent_${Date.now()}.mp4`;
+            const { error: upErr } = await supabase.storage.from("whatsapp-media").upload(storagePath, bytes, { contentType: "video/mp4", upsert: true });
+            if (!upErr) {
+              const { data: urlData } = supabase.storage.from("whatsapp-media").getPublicUrl(storagePath);
+              sentVidUrl = urlData?.publicUrl || null;
+            }
+          } catch (e) { console.log("Video storage upload error:", e); }
+        }
+
         await supabase.from("whatsapp_messages").insert({
           phone: vidPhone, content: caption || "🎬 Vídeo",
           lead_id: leadId || null, direction: "outbound",
-          message_type: "video", media_url: null,
+          message_type: "video", media_url: sentVidUrl,
           status: res.ok ? "sent" : "failed",
           error_message: res.ok ? null : (res.data?.message || "Send failed"),
           wuzapi_message_id: wuzapiMsgId,

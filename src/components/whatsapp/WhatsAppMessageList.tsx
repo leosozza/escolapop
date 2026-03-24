@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { AlertCircle, Check, CheckCheck, Clock, Download, FileIcon, Play, Pause } from 'lucide-react';
+import { AlertCircle, Check, CheckCheck, Clock, Download, FileIcon, Play } from 'lucide-react';
+import { WaveSurferPlayer } from './WaveSurferPlayer';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';

@@ -124,6 +124,7 @@ export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, le
       if (data?.success) {
         toast.success('Mensagem enviada!');
         setMessage('');
+        onClearReply?.();
         onMessageSent?.();
       } else {
         toast.error(data?.error || 'Erro ao enviar mensagem');

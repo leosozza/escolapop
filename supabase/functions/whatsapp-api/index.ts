@@ -570,9 +570,10 @@ Deno.serve(async (req) => {
         const audioPhone = phone.replace(/\D/g, "");
         const audioPhoneNumber = audioPhone.startsWith("55") ? audioPhone : `55${audioPhone}`;
 
+        const audioBase64Clean = audio.replace(/^data:[^,]+,/, "");
         const res = await instanceFetch(inst.wuzapi_token, "/chat/send/audio", {
           method: "POST",
-          body: JSON.stringify({ Phone: audioPhoneNumber, Audio: audio, PTT: true, MimeType: "audio/ogg; codecs=opus" }),
+          body: JSON.stringify({ Phone: audioPhoneNumber, Audio: audioBase64Clean, PTT: true, MimeType: "audio/ogg; codecs=opus" }),
         });
 
         const wuzapiMsgId = res.data?.data?.MessageID || res.data?.data?.Id || null;
@@ -581,7 +582,7 @@ Deno.serve(async (req) => {
         let sentMediaUrl: string | null = null;
         if (res.ok && audio) {
           try {
-            const audioBase64 = audio.replace(/^data:[^;]+;base64,/, "");
+            const audioBase64 = audio.replace(/^data:[^,]+,/, "");
             const binaryStr = atob(audioBase64);
             const bytes = new Uint8Array(binaryStr.length);
             for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
@@ -622,9 +623,10 @@ Deno.serve(async (req) => {
         const imgPhone = phone.replace(/\D/g, "");
         const imgPhoneNumber = imgPhone.startsWith("55") ? imgPhone : `55${imgPhone}`;
 
+        const imgBase64Clean = image.replace(/^data:[^,]+,/, "");
         const res = await instanceFetch(inst.wuzapi_token, "/chat/send/image", {
           method: "POST",
-          body: JSON.stringify({ Phone: imgPhoneNumber, Image: image, Caption: caption || "" }),
+          body: JSON.stringify({ Phone: imgPhoneNumber, Image: imgBase64Clean, Caption: caption || "" }),
         });
 
         const wuzapiMsgId = res.data?.data?.MessageID || res.data?.data?.Id || null;
@@ -633,7 +635,7 @@ Deno.serve(async (req) => {
         let sentImgUrl: string | null = null;
         if (res.ok && image) {
           try {
-            const imgBase64 = image.replace(/^data:[^;]+;base64,/, "");
+            const imgBase64 = image.replace(/^data:[^,]+,/, "");
             const binaryStr = atob(imgBase64);
             const bytes = new Uint8Array(binaryStr.length);
             for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
@@ -674,9 +676,10 @@ Deno.serve(async (req) => {
         const vidPhone = phone.replace(/\D/g, "");
         const vidPhoneNumber = vidPhone.startsWith("55") ? vidPhone : `55${vidPhone}`;
 
+        const vidBase64Clean = video.replace(/^data:[^,]+,/, "");
         const res = await instanceFetch(inst.wuzapi_token, "/chat/send/video", {
           method: "POST",
-          body: JSON.stringify({ Phone: vidPhoneNumber, Video: video, Caption: caption || "" }),
+          body: JSON.stringify({ Phone: vidPhoneNumber, Video: vidBase64Clean, Caption: caption || "" }),
         });
 
         const wuzapiMsgId = res.data?.data?.MessageID || res.data?.data?.Id || null;
@@ -685,7 +688,7 @@ Deno.serve(async (req) => {
         let sentVidUrl: string | null = null;
         if (res.ok && video) {
           try {
-            const vidBase64 = video.replace(/^data:[^;]+;base64,/, "");
+            const vidBase64 = video.replace(/^data:[^,]+,/, "");
             const binaryStr = atob(vidBase64);
             const bytes = new Uint8Array(binaryStr.length);
             for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
@@ -727,10 +730,11 @@ Deno.serve(async (req) => {
         const docPhone = phone.replace(/\D/g, "");
         const docPhoneNumber = docPhone.startsWith("55") ? docPhone : `55${docPhone}`;
 
+        const docBase64Clean = docSource.replace(/^data:[^,]+,/, "");
         const res = await instanceFetch(inst.wuzapi_token, "/chat/send/document", {
           method: "POST",
           body: JSON.stringify({
-            Phone: docPhoneNumber, Document: docSource,
+            Phone: docPhoneNumber, Document: docBase64Clean,
             FileName: fileName || "document.pdf", Caption: caption || "",
           }),
         });

@@ -220,6 +220,7 @@ Deno.serve(async (req) => {
               "token": instanceToken,
             },
             body: JSON.stringify({
+              MessageID: msgId,
               Url: mediaFields.Url,
               MediaKey: mediaFields.MediaKey,
               Mimetype: mediaFields.Mimetype,

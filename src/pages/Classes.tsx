@@ -161,18 +161,32 @@ export default function Classes() {
     }
 
     setIsDeleting(true);
+    const classId = selectedClass.id;
+    const className = selectedClass.name;
     try {
-      // Delete enrollments linked to this class first
-      await supabase.from('attendance').delete().eq('class_id', selectedClass.id);
-      await supabase.from('enrollments').update({ class_id: null }).eq('class_id', selectedClass.id);
+      // 1. Delete attendance records
+      const { error: attErr } = await supabase.from('attendance').delete().eq('class_id', classId);
+      if (attErr) throw new Error(`Erro ao limpar presença: ${attErr.message}`);
+
+      // 2. Delete class_enrollments junction records
+      const { error: ceErr } = await supabase.from('class_enrollments').delete().eq('class_id', classId);
+      if (ceErr) throw new Error(`Erro ao limpar vínculos: ${ceErr.message}`);
+
+      // 3. Unlink enrollments from this class
+      const { error: enrErr } = await supabase.from('enrollments').update({ class_id: null, status: 'ativo' as any }).eq('class_id', classId);
+      if (enrErr) throw new Error(`Erro ao desvincular matrículas: ${enrErr.message}`);
+
+      // 4. Delete the class itself
+      const { error } = await supabase.from('classes').delete().eq('id', classId);
+      if (error) throw new Error(`Erro ao excluir turma: ${error.message}`);
+
+      // Update local state immediately
+      setClasses(prev => prev.filter(c => c.id !== classId));
+      setSelectedClass(null);
       
-      const { error } = await supabase.from('classes').delete().eq('id', selectedClass.id);
-      if (error) throw error;
-      
-      toast({ title: 'Turma excluída', description: `${selectedClass.name} foi removida.` });
-      fetchClasses();
-    } catch {
-      toast({ variant: 'destructive', title: 'Erro ao excluir turma' });
+      toast({ title: 'Turma excluída', description: `${className} foi removida com sucesso.` });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir turma', description: err?.message || 'Erro desconhecido' });
     } finally {
       setIsDeleting(false);
       setIsDeleteDialogOpen(false);

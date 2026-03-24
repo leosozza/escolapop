@@ -212,32 +212,31 @@ Deno.serve(async (req) => {
             DirectPath: mediaMessage?.directPath || mediaMessage?.DirectPath || "",
           };
 
-          // ---- CHECK FOR EMBEDDED BASE64 MEDIA FIRST ----
+      // ---- CHECK FOR EMBEDDED BASE64 MEDIA FIRST ----
           const embeddedBase64 = mediaMessage?.Data || mediaMessage?.Media
             || eventData?.Data || eventData?.Media || null;
 
           if (embeddedBase64 && typeof embeddedBase64 === "string" && embeddedBase64.length > 100) {
-            console.log("Found embedded base64 media, length:", embeddedBase64.length);
+            console.log("Found embedded base64 media, length:", embeddedBase64.length, "first 30:", embeddedBase64.slice(0, 30));
             const mimetype = mediaFields.Mimetype;
             const ext = getExtFromMime(mimetype);
             const storagePath = `${instanceId}/${msgId}.${ext}`;
 
-            const binaryStr = atob(embeddedBase64);
-            const bytes = new Uint8Array(binaryStr.length);
-            for (let i = 0; i < binaryStr.length; i++) {
-              bytes[i] = binaryStr.charCodeAt(i);
-            }
+            const bytes = safeBase64Decode(embeddedBase64);
+            if (bytes) {
+              const { error: uploadErr } = await supabase.storage
+                .from("whatsapp-media")
+                .upload(storagePath, bytes, { contentType: mimetype, upsert: true });
 
-            const { error: uploadErr } = await supabase.storage
-              .from("whatsapp-media")
-              .upload(storagePath, bytes, { contentType: mimetype, upsert: true });
-
-            if (uploadErr) {
-              console.log("Embedded media upload error:", uploadErr.message);
+              if (uploadErr) {
+                console.log("Embedded media upload error:", uploadErr.message);
+              } else {
+                const { data: urlData } = supabase.storage.from("whatsapp-media").getPublicUrl(storagePath);
+                mediaUrl = urlData?.publicUrl || null;
+                console.log("✅ Embedded media uploaded:", mediaUrl?.slice(0, 80));
+              }
             } else {
-              const { data: urlData } = supabase.storage.from("whatsapp-media").getPublicUrl(storagePath);
-              mediaUrl = urlData?.publicUrl || null;
-              console.log("✅ Embedded media uploaded:", mediaUrl?.slice(0, 80));
+              console.log("Failed to decode embedded base64");
             }
           } else if (instanceToken && WUZAPI_URL) {
             // ---- DOWNLOAD VIA WUZAPI ENDPOINT ----
@@ -264,29 +263,30 @@ Deno.serve(async (req) => {
 
             if (downloadResp.ok) {
               const downloadData = await downloadResp.json();
+              console.log("Download response keys:", Object.keys(downloadData?.data || downloadData || {}));
               const base64Media = downloadData?.data?.Data || downloadData?.data?.Media || downloadData?.Data || downloadData?.Media || null;
               const mimetype = downloadData?.data?.Mimetype || downloadData?.Mimetype || mediaFields.Mimetype;
 
-              if (base64Media) {
+              if (base64Media && typeof base64Media === "string") {
+                console.log("base64Media length:", base64Media.length, "first 30:", base64Media.slice(0, 30));
                 const ext = getExtFromMime(mimetype);
                 const storagePath = `${instanceId}/${msgId}.${ext}`;
 
-                const binaryStr = atob(base64Media);
-                const bytes = new Uint8Array(binaryStr.length);
-                for (let i = 0; i < binaryStr.length; i++) {
-                  bytes[i] = binaryStr.charCodeAt(i);
-                }
+                const bytes = safeBase64Decode(base64Media);
+                if (bytes && bytes.length > 0) {
+                  const { error: uploadErr } = await supabase.storage
+                    .from("whatsapp-media")
+                    .upload(storagePath, bytes, { contentType: mimetype, upsert: true });
 
-                const { error: uploadErr } = await supabase.storage
-                  .from("whatsapp-media")
-                  .upload(storagePath, bytes, { contentType: mimetype, upsert: true });
-
-                if (uploadErr) {
-                  console.log("Storage upload error:", uploadErr.message);
+                  if (uploadErr) {
+                    console.log("Storage upload error:", uploadErr.message);
+                  } else {
+                    const { data: urlData } = supabase.storage.from("whatsapp-media").getPublicUrl(storagePath);
+                    mediaUrl = urlData?.publicUrl || null;
+                    console.log("✅ Media uploaded:", mediaUrl?.slice(0, 80));
+                  }
                 } else {
-                  const { data: urlData } = supabase.storage.from("whatsapp-media").getPublicUrl(storagePath);
-                  mediaUrl = urlData?.publicUrl || null;
-                  console.log("✅ Media uploaded:", mediaUrl?.slice(0, 80));
+                  console.log("safeBase64Decode returned null/empty for WuzAPI response");
                 }
               } else {
                 console.log("No base64 media in download response, keys:", Object.keys(downloadData?.data || downloadData || {}));
@@ -294,28 +294,37 @@ Deno.serve(async (req) => {
             } else {
               const errText = await downloadResp.text().catch(() => "");
               console.log(`Download media failed (${endpoint}):`, downloadResp.status, errText.slice(0, 200));
+            }
 
+            // ---- CDN FALLBACK (if WuzAPI download failed or returned no media) ----
+            if (!mediaUrl) {
               const directUrl = mediaFields.Url || (mediaFields.DirectPath ? `https://mmg.whatsapp.net${mediaFields.DirectPath}` : "");
-              const looksEncryptedFallback = /(?:\.enc)(?:$|\?)/i.test(directUrl) || /\/v\/t62\./i.test(directUrl);
+              // Only block .enc files (encrypted); allow images/videos that are often unencrypted
+              const looksEncrypted = /\.enc(?:$|\?)/i.test(directUrl);
 
-              if (directUrl && !looksEncryptedFallback) {
+              if (directUrl && !looksEncrypted) {
                 console.log("Trying direct CDN fetch:", directUrl.slice(0, 80));
                 try {
                   const directResp = await fetch(directUrl);
                   if (directResp.ok) {
                     const blob = await directResp.arrayBuffer();
                     const bytes = new Uint8Array(blob);
-                    const ext = getExtFromMime(mediaFields.Mimetype);
-                    const storagePath = `${instanceId}/${msgId}.${ext}`;
-                    const { error: uploadErr } = await supabase.storage
-                      .from("whatsapp-media")
-                      .upload(storagePath, bytes, { contentType: mediaFields.Mimetype, upsert: true });
-                    if (!uploadErr) {
-                      const { data: urlData } = supabase.storage.from("whatsapp-media").getPublicUrl(storagePath);
-                      mediaUrl = urlData?.publicUrl || null;
-                      console.log("✅ Media uploaded via direct CDN:", mediaUrl?.slice(0, 80));
+                    // Validate: at least 1KB and doesn't look like encrypted binary
+                    if (bytes.length > 1024) {
+                      const ext = getExtFromMime(mediaFields.Mimetype);
+                      const storagePath = `${instanceId}/${msgId}.${ext}`;
+                      const { error: uploadErr } = await supabase.storage
+                        .from("whatsapp-media")
+                        .upload(storagePath, bytes, { contentType: mediaFields.Mimetype, upsert: true });
+                      if (!uploadErr) {
+                        const { data: urlData } = supabase.storage.from("whatsapp-media").getPublicUrl(storagePath);
+                        mediaUrl = urlData?.publicUrl || null;
+                        console.log("✅ Media uploaded via direct CDN:", mediaUrl?.slice(0, 80));
+                      } else {
+                        console.log("Direct CDN upload error:", uploadErr.message);
+                      }
                     } else {
-                      console.log("Direct CDN upload error:", uploadErr.message);
+                      console.log("CDN response too small, likely invalid:", bytes.length, "bytes");
                     }
                   } else {
                     console.log("Direct CDN fetch failed:", directResp.status);
@@ -447,6 +456,26 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+function safeBase64Decode(input: string): Uint8Array | null {
+  try {
+    // Remove data URI prefix and all whitespace/newlines
+    const clean = input.replace(/^data:[^,]+,/, "").replace(/\s/g, "");
+    if (!clean || clean.length < 10) {
+      console.log("safeBase64Decode: input too short after cleaning:", clean.length);
+      return null;
+    }
+    const binaryStr = atob(clean);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    return bytes;
+  } catch (e) {
+    console.log("safeBase64Decode failed:", e instanceof Error ? e.message : String(e), "input length:", input.length, "first 40:", input.slice(0, 40));
+    return null;
+  }
+}
 
 function extractPhone(jidOrAlt: string): string {
   if (!jidOrAlt) return "";

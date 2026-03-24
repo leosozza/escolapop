@@ -132,8 +132,8 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
                   )}
                 >
                   <MessageContent msg={msg} isOutbound={isOutbound} />
-                  <div className={cn('flex items-center gap-1 mt-1', isOutbound ? 'justify-end' : 'justify-start')}>
-                    <span className={cn('text-[10px]', isOutbound && !isFailed ? 'text-green-200' : 'text-muted-foreground')}>
+                  <div className={cn('flex items-center gap-1 mt-1 shrink-0', isOutbound ? 'justify-end' : 'justify-start')}>
+                    <span className={cn('text-[10px] whitespace-nowrap shrink-0', isOutbound && !isFailed ? 'text-green-200' : 'text-muted-foreground')}>
                       {format(new Date(msg.created_at), 'HH:mm', { locale: ptBR })}
                     </span>
                     {isOutbound && (

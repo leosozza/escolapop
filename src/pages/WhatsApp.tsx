@@ -334,11 +334,23 @@ const WhatsApp = () => {
 
       if (error) throw error;
 
+      // Fetch agent names for assigned agents
+      const agentIds = [...new Set((leads || []).map(l => l.assigned_agent_id).filter(Boolean))] as string[];
+      let agentNamesMap: Record<string, string> = {};
+      if (agentIds.length > 0) {
+        const { data: agentsData } = await supabase
+          .from('agents')
+          .select('id, full_name')
+          .in('id', agentIds);
+        agentNamesMap = (agentsData || []).reduce((acc, a) => { acc[a.id] = a.full_name; return acc; }, {} as Record<string, string>);
+      }
+
       const contactsWithMessages = (leads || []).map(lead => {
         const cleanPhone = lead.phone.replace(/\D/g, '').slice(-8);
         const lastMsg = messageMap.get(cleanPhone);
         return {
           ...lead,
+          assigned_agent_name: lead.assigned_agent_id ? agentNamesMap[lead.assigned_agent_id] || null : null,
           last_message: lastMsg?.content || null,
           last_message_at: lastMsg?.created_at || null,
           unread_count: unreadCounts.get(cleanPhone) || 0,

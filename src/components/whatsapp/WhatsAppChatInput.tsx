@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Loader2, Mic, X, Paperclip, FileIcon, ImageIcon, Zap, Settings, Smile, Bold, Italic, Strikethrough, Code, Plus, ChevronUp } from 'lucide-react';
+import { Send, Loader2, Mic, X, Paperclip, FileIcon, ImageIcon, Zap, Settings, Smile, Bold, Italic, Strikethrough, Code, Plus, ChevronUp, Reply } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -10,6 +10,7 @@ import { QuickReplyPopup } from './QuickReplyPopup';
 import { QuickRepliesManager } from './QuickRepliesManager';
 import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
+import { ReplyToMessage } from './WhatsAppMessageList';
 
 interface WhatsAppChatInputProps {
   phone: string;
@@ -18,6 +19,8 @@ interface WhatsAppChatInputProps {
   onMessageSent?: () => void;
   leadName?: string;
   courseName?: string;
+  replyTo?: ReplyToMessage | null;
+  onClearReply?: () => void;
 }
 
 interface QuickReply {

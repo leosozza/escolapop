@@ -1,8 +1,15 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { AlertCircle, Check, CheckCheck, Clock, Download, FileIcon, Play, FileText, Loader2, RefreshCw } from 'lucide-react';
+import { AlertCircle, Check, CheckCheck, Clock, Download, FileIcon, Play, FileText, Loader2, RefreshCw, Reply, Copy, Trash2 } from 'lucide-react';
 import { WaveSurferPlayer } from './WaveSurferPlayer';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -23,9 +30,18 @@ interface Message {
   reaction_to_id: string | null;
 }
 
+export interface ReplyToMessage {
+  id: string;
+  content: string | null;
+  message_type: string;
+  direction: string;
+}
+
 interface WhatsAppMessageListProps {
   phone: string;
   leadId?: string;
+  instanceId?: string;
+  onReply?: (msg: ReplyToMessage) => void;
 }
 
 function isValidMediaUrl(url: string | null | undefined): boolean {
@@ -33,7 +49,15 @@ function isValidMediaUrl(url: string | null | undefined): boolean {
   return url.startsWith('http://') || url.startsWith('https://');
 }
 
-export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps) {
+function getMessagePreview(msg: Message): string {
+  if (msg.message_type === 'audio') return '🎤 Áudio';
+  if (msg.message_type === 'image') return '📷 Imagem';
+  if (msg.message_type === 'video') return '🎬 Vídeo';
+  if (msg.message_type === 'document') return '📄 Documento';
+  return msg.content || '[sem conteúdo]';
+}
+
+export function WhatsAppMessageList({ phone, leadId, instanceId, onReply }: WhatsAppMessageListProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -76,6 +100,10 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
         const updated = payload.new as Message;
         setMessages((prev) => prev.map((m) => m.id === updated.id ? updated : m));
       })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'whatsapp_messages' }, (payload) => {
+        const deleted = payload.old as { id: string };
+        setMessages((prev) => prev.filter((m) => m.id !== deleted.id));
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -85,10 +113,9 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Separate reactions from regular messages
   const { regularMessages, reactionMap } = useMemo(() => {
     const regular: Message[] = [];
-    const reactions = new Map<string, string[]>(); // wuzapi_message_id -> emoji[]
+    const reactions = new Map<string, string[]>();
 
     for (const msg of messages) {
       if (msg.message_type === 'reaction' && msg.reaction_to_id) {
@@ -103,7 +130,6 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
     return { regularMessages: regular, reactionMap: reactions };
   }, [messages]);
 
-  // Check if there are media messages without URLs
   const hasMediaWithoutUrl = useMemo(() => {
     return regularMessages.some(
       (m) => ['audio', 'image', 'video', 'document'].includes(m.message_type) && !m.media_url
@@ -116,15 +142,14 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
     if (isReprocessing) return;
     setIsReprocessing(true);
     try {
-      // Get first connected instance
       const { data: instances } = await supabase
         .from('whatsapp_instances')
         .select('id')
         .eq('status', 'connected')
         .limit(1);
 
-      const instanceId = instances?.[0]?.id;
-      if (!instanceId) {
+      const instId = instances?.[0]?.id;
+      if (!instId) {
         toast.error('Nenhuma instância WhatsApp conectada');
         return;
       }
@@ -135,7 +160,7 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
           'Content-Type': 'application/json',
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ action: 'reprocess-media', instanceId, phone: cleanPhone }),
+        body: JSON.stringify({ action: 'reprocess-media', instanceId: instId, phone: cleanPhone }),
       });
 
       const data = await resp.json();
@@ -151,6 +176,67 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
       setIsReprocessing(false);
     }
   }, [isReprocessing, cleanPhone, fetchMessages]);
+
+  const handleCopy = useCallback((msg: Message) => {
+    const text = msg.content || '';
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success('Mensagem copiada');
+    }).catch(() => {
+      toast.error('Erro ao copiar');
+    });
+  }, []);
+
+  const handleDeleteForMe = useCallback(async (msg: Message) => {
+    // Just remove from local DB
+    const { error } = await supabase.from('whatsapp_messages').delete().eq('id', msg.id);
+    if (error) {
+      toast.error('Erro ao excluir mensagem');
+    } else {
+      setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+      toast.success('Mensagem excluída para você');
+    }
+  }, []);
+
+  const handleDeleteForAll = useCallback(async (msg: Message) => {
+    if (!instanceId) {
+      toast.error('Selecione uma instância WhatsApp');
+      return;
+    }
+    if (!msg.wuzapi_message_id) {
+      toast.error('Não é possível revogar esta mensagem');
+      return;
+    }
+    try {
+      const resp = await supabase.functions.invoke('whatsapp-api', {
+        body: {
+          action: 'revoke-message',
+          instanceId,
+          phone: cleanPhone,
+          messageId: msg.wuzapi_message_id,
+        },
+      });
+      if (resp.error) throw resp.error;
+      if (resp.data?.success) {
+        // Remove from local DB
+        await supabase.from('whatsapp_messages').delete().eq('id', msg.id);
+        setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+        toast.success('Mensagem apagada para todos');
+      } else {
+        toast.error(resp.data?.error || 'Erro ao apagar mensagem');
+      }
+    } catch {
+      toast.error('Erro ao apagar mensagem para todos');
+    }
+  }, [instanceId, cleanPhone]);
+
+  const handleReply = useCallback((msg: Message) => {
+    onReply?.({
+      id: msg.id,
+      content: msg.content,
+      message_type: msg.message_type,
+      direction: msg.direction,
+    });
+  }, [onReply]);
 
   if (regularMessages.length === 0) {
     return (
@@ -183,58 +269,84 @@ export function WhatsAppMessageList({ phone, leadId }: WhatsAppMessageListProps)
           const reactions = msg.wuzapi_message_id ? reactionMap.get(msg.wuzapi_message_id) : undefined;
 
           return (
-            <div key={msg.id} className={cn('flex', isOutbound ? 'justify-end' : 'justify-start')}>
-              <div className="relative max-w-[75%]">
-                <div
-                  className={cn(
-                    'rounded-xl px-3 py-2 text-sm',
-                    isOutbound
-                      ? isFailed
-                        ? 'bg-destructive/10 border border-destructive/30 text-destructive'
-                        : 'bg-green-600 text-white'
-                      : 'bg-muted'
-                  )}
-                >
-                  <MessageContent msg={msg} isOutbound={isOutbound} />
-                  <div className={cn('flex items-center gap-1 mt-1 shrink-0', isOutbound ? 'justify-end' : 'justify-start')}>
-                    <span className={cn('text-[10px] whitespace-nowrap shrink-0', isOutbound && !isFailed ? 'text-green-200' : 'text-muted-foreground')}>
-                      {format(new Date(msg.created_at), 'HH:mm', { locale: ptBR })}
-                    </span>
-                    {isOutbound && (
-                      isFailed ? (
-                        <AlertCircle className="h-3 w-3 text-destructive" />
-                      ) : msg.status === 'read' ? (
-                        <CheckCheck className="h-3 w-3 text-blue-400" />
-                      ) : msg.status === 'delivered' ? (
-                        <CheckCheck className="h-3 w-3 text-green-200" />
-                      ) : msg.status === 'sent' ? (
-                        <Check className="h-3 w-3 text-green-200" />
-                      ) : (
-                        <Clock className="h-3 w-3 text-green-200" />
-                      )
+            <ContextMenu key={msg.id}>
+              <ContextMenuTrigger asChild>
+                <div className={cn('flex', isOutbound ? 'justify-end' : 'justify-start')}>
+                  <div className="relative max-w-[75%]">
+                    <div
+                      className={cn(
+                        'rounded-xl px-3 py-2 text-sm',
+                        isOutbound
+                          ? isFailed
+                            ? 'bg-destructive/10 border border-destructive/30 text-destructive'
+                            : 'bg-green-600 text-white'
+                          : 'bg-muted'
+                      )}
+                    >
+                      <MessageContent msg={msg} isOutbound={isOutbound} />
+                      <div className={cn('flex items-center gap-1 mt-1 shrink-0', isOutbound ? 'justify-end' : 'justify-start')}>
+                        <span className={cn('text-[10px] whitespace-nowrap shrink-0', isOutbound && !isFailed ? 'text-green-200' : 'text-muted-foreground')}>
+                          {format(new Date(msg.created_at), 'HH:mm', { locale: ptBR })}
+                        </span>
+                        {isOutbound && (
+                          isFailed ? (
+                            <AlertCircle className="h-3 w-3 text-destructive" />
+                          ) : msg.status === 'read' ? (
+                            <CheckCheck className="h-3 w-3 text-blue-400" />
+                          ) : msg.status === 'delivered' ? (
+                            <CheckCheck className="h-3 w-3 text-green-200" />
+                          ) : msg.status === 'sent' ? (
+                            <Check className="h-3 w-3 text-green-200" />
+                          ) : (
+                            <Clock className="h-3 w-3 text-green-200" />
+                          )
+                        )}
+                      </div>
+                      {isFailed && msg.error_message && (
+                        <p className="text-[10px] text-destructive mt-1">{msg.error_message}</p>
+                      )}
+                    </div>
+                    {reactions && reactions.length > 0 && (
+                      <div className={cn(
+                        'flex gap-0.5 -mt-1.5 relative z-10',
+                        isOutbound ? 'justify-end pr-1' : 'justify-start pl-1'
+                      )}>
+                        <div className="flex items-center gap-0.5 bg-background border rounded-full px-1.5 py-0.5 shadow-sm">
+                          {groupReactions(reactions).map(({ emoji, count }) => (
+                            <span key={emoji} className="text-xs">
+                              {emoji}{count > 1 && <span className="text-[10px] text-muted-foreground ml-0.5">{count}</span>}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
-                  {isFailed && msg.error_message && (
-                    <p className="text-[10px] text-destructive mt-1">{msg.error_message}</p>
-                  )}
                 </div>
-                {/* Reaction badges */}
-                {reactions && reactions.length > 0 && (
-                  <div className={cn(
-                    'flex gap-0.5 -mt-1.5 relative z-10',
-                    isOutbound ? 'justify-end pr-1' : 'justify-start pl-1'
-                  )}>
-                    <div className="flex items-center gap-0.5 bg-background border rounded-full px-1.5 py-0.5 shadow-sm">
-                      {groupReactions(reactions).map(({ emoji, count }) => (
-                        <span key={emoji} className="text-xs">
-                          {emoji}{count > 1 && <span className="text-[10px] text-muted-foreground ml-0.5">{count}</span>}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                <ContextMenuItem className="gap-2" onClick={() => handleReply(msg)}>
+                  <Reply className="h-4 w-4" />
+                  Responder
+                </ContextMenuItem>
+                {msg.message_type === 'text' && msg.content && (
+                  <ContextMenuItem className="gap-2" onClick={() => handleCopy(msg)}>
+                    <Copy className="h-4 w-4" />
+                    Copiar
+                  </ContextMenuItem>
                 )}
-              </div>
-            </div>
+                <ContextMenuSeparator />
+                <ContextMenuItem className="gap-2" onClick={() => handleDeleteForMe(msg)}>
+                  <Trash2 className="h-4 w-4" />
+                  Excluir para mim
+                </ContextMenuItem>
+                {isOutbound && msg.wuzapi_message_id && (
+                  <ContextMenuItem className="gap-2 text-destructive" onClick={() => handleDeleteForAll(msg)}>
+                    <Trash2 className="h-4 w-4" />
+                    Apagar para todos
+                  </ContextMenuItem>
+                )}
+              </ContextMenuContent>
+            </ContextMenu>
           );
         })}
         <div ref={bottomRef} />
@@ -250,8 +362,6 @@ function groupReactions(emojis: string[]): { emoji: string; count: number }[] {
   }
   return Array.from(map.entries()).map(([emoji, count]) => ({ emoji, count }));
 }
-
-// InlineAudioPlayer removed — using WaveSurferPlayer instead
 
 function FormattedText({ text, className }: { text: string; className?: string }) {
   const formatted = text
@@ -320,7 +430,6 @@ function MessageContent({ msg, isOutbound }: { msg: Message; isOutbound: boolean
         </div>
       );
     }
-    // No valid URL — show fallback
     return (
       <div className="flex items-center gap-2 text-xs opacity-70">
         <Play className="h-4 w-4" />

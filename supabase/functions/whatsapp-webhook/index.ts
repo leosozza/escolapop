@@ -13,6 +13,7 @@ Deno.serve(async (req) => {
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const WUZAPI_URL = Deno.env.get("WUZAPI_URL") || "";
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -21,8 +22,6 @@ Deno.serve(async (req) => {
     console.log("=== WEBHOOK RECEIVED ===");
     console.log("Raw type:", body.type, "instanceName:", body.instanceName, "userID:", body.userID, "state:", body.state);
 
-    // ---- PARSE PAYLOAD ----
-    // WuzAPI sends: { type: "Message"|"ReadReceipt"|"ChatPresence"|"Connected"|"Disconnected", event: {...data...}, instanceName, userID, state? }
     const eventType = typeof body.type === "string" ? body.type : (typeof body.event === "string" ? body.event : null);
     const eventData = (typeof body.event === "object" && body.event !== null) ? body.event : body.data || body;
     const instanceName = body.instanceName || "";
@@ -31,38 +30,37 @@ Deno.serve(async (req) => {
     console.log("Parsed eventType:", eventType);
 
     // ---- RESOLVE INSTANCE ----
-    const findInstanceId = async (): Promise<string | null> => {
-      // Try by wuzapi_user_id
+    const findInstance = async (): Promise<{ id: string; wuzapi_token: string | null } | null> => {
       if (userID) {
         const { data } = await supabase
           .from("whatsapp_instances")
-          .select("id")
+          .select("id, wuzapi_token")
           .eq("wuzapi_user_id", userID)
           .limit(1)
           .maybeSingle();
-        if (data) return data.id;
+        if (data) return data;
       }
-      // Try by name
       if (instanceName) {
         const { data } = await supabase
           .from("whatsapp_instances")
-          .select("id")
+          .select("id, wuzapi_token")
           .ilike("name", instanceName)
           .limit(1)
           .maybeSingle();
-        if (data) return data.id;
+        if (data) return data;
       }
-      // Fallback: first connected
       const { data } = await supabase
         .from("whatsapp_instances")
-        .select("id")
+        .select("id, wuzapi_token")
         .eq("status", "connected")
         .limit(1)
         .maybeSingle();
-      return data?.id || null;
+      return data || null;
     };
 
-    const instanceId = await findInstanceId();
+    const instance = await findInstance();
+    const instanceId = instance?.id || null;
+    const instanceToken = instance?.wuzapi_token || null;
     console.log("Resolved instanceId:", instanceId);
 
     // ============ MESSAGE EVENTS ============
@@ -71,16 +69,13 @@ Deno.serve(async (req) => {
       const isFromMe = info.IsFromMe === true;
       const isGroup = info.IsGroup === true;
 
-      // Skip group messages and self-sent echo
       if (isGroup) {
         console.log("Skipping group message");
         return okResponse();
       }
 
-      // Extract phone from SenderAlt (has real phone) or Sender
       let phone = "";
       if (isFromMe) {
-        // For outbound echo, get recipient from RecipientAlt or Chat
         const recipientAlt = info.RecipientAlt || "";
         const chat = info.Chat || "";
         phone = extractPhone(recipientAlt) || extractPhone(chat);
@@ -100,38 +95,121 @@ Deno.serve(async (req) => {
         return okResponse();
       }
 
-      // If IsFromMe, this is an echo of our sent message — skip saving (already saved on send)
-      // But update the wuzapi_message_id if we can match it
       if (isFromMe) {
         console.log("IsFromMe echo, skipping inbound save");
         return okResponse();
       }
 
-      // Extract message content
       const message = eventData.Message || eventData.RawMessage || {};
+
+      // ---- HANDLE REACTIONS ----
+      if (message.reactionMessage) {
+        const reaction = message.reactionMessage;
+        const emoji = reaction.text || "";
+        const originalMsgId = reaction.key?.id || "";
+
+        console.log("Reaction:", { emoji, originalMsgId, phone });
+
+        if (emoji && originalMsgId) {
+          const { error: reactErr } = await supabase.from("whatsapp_messages").insert({
+            phone,
+            content: emoji,
+            direction: "inbound",
+            message_type: "reaction",
+            reaction_to_id: originalMsgId,
+            status: "received",
+            instance_id: instanceId,
+          });
+
+          if (reactErr) {
+            console.log("Reaction insert error:", reactErr.message);
+          } else {
+            console.log("✅ Reaction saved:", emoji, "→", originalMsgId);
+          }
+        }
+        return okResponse();
+      }
+
+      // ---- DETECT MEDIA TYPE ----
+      const isImage = !!message.imageMessage;
+      const isAudio = !!message.audioMessage;
+      const isVideo = !!message.videoMessage;
+      const isDocument = !!message.documentMessage;
+      const hasMedia = isImage || isAudio || isVideo || isDocument;
+
       const content =
         message.conversation ||
         message.extendedTextMessage?.text ||
         message.imageMessage?.caption ||
         message.documentMessage?.title ||
         message.videoMessage?.caption ||
-        "[Mídia recebida]";
+        (hasMedia ? "[Mídia recebida]" : "[sem conteúdo]");
 
-      const messageType = message.imageMessage ? "image"
-        : message.documentMessage ? "document"
-        : message.audioMessage ? "audio"
-        : message.videoMessage ? "video"
+      const messageType = isImage ? "image"
+        : isDocument ? "document"
+        : isAudio ? "audio"
+        : isVideo ? "video"
         : "text";
 
-      // Extract media URL if available
-      const mediaUrl =
-        message.imageMessage?.url || message.imageMessage?.directPath ||
-        message.audioMessage?.url || message.audioMessage?.directPath ||
-        message.videoMessage?.url || message.videoMessage?.directPath ||
-        message.documentMessage?.url || message.documentMessage?.directPath ||
-        null;
+      // ---- DOWNLOAD MEDIA & UPLOAD TO STORAGE ----
+      let mediaUrl: string | null = null;
 
-      // Find lead by phone
+      if (hasMedia && msgId && instanceToken && WUZAPI_URL) {
+        try {
+          console.log("Downloading media for msgId:", msgId);
+          const downloadResp = await fetch(`${WUZAPI_URL}/chat/downloadmedia`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "token": instanceToken,
+            },
+            body: JSON.stringify({ MessageID: msgId }),
+          });
+
+          if (downloadResp.ok) {
+            const downloadData = await downloadResp.json();
+            const base64Media = downloadData?.data?.Media || downloadData?.Media || null;
+            const mimetype = downloadData?.data?.Mimetype || downloadData?.Mimetype || "application/octet-stream";
+
+            if (base64Media) {
+              const ext = getExtFromMime(mimetype);
+              const storagePath = `${instanceId || "unknown"}/${msgId}.${ext}`;
+
+              // Decode base64 to Uint8Array
+              const binaryStr = atob(base64Media);
+              const bytes = new Uint8Array(binaryStr.length);
+              for (let i = 0; i < binaryStr.length; i++) {
+                bytes[i] = binaryStr.charCodeAt(i);
+              }
+
+              const { error: uploadErr } = await supabase.storage
+                .from("whatsapp-media")
+                .upload(storagePath, bytes, {
+                  contentType: mimetype,
+                  upsert: true,
+                });
+
+              if (uploadErr) {
+                console.log("Storage upload error:", uploadErr.message);
+              } else {
+                const { data: urlData } = supabase.storage
+                  .from("whatsapp-media")
+                  .getPublicUrl(storagePath);
+                mediaUrl = urlData?.publicUrl || null;
+                console.log("✅ Media uploaded:", mediaUrl?.slice(0, 80));
+              }
+            } else {
+              console.log("No base64 media in download response");
+            }
+          } else {
+            console.log("Download media failed:", downloadResp.status, await downloadResp.text().catch(() => ""));
+          }
+        } catch (dlErr) {
+          console.log("Media download error:", dlErr instanceof Error ? dlErr.message : String(dlErr));
+        }
+      }
+
+      // ---- FIND LEAD ----
       const cleanPhone = phone.replace(/^55/, "");
       const lastDigits = cleanPhone.slice(-8);
       const { data: lead } = await supabase
@@ -167,8 +245,6 @@ Deno.serve(async (req) => {
     // ============ RECEIPT / READ RECEIPT EVENTS ============
     if (eventType === "ReadReceipt" || eventType === "Receipt") {
       const messageIds: string[] = eventData.MessageIDs || eventData.ids || (eventData.id ? [eventData.id] : []);
-      
-      // state comes from body.state or eventData.Type
       const rawState = (body.state || eventData.Type || eventType).toLowerCase();
       const newStatus = (rawState === "read" || rawState === "played") ? "read" : "delivered";
 
@@ -201,7 +277,6 @@ Deno.serve(async (req) => {
       console.log("ChatPresence:", state, "phone:", presencePhone);
 
       if (presencePhone && (state === "composing" || state === "paused")) {
-        // Broadcast typing state via Supabase Realtime
         const channel = supabase.channel("whatsapp-typing");
         await channel.send({
           type: "broadcast",
@@ -247,10 +322,28 @@ Deno.serve(async (req) => {
 
 function extractPhone(jidOrAlt: string): string {
   if (!jidOrAlt) return "";
-  // Remove @s.whatsapp.net, @lid, etc.
   const cleaned = jidOrAlt.replace(/@.*$/, "").replace(/[.:].*$/, "");
-  // Only return if it looks like a phone number (digits only, 8+ chars)
   return /^\d{8,}$/.test(cleaned) ? cleaned : "";
+}
+
+function getExtFromMime(mime: string): string {
+  const map: Record<string, string> = {
+    "audio/ogg": "ogg",
+    "audio/ogg; codecs=opus": "ogg",
+    "audio/mpeg": "mp3",
+    "audio/mp4": "m4a",
+    "audio/aac": "aac",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "video/mp4": "mp4",
+    "video/3gpp": "3gp",
+    "application/pdf": "pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  };
+  return map[mime.toLowerCase()] || mime.split("/")[1]?.split(";")[0] || "bin";
 }
 
 function okResponse() {

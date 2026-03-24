@@ -46,6 +46,7 @@ import { EditClassDialog } from '@/components/classes/EditClassDialog';
 import { ClassStudentsList } from '@/components/classes/ClassStudentsList';
 import { ClassCalendarDialog } from '@/components/classes/ClassCalendarDialog';
 import { WEEKDAYS, COURSE_WEEKS, AGE_RANGES } from '@/lib/course-schedule-config';
+import { COURSE_SCHOOL_CONFIG, type CourseSchool } from '@/types/database';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,6 +63,8 @@ interface ClassStatusCounts {
   agendados: number;
   evasao: number;
   trancado: number;
+  ausente: number;
+  rematricula: number;
   total: number;
   presente_total: number;
   aulas_realizadas: number;
@@ -81,7 +84,7 @@ interface Class {
   is_active: boolean;
   created_at: string;
   age_range?: string | null;
-  course?: { name: string; duration_hours: number | null };
+  course?: { name: string; duration_hours: number | null; school?: string };
   teacher?: { full_name: string };
   student_count?: number;
   status_counts?: ClassStatusCounts;
@@ -205,7 +208,7 @@ export default function Classes() {
         .from('classes')
         .select(`
           *,
-          course:courses(name, duration_hours),
+          course:courses(name, duration_hours, school),
           teacher:team_members!classes_teacher_id_fkey(full_name)
         `)
         .order('start_date', { ascending: false });
@@ -241,6 +244,8 @@ export default function Classes() {
             agendados: 0,
             evasao: 0,
             trancado: 0,
+            ausente: 0,
+            rematricula: 0,
             total: enrollments?.length || 0,
             presente_total: presenteTotal,
             aulas_realizadas: uniqueDates.size,
@@ -251,6 +256,8 @@ export default function Classes() {
             else if (e.status === 'ativo') statusCounts.agendados++;
             else if (e.status === 'evasao' || e.status === 'reprovado_faltas') statusCounts.evasao++;
             else if (e.status === 'trancado') statusCounts.trancado++;
+            else if (e.status === 'ausente') statusCounts.ausente++;
+            else if (e.status === 'rematricula') statusCounts.rematricula++;
           });
           
           return { 

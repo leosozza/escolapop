@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const WUZAPI_URL = Deno.env.get("WUZAPI_URL") || "";
+  const WUZAPI_URL = (Deno.env.get("WUZAPI_URL") || "").replace(/\/+$/, "");
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -194,8 +194,10 @@ Deno.serve(async (req) => {
             audio: "/chat/downloadaudio",
             video: "/chat/downloadvideo",
             document: "/chat/downloaddocument",
+            sticker: "/chat/downloadsticker",
           };
-          const endpoint = endpointMap[messageType] || "/chat/downloadimage";
+          const actualType = isSticker ? "sticker" : messageType;
+          const endpoint = endpointMap[actualType] || "/chat/downloadimage";
 
           // Extract media fields from the payload
           const mediaFields = {
@@ -208,17 +210,21 @@ Deno.serve(async (req) => {
             DirectPath: mediaMessage?.directPath || mediaMessage?.DirectPath || "",
           };
 
-          console.log(`Downloading media via ${endpoint}, msgId: ${msgId}, mime: ${mediaFields.Mimetype}`);
+          const fullUrl = `${WUZAPI_URL}${endpoint}`;
+          console.log(`Downloading media via ${fullUrl}, msgId: ${msgId}, mime: ${mediaFields.Mimetype}`);
 
-          const downloadResp = await fetch(`${WUZAPI_URL}${endpoint}`, {
+          const downloadResp = await fetch(fullUrl, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               "token": instanceToken,
             },
             body: JSON.stringify({
-              MessageID: msgId,
-              ...mediaFields,
+              Url: mediaFields.Url,
+              MediaKey: mediaFields.MediaKey,
+              Mimetype: mediaFields.Mimetype,
+              FileSHA256: mediaFields.FileSHA256,
+              FileLength: mediaFields.FileLength,
             }),
           });
 
@@ -261,36 +267,35 @@ Deno.serve(async (req) => {
             const errText = await downloadResp.text().catch(() => "");
             console.log(`Download media failed (${endpoint}):`, downloadResp.status, errText.slice(0, 200));
 
-            // Fallback: try generic /chat/downloadmedia
-            console.log("Trying fallback /chat/downloadmedia...");
-            const fallbackResp = await fetch(`${WUZAPI_URL}/chat/downloadmedia`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "token": instanceToken },
-              body: JSON.stringify({ MessageID: msgId }),
-            });
-            if (fallbackResp.ok) {
-              const fbData = await fallbackResp.json();
-              const fbBase64 = fbData?.data?.Data || fbData?.data?.Media || fbData?.Data || fbData?.Media || null;
-              const fbMime = fbData?.data?.Mimetype || fbData?.Mimetype || mediaFields.Mimetype;
-              if (fbBase64) {
-                const ext = getExtFromMime(fbMime);
-                const storagePath = `${instanceId || "unknown"}/${msgId}.${ext}`;
-                const binaryStr = atob(fbBase64);
-                const bytes = new Uint8Array(binaryStr.length);
-                for (let i = 0; i < binaryStr.length; i++) {
-                  bytes[i] = binaryStr.charCodeAt(i);
+            // Fallback: try direct fetch from WhatsApp CDN URL
+            const directUrl = mediaFields.Url;
+            if (directUrl) {
+              console.log("Trying direct CDN fetch:", directUrl.slice(0, 80));
+              try {
+                const directResp = await fetch(directUrl);
+                if (directResp.ok) {
+                  const blob = await directResp.arrayBuffer();
+                  const bytes = new Uint8Array(blob);
+                  const ext = getExtFromMime(mediaFields.Mimetype);
+                  const storagePath = `${instanceId || "unknown"}/${msgId}.${ext}`;
+                  const { error: uploadErr } = await supabase.storage
+                    .from("whatsapp-media")
+                    .upload(storagePath, bytes, { contentType: mediaFields.Mimetype, upsert: true });
+                  if (!uploadErr) {
+                    const { data: urlData } = supabase.storage.from("whatsapp-media").getPublicUrl(storagePath);
+                    mediaUrl = urlData?.publicUrl || null;
+                    console.log("✅ Media uploaded via direct CDN:", mediaUrl?.slice(0, 80));
+                  } else {
+                    console.log("Direct CDN upload error:", uploadErr.message);
+                  }
+                } else {
+                  console.log("Direct CDN fetch failed:", directResp.status);
                 }
-                const { error: uploadErr } = await supabase.storage
-                  .from("whatsapp-media")
-                  .upload(storagePath, bytes, { contentType: fbMime, upsert: true });
-                if (!uploadErr) {
-                  const { data: urlData } = supabase.storage.from("whatsapp-media").getPublicUrl(storagePath);
-                  mediaUrl = urlData?.publicUrl || null;
-                  console.log("✅ Media uploaded via fallback:", mediaUrl?.slice(0, 80));
-                }
+              } catch (cdnErr) {
+                console.log("Direct CDN error:", cdnErr instanceof Error ? cdnErr.message : String(cdnErr));
               }
             } else {
-              console.log("Fallback downloadmedia also failed:", fallbackResp.status);
+              console.log("No direct URL available for fallback");
             }
           }
         } catch (dlErr) {

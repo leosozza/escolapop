@@ -773,8 +773,8 @@ const WhatsApp = () => {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
                           <p className={cn('text-sm truncate', hasUnread ? 'font-bold text-foreground' : 'font-medium')}>{contact._isVirtual ? formatPhone(contact.phone) : contact.full_name}</p>
                           {contact._isVirtual && (
                             <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-green-100 text-green-700 shrink-0">

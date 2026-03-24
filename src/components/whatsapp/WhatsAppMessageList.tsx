@@ -187,67 +187,7 @@ function groupReactions(emojis: string[]): { emoji: string; count: number }[] {
   return Array.from(map.entries()).map(([emoji, count]) => ({ emoji, count }));
 }
 
-function InlineAudioPlayer({ src, isOutbound }: { src: string; isOutbound: boolean }) {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
-
-  const togglePlay = () => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (isPlaying) {
-      audio.pause();
-    } else {
-      audio.play().catch(() => setIsPlaying(false));
-    }
-    setIsPlaying(!isPlaying);
-  };
-
-  const formatSec = (s: number) => {
-    if (!s || isNaN(s)) return '0:00';
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, '0')}`;
-  };
-
-  return (
-    <div className="flex items-center gap-2 min-w-[200px]">
-      <audio
-        ref={audioRef}
-        src={src}
-        preload="metadata"
-        onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
-        onTimeUpdate={() => {
-          const a = audioRef.current;
-          if (a) {
-            setCurrentTime(a.currentTime);
-            setProgress(a.duration ? (a.currentTime / a.duration) * 100 : 0);
-          }
-        }}
-        onEnded={() => { setIsPlaying(false); setProgress(0); setCurrentTime(0); }}
-        onError={() => setIsPlaying(false)}
-      />
-      <Button
-        variant="ghost"
-        size="icon"
-        className={cn('h-8 w-8 rounded-full shrink-0', isOutbound ? 'text-white hover:bg-green-700' : 'hover:bg-muted-foreground/20')}
-        onClick={togglePlay}
-      >
-        {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-      </Button>
-      <div className="flex-1 flex flex-col gap-1">
-        <div className="h-1 rounded-full bg-background/30 overflow-hidden">
-          <div className="h-full rounded-full bg-current transition-all" style={{ width: `${progress}%` }} />
-        </div>
-        <span className={cn('text-[10px]', isOutbound ? 'text-green-200' : 'text-muted-foreground')}>
-          {isPlaying ? formatSec(currentTime) : formatSec(duration)}
-        </span>
-      </div>
-    </div>
-  );
-}
+// InlineAudioPlayer removed — using WaveSurferPlayer instead
 
 function FormattedText({ text, className }: { text: string; className?: string }) {
   const formatted = text

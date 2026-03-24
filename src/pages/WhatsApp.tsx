@@ -900,7 +900,9 @@ const WhatsApp = () => {
                 <WhatsAppMessageList
                   phone={selectedContact.phone}
                   leadId={selectedContact._isVirtual ? undefined : selectedContact.id}
+                  instanceId={selectedInstanceId}
                   key={`msg-${selectedContact.id}-${refreshKey}`}
+                  onReply={(msg) => setReplyTo(msg)}
                 />
               </div>
               <div className="p-3 bg-background border-t">
@@ -908,8 +910,10 @@ const WhatsApp = () => {
                   phone={selectedContact.phone}
                   leadId={selectedContact._isVirtual ? undefined : selectedContact.id}
                   instanceId={selectedInstanceId}
-                  onMessageSent={() => setRefreshKey(k => k + 1)}
+                  onMessageSent={() => { setRefreshKey(k => k + 1); setReplyTo(null); }}
                   leadName={selectedContact.full_name}
+                  replyTo={replyTo}
+                  onClearReply={() => setReplyTo(null)}
                 />
               </div>
             </div>

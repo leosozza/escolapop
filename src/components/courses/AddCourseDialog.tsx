@@ -31,8 +31,8 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import type { CourseModality } from '@/types/database';
-import { COURSE_MODALITY_CONFIG } from '@/types/database';
+import type { CourseModality, CourseSchool } from '@/types/database';
+import { COURSE_MODALITY_CONFIG, COURSE_SCHOOL_CONFIG } from '@/types/database';
 
 const courseSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),

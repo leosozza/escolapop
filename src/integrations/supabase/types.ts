@@ -640,6 +640,7 @@ export type Database = {
           modality: Database["public"]["Enums"]["course_modality"]
           name: string
           price: number | null
+          school: string | null
           updated_at: string
         }
         Insert: {
@@ -652,6 +653,7 @@ export type Database = {
           modality?: Database["public"]["Enums"]["course_modality"]
           name: string
           price?: number | null
+          school?: string | null
           updated_at?: string
         }
         Update: {
@@ -664,6 +666,7 @@ export type Database = {
           modality?: Database["public"]["Enums"]["course_modality"]
           name?: string
           price?: number | null
+          school?: string | null
           updated_at?: string
         }
         Relationships: []

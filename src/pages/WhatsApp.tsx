@@ -43,7 +43,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 import { AddWhatsAppContactDialog } from '@/components/whatsapp/AddWhatsAppContactDialog';
 import { RegisterLeadDialog } from '@/components/whatsapp/RegisterLeadDialog';
@@ -133,6 +133,7 @@ const ACADEMIC_STATUS_LABELS: Record<string, string> = {
 const WhatsApp = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { phone: phoneParam } = useParams<{ phone?: string }>();
   const [contacts, setContacts] = useState<WhatsAppContact[]>([]);
   const [selectedContact, setSelectedContact] = useState<WhatsAppContact | null>(null);
   const [searchQuery, setSearchQuery] = useState('');

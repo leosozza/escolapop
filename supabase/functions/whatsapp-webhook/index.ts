@@ -256,6 +256,7 @@ Deno.serve(async (req) => {
                 MediaKey: mediaFields.MediaKey,
                 Mimetype: mediaFields.Mimetype,
                 FileSHA256: mediaFields.FileSHA256,
+                FileEncSHA256: mediaFields.FileEncSHA256,
                 FileLength: mediaFields.FileLength,
                 DirectPath: mediaFields.DirectPath,
               }),
@@ -294,9 +295,10 @@ Deno.serve(async (req) => {
               const errText = await downloadResp.text().catch(() => "");
               console.log(`Download media failed (${endpoint}):`, downloadResp.status, errText.slice(0, 200));
 
-              // Fallback: try direct fetch from WhatsApp CDN URL or DirectPath
               const directUrl = mediaFields.Url || (mediaFields.DirectPath ? `https://mmg.whatsapp.net${mediaFields.DirectPath}` : "");
-              if (directUrl) {
+              const looksEncryptedFallback = /(?:\.enc)(?:$|\?)/i.test(directUrl) || /\/v\/t62\./i.test(directUrl);
+
+              if (directUrl && !looksEncryptedFallback) {
                 console.log("Trying direct CDN fetch:", directUrl.slice(0, 80));
                 try {
                   const directResp = await fetch(directUrl);
@@ -321,6 +323,8 @@ Deno.serve(async (req) => {
                 } catch (cdnErr) {
                   console.log("Direct CDN error:", cdnErr instanceof Error ? cdnErr.message : String(cdnErr));
                 }
+              } else if (directUrl) {
+                console.log("Skipping encrypted CDN fallback:", directUrl.slice(0, 80));
               } else {
                 console.log("No direct URL or DirectPath available for fallback");
               }

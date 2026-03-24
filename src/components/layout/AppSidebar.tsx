@@ -137,11 +137,11 @@ export function AppSidebar() {
       <SidebarHeader className="border-b border-sidebar-border px-4 py-6">
         <Link to="/dashboard" className="flex items-center justify-center">
           <img
-            src={logoImg}
+            src={isCollapsed ? faviconImg : logoImg}
             alt="Logo PEP"
             className={cn(
               'object-contain transition-all duration-200',
-              isCollapsed ? 'h-10' : 'h-28'
+              isCollapsed ? 'h-10 w-10' : 'h-28'
             )}
           />
         </Link>

@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { AlertCircle, Check, CheckCheck, Clock, Download, FileIcon, Play } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { AlertCircle, Check, CheckCheck, Clock, Download, FileIcon, Play, FileText, Loader2 } from 'lucide-react';
 import { WaveSurferPlayer } from './WaveSurferPlayer';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -202,6 +202,30 @@ function FormattedText({ text, className }: { text: string; className?: string }
 function MessageContent({ msg, isOutbound }: { msg: Message; isOutbound: boolean }) {
   const type = msg.message_type;
   const hasValidMedia = isValidMediaUrl(msg.media_url);
+  const [transcription, setTranscription] = useState<string | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+
+  const handleTranscribe = useCallback(async () => {
+    if (!msg.media_url || isTranscribing) return;
+    setIsTranscribing(true);
+    try {
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe-audio`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+        body: JSON.stringify({ audioUrl: msg.media_url }),
+      });
+      const data = await resp.json();
+      if (data.transcription) {
+        setTranscription(data.transcription);
+      } else {
+        setTranscription(data.error || 'Falha na transcrição');
+      }
+    } catch {
+      setTranscription('Erro ao transcrever');
+    } finally {
+      setIsTranscribing(false);
+    }
+  }, [msg.media_url, isTranscribing]);
 
   if (type === 'audio') {
     if (hasValidMedia) {
@@ -210,6 +234,24 @@ function MessageContent({ msg, isOutbound }: { msg: Message; isOutbound: boolean
           <WaveSurferPlayer src={msg.media_url!} isOutbound={isOutbound} />
           {msg.content && msg.content !== '[Mídia recebida]' && msg.content !== '🎤 Áudio' && (
             <p className="whitespace-pre-wrap break-words mt-1 text-xs opacity-80">{msg.content}</p>
+          )}
+          {!transcription && (
+            <button
+              onClick={handleTranscribe}
+              disabled={isTranscribing}
+              className={cn(
+                'flex items-center gap-1 mt-1 text-[10px] opacity-70 hover:opacity-100 transition-opacity',
+                isOutbound ? 'text-green-200' : 'text-muted-foreground'
+              )}
+            >
+              {isTranscribing ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
+              {isTranscribing ? 'Transcrevendo...' : 'Transcrever'}
+            </button>
+          )}
+          {transcription && (
+            <p className={cn('mt-1 text-xs italic whitespace-pre-wrap break-words', isOutbound ? 'text-green-200' : 'text-muted-foreground')}>
+              📝 {transcription}
+            </p>
           )}
         </div>
       );

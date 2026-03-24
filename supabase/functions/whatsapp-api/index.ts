@@ -624,10 +624,13 @@ Deno.serve(async (req) => {
         const imgPhone = phone.replace(/\D/g, "");
         const imgPhoneNumber = imgPhone.startsWith("55") ? imgPhone : `55${imgPhone}`;
 
-        const imgBase64Clean = image.replace(/^data:[^,]+,/, "");
+        // WuzAPI expects Image with data URI prefix
+        const imageWithPrefix = image.startsWith("data:")
+          ? image
+          : `data:image/png;base64,${image}`;
         const res = await instanceFetch(inst.wuzapi_token, "/chat/send/image", {
           method: "POST",
-          body: JSON.stringify({ Phone: imgPhoneNumber, Image: imgBase64Clean, Caption: caption || "" }),
+          body: JSON.stringify({ Phone: imgPhoneNumber, Image: imageWithPrefix, Caption: caption || "" }),
         });
 
         const wuzapiMsgId = res.data?.data?.MessageID || res.data?.data?.Id || null;

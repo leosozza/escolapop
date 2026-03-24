@@ -48,7 +48,7 @@ import { useNavigate } from 'react-router-dom';
 import { AddWhatsAppContactDialog } from '@/components/whatsapp/AddWhatsAppContactDialog';
 import { RegisterLeadDialog } from '@/components/whatsapp/RegisterLeadDialog';
 import { RegisterSiblingDialog } from '@/components/whatsapp/RegisterSiblingDialog';
-import { WhatsAppMessageList } from '@/components/whatsapp/WhatsAppMessageList';
+import { WhatsAppMessageList, ReplyToMessage } from '@/components/whatsapp/WhatsAppMessageList';
 import { WhatsAppChatInput } from '@/components/whatsapp/WhatsAppChatInput';
 import { WhatsAppStatusIndicator } from '@/components/whatsapp/WhatsAppStatusIndicator';
 import { AddEnrollmentDialog } from '@/components/students/AddEnrollmentDialog';
@@ -160,6 +160,7 @@ const WhatsApp = () => {
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notes, setNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [replyTo, setReplyTo] = useState<ReplyToMessage | null>(null);
 
   // Read tracking via localStorage
   const getReadTimestamps = (): Record<string, string> => {

@@ -38,6 +38,7 @@ const courseSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   description: z.string().optional(),
   modality: z.string(),
+  school: z.string(),
   duration_hours: z.string().optional(),
   price: z.string().optional(),
   is_active: z.boolean(),
@@ -62,6 +63,7 @@ export function EditCourseDialog({ open, onOpenChange, course, onSuccess }: Edit
       name: course.name,
       description: course.description || '',
       modality: course.modality,
+      school: (course as any).school || 'escola_de_modelo',
       duration_hours: course.duration_hours?.toString() || '',
       price: course.price?.toString() || '',
       is_active: course.is_active,
@@ -73,6 +75,7 @@ export function EditCourseDialog({ open, onOpenChange, course, onSuccess }: Edit
       name: course.name,
       description: course.description || '',
       modality: course.modality,
+      school: (course as any).school || 'escola_de_modelo',
       duration_hours: course.duration_hours?.toString() || '',
       price: course.price?.toString() || '',
       is_active: course.is_active,
@@ -88,10 +91,11 @@ export function EditCourseDialog({ open, onOpenChange, course, onSuccess }: Edit
           name: data.name,
           description: data.description || null,
           modality: data.modality as CourseModality,
+          school: data.school as CourseSchool,
           duration_hours: data.duration_hours ? parseInt(data.duration_hours) : null,
           price: data.price ? parseFloat(data.price.replace(',', '.')) : null,
           is_active: data.is_active,
-        })
+        } as any)
         .eq('id', course.id);
 
       if (error) throw error;
@@ -154,6 +158,31 @@ export function EditCourseDialog({ open, onOpenChange, course, onSuccess }: Edit
                       {...field} 
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="school"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Escola</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {Object.entries(COURSE_SCHOOL_CONFIG).map(([key, config]) => (
+                        <SelectItem key={key} value={key}>
+                          {config.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

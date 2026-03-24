@@ -180,7 +180,7 @@ Deno.serve(async (req) => {
       // ---- DOWNLOAD MEDIA & UPLOAD TO STORAGE ----
       let mediaUrl: string | null = null;
 
-      if (hasMedia && msgId && instanceToken && WUZAPI_URL) {
+      if (hasMedia && msgId && instanceId) {
         try {
           // Determine correct endpoint and extract media metadata
           const mediaMessage = isImage ? message.imageMessage
@@ -188,6 +188,8 @@ Deno.serve(async (req) => {
             : isAudio ? message.audioMessage
             : isVideo ? message.videoMessage
             : message.documentMessage;
+
+          console.log("mediaMessage fields:", JSON.stringify(mediaMessage));
 
           const endpointMap: Record<string, string> = {
             image: "/chat/downloadimage",
@@ -210,94 +212,121 @@ Deno.serve(async (req) => {
             DirectPath: mediaMessage?.directPath || mediaMessage?.DirectPath || "",
           };
 
-          const fullUrl = `${WUZAPI_URL}${endpoint}`;
-          console.log(`Downloading media via ${fullUrl}, msgId: ${msgId}, mime: ${mediaFields.Mimetype}`);
+          // ---- CHECK FOR EMBEDDED BASE64 MEDIA FIRST ----
+          const embeddedBase64 = mediaMessage?.Data || mediaMessage?.Media
+            || eventData?.Data || eventData?.Media || null;
 
-          const downloadResp = await fetch(fullUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "token": instanceToken,
-            },
-            body: JSON.stringify({
-              MessageID: msgId,
-              Url: mediaFields.Url,
-              MediaKey: mediaFields.MediaKey,
-              Mimetype: mediaFields.Mimetype,
-              FileSHA256: mediaFields.FileSHA256,
-              FileLength: mediaFields.FileLength,
-            }),
-          });
+          if (embeddedBase64 && typeof embeddedBase64 === "string" && embeddedBase64.length > 100) {
+            console.log("Found embedded base64 media, length:", embeddedBase64.length);
+            const mimetype = mediaFields.Mimetype;
+            const ext = getExtFromMime(mimetype);
+            const storagePath = `${instanceId}/${msgId}.${ext}`;
 
-          if (downloadResp.ok) {
-            const downloadData = await downloadResp.json();
-            const base64Media = downloadData?.data?.Data || downloadData?.data?.Media || downloadData?.Data || downloadData?.Media || null;
-            const mimetype = downloadData?.data?.Mimetype || downloadData?.Mimetype || mediaFields.Mimetype;
+            const binaryStr = atob(embeddedBase64);
+            const bytes = new Uint8Array(binaryStr.length);
+            for (let i = 0; i < binaryStr.length; i++) {
+              bytes[i] = binaryStr.charCodeAt(i);
+            }
 
-            if (base64Media) {
-              const ext = getExtFromMime(mimetype);
-              const storagePath = `${instanceId || "unknown"}/${msgId}.${ext}`;
+            const { error: uploadErr } = await supabase.storage
+              .from("whatsapp-media")
+              .upload(storagePath, bytes, { contentType: mimetype, upsert: true });
 
-              // Decode base64 to Uint8Array
-              const binaryStr = atob(base64Media);
-              const bytes = new Uint8Array(binaryStr.length);
-              for (let i = 0; i < binaryStr.length; i++) {
-                bytes[i] = binaryStr.charCodeAt(i);
-              }
+            if (uploadErr) {
+              console.log("Embedded media upload error:", uploadErr.message);
+            } else {
+              const { data: urlData } = supabase.storage.from("whatsapp-media").getPublicUrl(storagePath);
+              mediaUrl = urlData?.publicUrl || null;
+              console.log("✅ Embedded media uploaded:", mediaUrl?.slice(0, 80));
+            }
+          } else if (instanceToken && WUZAPI_URL) {
+            // ---- DOWNLOAD VIA WUZAPI ENDPOINT ----
+            const fullUrl = `${WUZAPI_URL}${endpoint}`;
+            console.log(`Downloading media via ${fullUrl}, msgId: ${msgId}, mime: ${mediaFields.Mimetype}`);
 
-              const { error: uploadErr } = await supabase.storage
-                .from("whatsapp-media")
-                .upload(storagePath, bytes, {
-                  contentType: mimetype,
-                  upsert: true,
-                });
+            const downloadResp = await fetch(fullUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "token": instanceToken,
+              },
+              body: JSON.stringify({
+                MessageID: msgId,
+                Url: mediaFields.Url,
+                MediaKey: mediaFields.MediaKey,
+                Mimetype: mediaFields.Mimetype,
+                FileSHA256: mediaFields.FileSHA256,
+                FileLength: mediaFields.FileLength,
+                DirectPath: mediaFields.DirectPath,
+              }),
+            });
 
-              if (uploadErr) {
-                console.log("Storage upload error:", uploadErr.message);
-              } else {
-                const { data: urlData } = supabase.storage
+            if (downloadResp.ok) {
+              const downloadData = await downloadResp.json();
+              const base64Media = downloadData?.data?.Data || downloadData?.data?.Media || downloadData?.Data || downloadData?.Media || null;
+              const mimetype = downloadData?.data?.Mimetype || downloadData?.Mimetype || mediaFields.Mimetype;
+
+              if (base64Media) {
+                const ext = getExtFromMime(mimetype);
+                const storagePath = `${instanceId}/${msgId}.${ext}`;
+
+                const binaryStr = atob(base64Media);
+                const bytes = new Uint8Array(binaryStr.length);
+                for (let i = 0; i < binaryStr.length; i++) {
+                  bytes[i] = binaryStr.charCodeAt(i);
+                }
+
+                const { error: uploadErr } = await supabase.storage
                   .from("whatsapp-media")
-                  .getPublicUrl(storagePath);
-                mediaUrl = urlData?.publicUrl || null;
-                console.log("✅ Media uploaded:", mediaUrl?.slice(0, 80));
+                  .upload(storagePath, bytes, { contentType: mimetype, upsert: true });
+
+                if (uploadErr) {
+                  console.log("Storage upload error:", uploadErr.message);
+                } else {
+                  const { data: urlData } = supabase.storage.from("whatsapp-media").getPublicUrl(storagePath);
+                  mediaUrl = urlData?.publicUrl || null;
+                  console.log("✅ Media uploaded:", mediaUrl?.slice(0, 80));
+                }
+              } else {
+                console.log("No base64 media in download response, keys:", Object.keys(downloadData?.data || downloadData || {}));
               }
             } else {
-              console.log("No base64 media in download response, keys:", Object.keys(downloadData?.data || downloadData || {}));
+              const errText = await downloadResp.text().catch(() => "");
+              console.log(`Download media failed (${endpoint}):`, downloadResp.status, errText.slice(0, 200));
+
+              // Fallback: try direct fetch from WhatsApp CDN URL or DirectPath
+              const directUrl = mediaFields.Url || (mediaFields.DirectPath ? `https://mmg.whatsapp.net${mediaFields.DirectPath}` : "");
+              if (directUrl) {
+                console.log("Trying direct CDN fetch:", directUrl.slice(0, 80));
+                try {
+                  const directResp = await fetch(directUrl);
+                  if (directResp.ok) {
+                    const blob = await directResp.arrayBuffer();
+                    const bytes = new Uint8Array(blob);
+                    const ext = getExtFromMime(mediaFields.Mimetype);
+                    const storagePath = `${instanceId}/${msgId}.${ext}`;
+                    const { error: uploadErr } = await supabase.storage
+                      .from("whatsapp-media")
+                      .upload(storagePath, bytes, { contentType: mediaFields.Mimetype, upsert: true });
+                    if (!uploadErr) {
+                      const { data: urlData } = supabase.storage.from("whatsapp-media").getPublicUrl(storagePath);
+                      mediaUrl = urlData?.publicUrl || null;
+                      console.log("✅ Media uploaded via direct CDN:", mediaUrl?.slice(0, 80));
+                    } else {
+                      console.log("Direct CDN upload error:", uploadErr.message);
+                    }
+                  } else {
+                    console.log("Direct CDN fetch failed:", directResp.status);
+                  }
+                } catch (cdnErr) {
+                  console.log("Direct CDN error:", cdnErr instanceof Error ? cdnErr.message : String(cdnErr));
+                }
+              } else {
+                console.log("No direct URL or DirectPath available for fallback");
+              }
             }
           } else {
-            const errText = await downloadResp.text().catch(() => "");
-            console.log(`Download media failed (${endpoint}):`, downloadResp.status, errText.slice(0, 200));
-
-            // Fallback: try direct fetch from WhatsApp CDN URL
-            const directUrl = mediaFields.Url;
-            if (directUrl) {
-              console.log("Trying direct CDN fetch:", directUrl.slice(0, 80));
-              try {
-                const directResp = await fetch(directUrl);
-                if (directResp.ok) {
-                  const blob = await directResp.arrayBuffer();
-                  const bytes = new Uint8Array(blob);
-                  const ext = getExtFromMime(mediaFields.Mimetype);
-                  const storagePath = `${instanceId || "unknown"}/${msgId}.${ext}`;
-                  const { error: uploadErr } = await supabase.storage
-                    .from("whatsapp-media")
-                    .upload(storagePath, bytes, { contentType: mediaFields.Mimetype, upsert: true });
-                  if (!uploadErr) {
-                    const { data: urlData } = supabase.storage.from("whatsapp-media").getPublicUrl(storagePath);
-                    mediaUrl = urlData?.publicUrl || null;
-                    console.log("✅ Media uploaded via direct CDN:", mediaUrl?.slice(0, 80));
-                  } else {
-                    console.log("Direct CDN upload error:", uploadErr.message);
-                  }
-                } else {
-                  console.log("Direct CDN fetch failed:", directResp.status);
-                }
-              } catch (cdnErr) {
-                console.log("Direct CDN error:", cdnErr instanceof Error ? cdnErr.message : String(cdnErr));
-              }
-            } else {
-              console.log("No direct URL available for fallback");
-            }
+            console.log("No instanceToken or WUZAPI_URL, cannot download media");
           }
         } catch (dlErr) {
           console.log("Media download error:", dlErr instanceof Error ? dlErr.message : String(dlErr));

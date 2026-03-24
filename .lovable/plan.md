@@ -1,60 +1,78 @@
 
 
-# Plano: Faixa Etária, Dia/Horário e Filtros nas Turmas
+# Plano: Corrigir Áudio, Imagens, Vídeos e Reações no WhatsApp
 
-## Resumo
+## Problemas identificados
 
-Adicionar `age_range` à tabela `classes` para categorizar turmas por faixa etária. Exibir dia da semana e horário de forma mais clara. Melhorar os selects de turma em todos os dialogs de matrícula com filtros (faixa etária, dia, horário). Garantir que turmas só são criadas na página Turmas.
+1. **Áudio/Imagem/Vídeo não reproduz**: O webhook salva `directPath` do WuzAPI (caminho relativo como `/v/t62.7114-24/...`) que não é uma URL válida para o navegador. O `<audio>`, `<img>` e `<video>` precisam de URLs completas.
 
-## 1. Migração SQL — coluna `age_range`
+2. **Reações com emoji não aparecem**: WuzAPI envia reações como `Message` com `reactionMessage` no payload. O webhook não trata isso — salva como "[Mídia recebida]".
 
-```sql
-ALTER TABLE public.classes ADD COLUMN age_range text DEFAULT 'todas';
-```
+## Solução
 
-Valores possíveis: `'4_a_7'`, `'8_a_12'`, `'13_mais'`, `'todas'`
+### 1. Webhook — Download de mídia e upload para Storage
 
-## 2. Página Turmas (`Classes.tsx`) — Filtros e exibição
+No `whatsapp-webhook/index.ts`, quando uma mensagem de mídia chega:
+- Usar o endpoint WuzAPI `/chat/downloadmedia` (passando o message ID) para obter o arquivo em base64
+- Fazer upload para Supabase Storage (bucket `whatsapp-media`)
+- Salvar a URL pública do Storage como `media_url`
+- Para isso, o webhook precisa buscar o `wuzapi_token` da instância resolvida
 
-- Adicionar filtros no topo: **faixa etária**, **dia da semana**, **horário**
-- Exibir badge de faixa etária nos cards/lista de turmas
-- Filtrar `filteredClasses` com base nos novos filtros
+### 2. Webhook — Tratar reações (emoji)
 
-## 3. `AddClassDialog.tsx` e `EditClassDialog.tsx` — Campo faixa etária
+- Detectar `message.reactionMessage` no payload
+- Salvar como `message_type: 'reaction'` com o emoji no `content`
+- Incluir referência à mensagem reagida via `reactionMessage.key.id`
 
-- Adicionar campo `age_range` (Select) com opções: "4 a 7 anos", "8 a 12 anos", "13+ anos", "Todas as idades"
-- Salvar na coluna `age_range` ao criar/editar
+### 3. Frontend — Exibir reações
 
-## 4. `AddEnrollmentDialog.tsx` — Filtros na seleção de turma
+- No `WhatsAppMessageList.tsx`, agrupar reações com a mensagem original
+- Mostrar emoji abaixo do balão da mensagem reagida (estilo WhatsApp)
 
-Atualmente o select de turma mostra apenas nome + sala + horário. Melhorar para:
-- Adicionar filtros inline acima do select: **faixa etária**, **dia da semana**
-- Buscar turmas com os campos `age_range` e `schedule` para filtragem
-- Exibir no select: nome + dia + horário + faixa etária + sala
-- Aplicar nos dois forms (novo aluno e lead existente)
+### 4. Migração — Bucket de Storage
 
-## 5. WhatsApp.tsx, StudentProfile.tsx, Students.tsx — Consistência
-
-Todos usam `AddEnrollmentDialog` com as mesmas props. Não criam turmas, apenas selecionam turmas existentes. As melhorias no `AddEnrollmentDialog` se propagam automaticamente.
+- Criar bucket `whatsapp-media` no Supabase Storage com política pública de leitura
 
 ## Arquivos a modificar
 
 | Arquivo | Ação |
 |---------|------|
-| **migração SQL** | Adicionar coluna `age_range` na tabela `classes` |
-| `src/components/classes/AddClassDialog.tsx` | Adicionar campo faixa etária |
-| `src/components/classes/EditClassDialog.tsx` | Adicionar campo faixa etária |
-| `src/pages/Classes.tsx` | Filtros de faixa etária, dia, horário; badge nos cards |
-| `src/components/students/AddEnrollmentDialog.tsx` | Filtros inline na seleção de turma (faixa etária, dia) |
+| **migração SQL** | Criar bucket `whatsapp-media` + políticas de storage |
+| `supabase/functions/whatsapp-webhook/index.ts` | Download de mídia via WuzAPI, upload para Storage, tratar reações |
+| `src/components/whatsapp/WhatsAppMessageList.tsx` | Exibir reações agrupadas nas mensagens; fallback para player nativo de áudio |
 
-## Constantes reutilizáveis (em `course-schedule-config.ts`)
+## Fluxo de mídia corrigido
 
-```typescript
-export const AGE_RANGES = [
-  { id: 'todas', label: 'Todas as idades' },
-  { id: '4_a_7', label: '4 a 7 anos' },
-  { id: '8_a_12', label: '8 a 12 anos' },
-  { id: '13_mais', label: '13+ anos' },
-] as const;
+```text
+WuzAPI Webhook → detecta mídia → busca token da instância
+→ chama /chat/downloadmedia com msgId
+→ recebe base64 → upload para Supabase Storage
+→ salva URL pública em media_url
+→ frontend renderiza normalmente com URL válida
 ```
+
+## Detalhes técnicos
+
+**Download de mídia (WuzAPI):**
+```
+POST /chat/downloadmedia
+Headers: { token: <instance_token> }
+Body: { MessageID: "<msg_id>" }
+Response: { data: { Media: "base64...", Mimetype: "audio/ogg", ... } }
+```
+
+**Reações (payload WuzAPI):**
+```json
+{
+  "reactionMessage": {
+    "key": { "id": "<original_msg_id>" },
+    "text": "👍"
+  }
+}
+```
+
+**Storage bucket:**
+- Nome: `whatsapp-media`
+- Estrutura: `whatsapp-media/{instance_id}/{msg_id}.{ext}`
+- Política: leitura pública para staff autenticado
 

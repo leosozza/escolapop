@@ -3,7 +3,7 @@ import {
   MessageCircle,
   Search,
   Plus,
-  Info,
+  CircleEllipsis,
   X,
   Users,
   User,
@@ -887,7 +887,7 @@ const WhatsApp = () => {
                 onClick={() => setShowInfoPanel(!showInfoPanel)}
                 title="Info do contato"
               >
-                <Info className="h-4 w-4" />
+                <CircleEllipsis className="h-4 w-4" />
               </Button>
             </div>
           </div>

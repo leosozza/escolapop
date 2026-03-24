@@ -136,21 +136,22 @@ export function AppSidebar() {
       {/* Logo */}
       <SidebarHeader className="border-b border-sidebar-border px-4 py-6">
         <Link to="/dashboard" className="flex items-center justify-center overflow-hidden">
-          {isCollapsed ? (
-            <img
-              key="favicon"
-              src={faviconImg}
-              alt="Logo PEP"
-              className="h-10 w-10 object-contain animate-spin-in"
-            />
-          ) : (
-            <img
-              key="logo"
-              src={logoImg}
-              alt="Logo PEP"
-              className="h-28 object-contain animate-spin-in"
-            />
-          )}
+          <img
+            src={faviconImg}
+            alt="Logo PEP"
+            className={cn(
+              "h-10 w-10 object-contain transition-all duration-300",
+              isCollapsed ? "opacity-100 scale-100 animate-spin-in" : "opacity-0 scale-0 absolute w-0 h-0"
+            )}
+          />
+          <img
+            src={logoImg}
+            alt="Logo PEP"
+            className={cn(
+              "h-28 object-contain transition-all duration-300",
+              isCollapsed ? "opacity-0 scale-0 absolute w-0 h-0" : "opacity-100 scale-100 animate-fade-scale-in"
+            )}
+          />
         </Link>
       </SidebarHeader>
 

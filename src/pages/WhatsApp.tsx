@@ -754,7 +754,7 @@ const WhatsApp = () => {
                   <div
                     key={contact.id}
                     className={cn(
-                      'flex items-start gap-3 px-3 py-2.5 cursor-pointer transition-colors hover:bg-muted/50 rounded-lg mx-1',
+                      'flex items-start gap-3 px-3 py-3 cursor-pointer transition-colors hover:bg-muted/50 rounded-lg mx-1',
                       selectedContact?.id === contact.id && 'bg-muted'
                     )}
                     onClick={() => setSelectedContact(contact)}

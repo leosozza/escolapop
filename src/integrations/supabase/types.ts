@@ -1899,6 +1899,7 @@ export type Database = {
           media_url: string | null
           message_type: string
           phone: string
+          reaction_to_id: string | null
           status: string | null
           wuzapi_message_id: string | null
         }
@@ -1913,6 +1914,7 @@ export type Database = {
           media_url?: string | null
           message_type?: string
           phone: string
+          reaction_to_id?: string | null
           status?: string | null
           wuzapi_message_id?: string | null
         }
@@ -1927,6 +1929,7 @@ export type Database = {
           media_url?: string | null
           message_type?: string
           phone?: string
+          reaction_to_id?: string | null
           status?: string | null
           wuzapi_message_id?: string | null
         }

@@ -428,48 +428,83 @@ const WhatsApp = () => {
     { key: 'turmas', label: 'Turmas', icon: Users },
   ];
 
-  const filteredContacts = contacts.filter(c => {
-    const hasConv = !!(c as any)._hasConversation;
-    const hasNewInbound = !!(c as any)._hasNewInbound;
-    const enrollStatuses = enrollmentStatusMap[c.id] || [];
+  // Real-time timer tick (every 60s)
+  const [nowTick, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => setNowTick(Date.now()), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
-    // Apply tab filter first
-    if (activeFilter !== 'todas') {
-      switch (activeFilter) {
-        case 'novas':
-          if (!hasNewInbound) return false;
-          break;
-        case 'matriculados':
-          if (c.status !== 'matriculado' && !enrollStatuses.some(s => ['matriculado', 'em_curso', 'ativo'].includes(s))) return false;
-          break;
-        case 'alerta':
-          if (!['lead', 'em_atendimento'].includes(c.status)) return false;
-          break;
-        case 'nao_matriculado':
-          if (c.status !== 'perdido') return false;
-          break;
-        case 'concluido':
-          if (!enrollStatuses.some(s => ['concluido', 'formado'].includes(s))) return false;
-          break;
-        case 'turmas':
-          if (!enrollStatuses.length) return false;
-          break;
+  const filteredContacts = useMemo(() => {
+    let result = contacts.filter(c => {
+      const hasConv = !!(c as any)._hasConversation;
+      const hasNewInbound = !!(c as any)._hasNewInbound;
+      const enrollStatuses = enrollmentStatusMap[c.id] || [];
+
+      // Apply tab filter first
+      if (activeFilter !== 'todas') {
+        switch (activeFilter) {
+          case 'novas':
+            if (!hasNewInbound) return false;
+            break;
+          case 'matriculados':
+            if (c.status !== 'matriculado' && !enrollStatuses.some(s => ['matriculado', 'em_curso', 'ativo'].includes(s))) return false;
+            break;
+          case 'alerta':
+            if (!['lead', 'em_atendimento'].includes(c.status)) return false;
+            break;
+          case 'nao_matriculado':
+            if (c.status !== 'perdido') return false;
+            break;
+          case 'concluido':
+            if (!enrollStatuses.some(s => ['concluido', 'formado'].includes(s))) return false;
+            break;
+          case 'turmas':
+            if (!enrollStatuses.length) return false;
+            break;
+        }
+      } else {
+        if (!showAllContacts && !searchQuery && !hasConv) return false;
       }
-    } else {
-      if (!showAllContacts && !searchQuery && !hasConv) return false;
+
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        return (
+          c.full_name.toLowerCase().includes(q) ||
+          c.phone.includes(q) ||
+          c.guardian_name?.toLowerCase().includes(q) ||
+          c.external_id?.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+
+    // If searching by phone number and no results found, create virtual contact
+    const cleanSearch = searchQuery.replace(/\D/g, '');
+    if (result.length === 0 && cleanSearch.length >= 8) {
+      result = [{
+        id: `search-${cleanSearch}`,
+        full_name: cleanSearch,
+        guardian_name: null,
+        phone: cleanSearch,
+        email: null,
+        source: 'whatsapp' as any,
+        status: 'lead' as LeadStatus,
+        external_id: null,
+        external_source: null,
+        notes: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        assigned_agent_id: null,
+        last_message: null,
+        last_message_at: null,
+        unread_count: 0,
+        _isVirtual: true,
+      }];
     }
 
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      return (
-        c.full_name.toLowerCase().includes(q) ||
-        c.phone.includes(q) ||
-        c.guardian_name?.toLowerCase().includes(q) ||
-        c.external_id?.toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+    return result;
+  }, [contacts, activeFilter, searchQuery, showAllContacts, enrollmentStatusMap]);
 
   const handleStatusChange = async (contactId: string, newStatus: LeadStatus) => {
     try {

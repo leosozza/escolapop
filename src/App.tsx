@@ -146,6 +146,14 @@ const App = () => (
               }
             />
             <Route
+              path="/whatsapp/:phone"
+              element={
+                <AppLayout>
+                  <WhatsApp />
+                </AppLayout>
+              }
+            />
+            <Route
               path="/classes"
               element={
                 <AppLayout>

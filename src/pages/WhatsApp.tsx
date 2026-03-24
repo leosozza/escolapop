@@ -43,7 +43,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 import { AddWhatsAppContactDialog } from '@/components/whatsapp/AddWhatsAppContactDialog';
 import { RegisterLeadDialog } from '@/components/whatsapp/RegisterLeadDialog';
@@ -133,6 +133,7 @@ const ACADEMIC_STATUS_LABELS: Record<string, string> = {
 const WhatsApp = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { phone: phoneParam } = useParams<{ phone?: string }>();
   const [contacts, setContacts] = useState<WhatsAppContact[]>([]);
   const [selectedContact, setSelectedContact] = useState<WhatsAppContact | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -196,10 +197,53 @@ const WhatsApp = () => {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
+  // Auto-select contact from URL param
+  useEffect(() => {
+    if (!phoneParam || contacts.length === 0) return;
+    // Already selected the right contact
+    if (selectedContact) {
+      const currentClean = selectedContact.phone.replace(/\D/g, '');
+      if (currentClean === phoneParam || currentClean.endsWith(phoneParam) || phoneParam.endsWith(currentClean)) return;
+    }
+    // Find matching contact
+    const match = contacts.find(c => {
+      const cp = c.phone.replace(/\D/g, '');
+      return cp === phoneParam || cp.endsWith(phoneParam) || phoneParam.endsWith(cp);
+    });
+    if (match) {
+      setSelectedContact(match);
+      setReplyTo(null);
+    } else {
+      // Create virtual contact from phone param
+      setSelectedContact({
+        id: `url-${phoneParam}`,
+        full_name: phoneParam,
+        guardian_name: null,
+        phone: phoneParam,
+        email: null,
+        source: 'whatsapp' as any,
+        status: 'lead' as LeadStatus,
+        external_id: null,
+        external_source: null,
+        notes: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        assigned_agent_id: null,
+        last_message: null,
+        last_message_at: null,
+        unread_count: 0,
+        _isVirtual: true,
+      });
+      setReplyTo(null);
+    }
+  }, [phoneParam, contacts]);
+
   // Re-fetch contacts when instance changes
   useEffect(() => {
     if (selectedInstanceId) {
       fetchContacts();
+      navigate('/whatsapp', { replace: true });
+      setSelectedContact(null);
     }
   }, [selectedInstanceId]);
 
@@ -771,7 +815,12 @@ const WhatsApp = () => {
                       'flex items-start gap-3 px-3 py-3 cursor-pointer transition-colors hover:bg-muted/50 rounded-lg mx-1',
                       selectedContact?.id === contact.id && 'bg-muted'
                     )}
-                    onClick={() => { setSelectedContact(contact); setReplyTo(null); }}
+                    onClick={() => { 
+                      setSelectedContact(contact); 
+                      setReplyTo(null);
+                      const cleanPhone = contact.phone.replace(/\D/g, '');
+                      navigate(`/whatsapp/${cleanPhone}`, { replace: true });
+                    }}
                   >
                     <div className="relative shrink-0 mt-0.5">
                       <div className={cn('h-10 w-10 rounded-full flex items-center justify-center text-white', avatarBg)}>

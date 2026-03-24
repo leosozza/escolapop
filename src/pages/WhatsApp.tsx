@@ -801,7 +801,7 @@ const WhatsApp = () => {
                         </div>
                       </div>
                       {!contact._isVirtual && contact.guardian_name && (
-                        <p className="text-[10px] text-muted-foreground truncate">Resp: {contact.guardian_name}</p>
+                        <p className="text-[10px] text-muted-foreground truncate -mt-0.5">Resp: {contact.guardian_name}</p>
                       )}
                       <p className={cn('text-xs mt-0.5 line-clamp-2', hasUnread ? 'text-foreground font-medium' : 'text-muted-foreground')}>
                         {contact.last_message || contact.phone}

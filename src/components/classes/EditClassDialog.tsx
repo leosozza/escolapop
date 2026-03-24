@@ -58,27 +58,38 @@ interface EditClassDialogProps {
 export function EditClassDialog({ open, onOpenChange, onSuccess, classData }: EditClassDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Parse existing schedule
-  const existingScheduleDay = classData.schedule ? Object.keys(classData.schedule)[0] || '' : '';
-  const existingScheduleTimeRaw = classData.schedule ? Object.values(classData.schedule)[0] || '' : '';
-  const existingScheduleTime = existingScheduleTimeRaw.split(' - ')[0] || '';
-
-  // Find room ID from name
-  const roomId = ROOMS.find(r => r.name === classData.room)?.id || classData.room || '';
-
   const form = useForm<ClassFormValues>({
     resolver: zodResolver(classSchema),
     defaultValues: {
-      name: classData.name,
-      course_id: classData.course_id,
-      room: roomId,
-      start_date: new Date(classData.start_date),
-      teacher_id: classData.teacher_id || undefined,
-      schedule_day: existingScheduleDay,
-      schedule_time: existingScheduleTime,
-      age_range: (classData as any).age_range || 'todas',
+      name: '',
+      course_id: '',
+      room: '',
+      schedule_day: '',
+      schedule_time: '',
+      age_range: 'todas',
     },
   });
+
+  // Reset form when classData or open changes
+  useEffect(() => {
+    if (open && classData) {
+      const scheduleDay = classData.schedule ? Object.keys(classData.schedule)[0] || '' : '';
+      const scheduleTimeRaw = classData.schedule ? Object.values(classData.schedule)[0] || '' : '';
+      const scheduleTime = scheduleTimeRaw.split(' - ')[0] || '';
+      const roomId = ROOMS.find(r => r.name === classData.room)?.id || classData.room || '';
+
+      form.reset({
+        name: classData.name,
+        course_id: classData.course_id,
+        room: roomId,
+        start_date: new Date(classData.start_date),
+        teacher_id: classData.teacher_id || undefined,
+        schedule_day: scheduleDay,
+        schedule_time: scheduleTime,
+        age_range: classData.age_range || 'todas',
+      });
+    }
+  }, [open, classData, form]);
 
   const selectedCourseId = form.watch('course_id');
   const selectedTime = form.watch('schedule_time');
@@ -119,6 +130,28 @@ export function EditClassDialog({ open, onOpenChange, onSuccess, classData }: Ed
     }
   }, [selectedCourseId, selectedTime, availableHours, form]);
 
+  const checkConflict = async (roomName: string, day: string, time: string, newStart: Date, newEnd: Date | null) => {
+    const { data: existing } = await supabase
+      .from('classes')
+      .select('id, name, schedule, start_date, end_date')
+      .eq('room', roomName)
+      .eq('is_active', true)
+      .neq('id', classData.id);
+
+    if (!existing) return null;
+    const timeRange = formatTimeRange(time, courseDuration);
+    for (const cls of existing) {
+      const sch = cls.schedule as Record<string, string> | null;
+      if (!sch || !sch[day]) continue;
+      if (sch[day] !== timeRange) continue;
+      const eStart = new Date(cls.start_date);
+      const eEnd = cls.end_date ? new Date(cls.end_date) : addWeeks(eStart, COURSE_WEEKS - 1);
+      const nEnd = newEnd || addWeeks(newStart, COURSE_WEEKS - 1);
+      if (eStart <= nEnd && eEnd >= newStart) return cls.name;
+    }
+    return null;
+  };
+
   const onSubmit = async (values: ClassFormValues) => {
     setIsSubmitting(true);
     try {
@@ -127,12 +160,20 @@ export function EditClassDialog({ open, onOpenChange, onSuccess, classData }: Ed
         schedule[values.schedule_day] = formatTimeRange(values.schedule_time, courseDuration);
       }
 
+      const roomName = ROOMS.find(r => r.id === values.room)?.name || values.room;
+      const conflict = await checkConflict(roomName, values.schedule_day, values.schedule_time, values.start_date, endDate);
+      if (conflict) {
+        toast.error(`Conflito: a turma "${conflict}" já ocupa essa sala, dia e horário no mesmo período`);
+        setIsSubmitting(false);
+        return;
+      }
+
       const { error } = await supabase
         .from('classes')
         .update({
           name: values.name,
           course_id: values.course_id,
-          room: ROOMS.find(r => r.id === values.room)?.name || values.room,
+          room: roomName,
           start_date: format(values.start_date, 'yyyy-MM-dd'),
           end_date: endDate ? format(endDate, 'yyyy-MM-dd') : null,
           teacher_id: values.teacher_id || null,

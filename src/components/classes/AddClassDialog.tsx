@@ -137,13 +137,41 @@ export function AddClassDialog({ open, onOpenChange, onSuccess }: AddClassDialog
   // Calculate end date (last class = start + 7 weeks, since start counts as week 1)
   const endDate = startDate ? addWeeks(startDate, COURSE_WEEKS - 1) : null;
 
+  const checkConflict = async (roomName: string, day: string, time: string, newStart: Date, newEnd: Date | null) => {
+    const { data: existing } = await supabase
+      .from('classes')
+      .select('id, name, schedule, start_date, end_date')
+      .eq('room', roomName)
+      .eq('is_active', true);
+
+    if (!existing) return null;
+    const timeRange = formatTimeRange(time, courseDuration);
+    for (const cls of existing) {
+      const sch = cls.schedule as Record<string, string> | null;
+      if (!sch || !sch[day]) continue;
+      if (sch[day] !== timeRange) continue;
+      const eStart = new Date(cls.start_date);
+      const eEnd = cls.end_date ? new Date(cls.end_date) : addWeeks(eStart, COURSE_WEEKS - 1);
+      const nEnd = newEnd || addWeeks(newStart, COURSE_WEEKS - 1);
+      if (eStart <= nEnd && eEnd >= newStart) return cls.name;
+    }
+    return null;
+  };
+
   const onSubmit = async (values: ClassFormValues) => {
     setIsSubmitting(true);
     try {
-      // Build schedule object with time range
       const schedule: Record<string, string> = {};
       if (values.schedule_day && values.schedule_time) {
         schedule[values.schedule_day] = formatTimeRange(values.schedule_time, courseDuration);
+      }
+
+      const roomName = ROOMS.find(r => r.id === values.room)?.name || values.room;
+      const conflict = await checkConflict(roomName, values.schedule_day, values.schedule_time, values.start_date, endDate);
+      if (conflict) {
+        toast.error(`Conflito: a turma "${conflict}" já ocupa essa sala, dia e horário no mesmo período`);
+        setIsSubmitting(false);
+        return;
       }
 
       const { error } = await supabase
@@ -151,7 +179,7 @@ export function AddClassDialog({ open, onOpenChange, onSuccess }: AddClassDialog
         .insert({
           name: values.name,
           course_id: values.course_id,
-          room: ROOMS.find(r => r.id === values.room)?.name || values.room,
+          room: roomName,
           start_date: format(values.start_date, 'yyyy-MM-dd'),
           end_date: endDate ? format(endDate, 'yyyy-MM-dd') : null,
           teacher_id: values.teacher_id || null,

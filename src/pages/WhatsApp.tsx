@@ -73,6 +73,7 @@ interface WhatsAppContact {
   created_at: string;
   updated_at: string;
   assigned_agent_id: string | null;
+  assigned_agent_name?: string | null;
   last_message?: string | null;
   last_message_at?: string | null;
   unread_count?: number;
@@ -333,11 +334,23 @@ const WhatsApp = () => {
 
       if (error) throw error;
 
+      // Fetch agent names for assigned agents
+      const agentIds = [...new Set((leads || []).map(l => l.assigned_agent_id).filter(Boolean))] as string[];
+      let agentNamesMap: Record<string, string> = {};
+      if (agentIds.length > 0) {
+        const { data: agentsData } = await supabase
+          .from('agents')
+          .select('id, full_name')
+          .in('id', agentIds);
+        agentNamesMap = (agentsData || []).reduce((acc, a) => { acc[a.id] = a.full_name; return acc; }, {} as Record<string, string>);
+      }
+
       const contactsWithMessages = (leads || []).map(lead => {
         const cleanPhone = lead.phone.replace(/\D/g, '').slice(-8);
         const lastMsg = messageMap.get(cleanPhone);
         return {
           ...lead,
+          assigned_agent_name: lead.assigned_agent_id ? agentNamesMap[lead.assigned_agent_id] || null : null,
           last_message: lastMsg?.content || null,
           last_message_at: lastMsg?.created_at || null,
           unread_count: unreadCounts.get(cleanPhone) || 0,
@@ -765,22 +778,19 @@ const WhatsApp = () => {
                       </div>
                     </div>
                     <div className="flex-1 min-w-0 overflow-hidden">
-                      {/* Line 1: Name + unread badge + time */}
-                      <div className="flex items-center gap-1.5 w-full min-w-0">
-                        <span className={cn('font-semibold truncate min-w-0 flex-1 text-sm', hasUnread ? 'text-foreground' : '')}>
-                          {contact._isVirtual ? formatPhone(contact.phone) : contact.full_name}
-                        </span>
-                        {contact._isVirtual && (
-                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-green-100 text-green-700 shrink-0 whitespace-nowrap">
-                            {contact.id.startsWith('search-') ? 'Iniciar conversa' : 'Novo'}
-                          </Badge>
-                        )}
-                        {hasUnread && (
-                          <Badge variant="default" className="bg-green-500 hover:bg-green-500 h-5 min-w-5 shrink-0 flex items-center justify-center text-xs text-white">
-                            {contact.unread_count! > 99 ? '99+' : contact.unread_count}
-                          </Badge>
-                        )}
-                        <span className={cn('text-[11px] whitespace-nowrap shrink-0', hasUnread ? 'text-green-600 font-semibold' : 'text-muted-foreground/60')}>
+                      {/* Row 1: Name + time */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1 min-w-0 flex-1">
+                          <p className={cn('font-medium text-sm truncate', hasUnread && 'font-bold text-foreground')}>
+                            {contact._isVirtual ? formatPhone(contact.phone) : contact.full_name}
+                          </p>
+                          {contact._isVirtual && (
+                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-green-100 text-green-700 shrink-0 whitespace-nowrap">
+                              {contact.id.startsWith('search-') ? 'Iniciar conversa' : 'Novo'}
+                            </Badge>
+                          )}
+                        </div>
+                        <span className={cn('text-xs whitespace-nowrap shrink-0 ml-2', hasUnread ? 'text-green-600 font-semibold' : 'text-muted-foreground')}>
                           {contact.last_message_at ? (() => {
                             const d = new Date(contact.last_message_at);
                             if (isToday(d)) return format(d, 'HH:mm');
@@ -789,46 +799,47 @@ const WhatsApp = () => {
                           })() : ''}
                         </span>
                       </div>
-                      {/* Line 2: Phone number */}
-                      {!contact._isVirtual && (
-                        <p className="text-[11px] text-muted-foreground truncate mt-0.5">{contact.phone}</p>
-                      )}
-                      {/* Line 3: Status badges */}
-                      {!contact._isVirtual && (
-                        <div className="flex flex-wrap items-center gap-1 mt-1">
-                          {statusCfg && (
-                            <span className={cn('inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0 rounded-full', statusCfg.bg)}>
-                              <StatusIcon className="h-2.5 w-2.5" />
-                              {statusCfg.label}
-                            </span>
+                      {/* Row 2: Phone + status + agent (left) | unread badge (right) */}
+                      <div className="flex items-center justify-between mt-0.5">
+                        <div className="flex-1 min-w-0">
+                          {!contact._isVirtual && (
+                            <p className="text-xs text-muted-foreground truncate">{contact.phone}</p>
                           )}
-                          {showWaitBadge && (
-                            <span className={cn(
-                              'inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0 rounded-full text-white',
-                              waitHours >= 48 ? 'bg-destructive' : waitHours >= 24 ? 'bg-orange-500' : 'bg-yellow-500'
-                            )}>
-                              <Timer className="h-2.5 w-2.5" />
-                              {waitHours}h
-                            </span>
+                          {!contact._isVirtual && (
+                            <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                              {statusCfg && (
+                                <span className={cn('inline-block text-[9px] px-1.5 py-0.5 rounded', statusCfg.bg)}>
+                                  {statusCfg.label}
+                                </span>
+                              )}
+                              {showWaitBadge && (
+                                <span className={cn(
+                                  'inline-block text-[9px] px-1.5 py-0.5 rounded text-white',
+                                  waitHours >= 48 ? 'bg-destructive' : waitHours >= 24 ? 'bg-orange-500' : 'bg-yellow-500'
+                                )}>
+                                  {waitHours}h
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {contact.last_message && (
+                            <p className={cn('text-xs line-clamp-1 break-words mt-0.5', hasUnread ? 'text-foreground font-semibold' : 'text-muted-foreground')}>
+                              {contact.last_message}
+                            </p>
+                          )}
+                          {!contact._isVirtual && contact.assigned_agent_name && (
+                            <p className="text-[10px] text-purple-500 truncate">Agente: {contact.assigned_agent_name}</p>
+                          )}
+                          {!contact._isVirtual && contact.guardian_name && (
+                            <p className="text-[10px] text-muted-foreground truncate">Resp: {contact.guardian_name}</p>
                           )}
                         </div>
-                      )}
-                      {/* Line 4: Message preview */}
-                      <p
-                        className={cn(
-                          'text-xs mt-0.5 line-clamp-1 break-words',
-                          hasUnread ? 'text-foreground font-semibold' : 'text-muted-foreground font-normal'
+                        {hasUnread && (
+                          <Badge variant="default" className="ml-2 h-5 min-w-5 shrink-0 flex items-center justify-center text-xs">
+                            {contact.unread_count! > 99 ? '99+' : contact.unread_count}
+                          </Badge>
                         )}
-                      >
-                        {contact.last_message || (contact._isVirtual ? contact.phone : '')}
-                      </p>
-                      {/* Line 5: Guardian/agent name */}
-                      {!contact._isVirtual && contact.guardian_name && (
-                        <p className="text-[10px] text-muted-foreground truncate mt-0.5 flex items-center gap-1">
-                          <User className="h-2.5 w-2.5" />
-                          {contact.guardian_name}
-                        </p>
-                      )}
+                      </div>
                     </div>
                   </div>
                 );

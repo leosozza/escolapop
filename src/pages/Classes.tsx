@@ -351,129 +351,143 @@ export default function Classes() {
     setIsStudentsListOpen(true);
   };
 
-  const renderClassCard = (classItem: Class, isCompleted = false) => (
-    <Card 
-      key={classItem.id} 
-      className={`border-0 shadow-md hover:shadow-lg transition-all cursor-pointer ${isCompleted ? 'opacity-75' : ''}`}
-      onClick={() => handleClassClick(classItem)}
-    >
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
+  const renderClassCard = (classItem: Class, isCompleted = false) => {
+    const school = (classItem.course?.school || 'escola_de_modelo') as CourseSchool;
+    const schoolConfig = COURSE_SCHOOL_CONFIG[school] || COURSE_SCHOOL_CONFIG.escola_de_modelo;
+    const ageRangeLabel = AGE_RANGES.find(r => r.id === classItem.age_range)?.label || 'Todas as idades';
+    
+    // Extract day and time from schedule
+    const scheduleEntries = classItem.schedule ? Object.entries(classItem.schedule) : [];
+    const dayLabel = scheduleEntries.length > 0 
+      ? WEEKDAYS.find(d => d.id === scheduleEntries[0][0])?.name || scheduleEntries[0][0]
+      : 'Não definido';
+    const timeLabel = scheduleEntries.length > 0 ? scheduleEntries[0][1] : '-';
+
+    return (
+      <Card 
+        key={classItem.id} 
+        className={`border-0 shadow-md hover:shadow-lg transition-all cursor-pointer overflow-hidden ${isCompleted ? 'opacity-75' : ''}`}
+        onClick={() => handleClassClick(classItem)}
+      >
+        {/* School-colored header */}
+        <div className={`${schoolConfig.headerBg} ${schoolConfig.headerText} px-4 py-3 flex items-center justify-between`}>
           <div>
-            <CardTitle className="text-lg">{classItem.name}</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {classItem.course?.name || 'Curso não definido'}
-            </p>
+            <p className="font-bold text-base">{classItem.course?.name || 'Curso não definido'}</p>
+            <p className="text-xs opacity-80">{schoolConfig.label}</p>
           </div>
           <div className="flex items-center gap-2">
             {isCompleted ? (
-              <Badge variant="secondary" className="gap-1">
+              <Badge variant="secondary" className="gap-1 bg-white/20 text-inherit border-0">
                 <CheckCircle className="h-3 w-3" />
                 Concluída
               </Badge>
             ) : (
-              <Badge variant={classItem.is_active ? 'default' : 'secondary'}>
+              <Badge variant={classItem.is_active ? 'default' : 'secondary'} className="bg-white/20 text-inherit border-0">
                 {classItem.is_active ? 'Ativa' : 'Inativa'}
               </Badge>
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Button variant="ghost" size="icon" className={`h-8 w-8 ${schoolConfig.headerText} hover:bg-white/20`}>
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-popover">
-                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSelectedClass(classItem); setIsEditDialogOpen(true); }}>
-                    <Edit className="h-4 w-4 mr-2" />
-                    Editar
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); setSelectedClass(classItem); setDeleteAdminPassword(''); setDeleteError(''); setIsDeleteDialogOpen(true); }}>
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Excluir
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
+              <DropdownMenuContent align="end" className="bg-popover">
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSelectedClass(classItem); setIsEditDialogOpen(true); }}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Editar
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); setSelectedClass(classItem); setDeleteAdminPassword(''); setDeleteError(''); setIsDeleteDialogOpen(true); }}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Excluir
+                </DropdownMenuItem>
+              </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {/* Schedule prominently displayed */}
-        <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-medium text-primary">
-              <Clock className="h-4 w-4" />
-              <span>{formatSchedule(classItem.schedule)}</span>
-            </div>
-            {(classItem as any).age_range && (classItem as any).age_range !== 'todas' && (
-              <Badge variant="outline" className="text-xs">
-                {AGE_RANGES.find(r => r.id === (classItem as any).age_range)?.label || (classItem as any).age_range}
-              </Badge>
-            )}
-            {(classItem as any).age_range === 'todas' && (
-              <Badge variant="secondary" className="text-xs">Todas as idades</Badge>
-            )}
-          </div>
-        </div>
 
-        {/* Attendance metrics */}
-        <div className="grid grid-cols-2 gap-2 p-2 rounded-lg bg-muted/50">
-          <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full bg-success" />
-            <span className="text-xs text-muted-foreground">Agendados:</span>
-            <span className="text-xs font-semibold">{classItem.status_counts?.agendados || 0}</span>
+        <CardContent className="p-4 space-y-3">
+          {/* Day + Time - prominent */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary" />
+              <span className="text-lg font-bold">{dayLabel}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" />
+              <span className="text-lg font-bold">{timeLabel}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full bg-primary" />
-            <span className="text-xs text-muted-foreground">Em Curso:</span>
-            <span className="text-xs font-semibold">{classItem.status_counts?.em_curso || 0}</span>
+
+          {/* Age range - large */}
+          <div className="text-center py-1">
+            <span className="text-base font-semibold text-muted-foreground">{ageRangeLabel}</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">% Comparecidos:</span>
-            <span className="text-xs font-semibold">
-              {classItem.status_counts?.total && classItem.status_counts?.aulas_realizadas
-                ? `${Math.round((classItem.status_counts.presente_total / (classItem.status_counts.total * classItem.status_counts.aulas_realizadas)) * 100)}%`
-                : '0%'
-              }
+
+          {/* Teacher */}
+          {classItem.teacher?.full_name && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <GraduationCap className="h-4 w-4" />
+              <span>Prof. {classItem.teacher.full_name}</span>
+            </div>
+          )}
+
+          {/* Metrics grid */}
+          <div className="grid grid-cols-2 gap-2 p-2 rounded-lg bg-muted/50 text-xs">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-success" />
+              <span className="text-muted-foreground">Matriculados:</span>
+              <span className="font-semibold">{classItem.status_counts?.agendados || 0}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-primary" />
+              <span className="text-muted-foreground">Em Curso:</span>
+              <span className="font-semibold">{classItem.status_counts?.em_curso || 0}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-destructive" />
+              <span className="text-muted-foreground">Ausentes:</span>
+              <span className="font-semibold">{classItem.status_counts?.ausente || 0}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-purple-500" />
+              <span className="text-muted-foreground">Rematrícula:</span>
+              <span className="font-semibold">{classItem.status_counts?.rematricula || 0}</span>
+            </div>
+          </div>
+
+          {/* Dates */}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CalendarDays className="h-4 w-4" />
+            <span>
+              {safeFormatDate(classItem.start_date)}
+              {classItem.end_date && ` → ${safeFormatDate(classItem.end_date)}`}
             </span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">Aulas:</span>
-            <span className="text-xs font-semibold">{classItem.status_counts?.aulas_realizadas || 0}/{COURSE_WEEKS}</span>
+
+          {/* Footer info */}
+          <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1 border-t">
+            {classItem.room && (
+              <span className="flex items-center gap-1">
+                <MapPin className="h-3 w-3" />
+                {classItem.room}
+              </span>
+            )}
+            <span className="flex items-center gap-1">
+              <Users className="h-3 w-3" />
+              {classItem.student_count || 0}/{classItem.max_students} vagas
+            </span>
+            {classItem.course?.duration_hours && (
+              <span className="flex items-center gap-1">
+                <Timer className="h-3 w-3" />
+                {classItem.course.duration_hours}h/aula
+              </span>
+            )}
           </div>
-        </div>
-        
-        <div className="flex items-center gap-2 text-sm">
-          <Users className="h-4 w-4 text-primary" />
-          <span className="font-medium">{classItem.student_count || 0} alunos</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <span>
-            {safeFormatDate(classItem.start_date)}
-            {classItem.end_date && ` → ${safeFormatDate(classItem.end_date)}`}
-          </span>
-        </div>
-        {classItem.course?.duration_hours && (
-          <div className="flex items-center gap-2 text-sm">
-            <Timer className="h-4 w-4 text-muted-foreground" />
-            <span>{classItem.course.duration_hours}h por aula • {COURSE_WEEKS} semanas</span>
-          </div>
-        )}
-        {classItem.room && (
-          <div className="flex items-center gap-2 text-sm">
-            <MapPin className="h-4 w-4 text-muted-foreground" />
-            <span>{classItem.room}</span>
-          </div>
-        )}
-        {classItem.teacher?.full_name && (
-          <div className="flex items-center gap-2 text-sm">
-            <GraduationCap className="h-4 w-4 text-muted-foreground" />
-            <span>Prof. {classItem.teacher.full_name}</span>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
+        </CardContent>
+      </Card>
+    );
+  };
 
   const renderClassListRow = (classItem: Class, isCompleted = false) => (
     <tr

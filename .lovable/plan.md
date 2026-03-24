@@ -1,33 +1,38 @@
 
 
-## Ajuste do Layout da Lista de Conversas (Referencia)
+## Corrigir alinhamento dos ícones no sidebar colapsado
 
-O layout atual ja esta bastante proximo da referencia. As diferencas identificadas sao pontuais:
+### Problema
+Quando o sidebar está colapsado, os ícones dos itens de menu não ficam centralizados. Isso acontece porque:
+1. O `SidebarContent` tem `px-2` que consome espaço lateral
+2. Os `SidebarGroupLabel` (títulos dos grupos como "Comercial", "Acadêmico") continuam visíveis e ocupam espaço
+3. O `CollapsibleTrigger` com texto e chevron desalinha o layout
 
-### Mudancas planejadas
+### Mudanças planejadas
 
-**1. Alinhamento vertical do item**
-- Trocar `items-center` para `items-start` no container principal do item (linha 757), para que o avatar fique alinhado ao topo quando o conteudo cresce com multiplas linhas.
+**Arquivo: `src/components/layout/AppSidebar.tsx`**
 
-**2. Tamanho do avatar**
-- Reduzir de `h-11 w-11` para `h-10 w-10` (igual a referencia).
+1. **Remover padding lateral do SidebarContent quando colapsado** - Trocar `px-2` por padding condicional: `px-2` expandido, `px-0` colapsado.
 
-**3. Adicionar badges de status abaixo da preview**
-- Adicionar uma linha de badges (flex-wrap) abaixo da mensagem preview mostrando:
-  - Status do lead (usando `STATUS_CONFIG` existente) com icone e cor
-  - Badge de tempo de espera (ja existe logica de `waitHours`, mover para badge inline)
-  - Badge "Em Atendimento" quando aplicavel
+2. **Esconder os títulos dos grupos quando colapsado** - Adicionar classe condicional no `SidebarGroupLabel` para esconder o trigger inteiro quando `isCollapsed`, já que os grupos não fazem sentido sem texto.
 
-**4. Padding do item**
-- Ajustar de `py-3` para `py-2.5` para compactar levemente a lista (mais proximo da referencia que usa `p-3` com `rounded-lg`).
+3. **Manter os itens do menu sempre visíveis** - Remover o `Collapsible` wrapping quando colapsado, ou forçar `defaultOpen={true}` + esconder o label, para que todos os ícones fiquem acessíveis.
 
-### Arquivos modificados
-- `src/pages/WhatsApp.tsx` - Ajustes no bloco de renderizacao dos itens da lista (linhas ~753-812)
+4. **Centralizar ícones** - Garantir que o `SidebarMenuButton` e o `Link` interno usem `justify-center` quando colapsado, removendo o `gap-3` desnecessário.
 
-### Detalhes tecnicos
-- Container principal: `flex items-start gap-3 px-3 py-2.5`
-- Avatar: `h-10 w-10 rounded-full`
-- Manter a estrutura existente de nome + badge + timestamp na mesma linha
-- Adicionar `<div className="flex flex-wrap items-center gap-1 mt-1">` apos a mensagem preview para os badges de status
-- Mover o indicador de tempo de espera (Timer) do canto do avatar para um badge inline no rodape do item
+### Detalhes técnicos
+
+```tsx
+// SidebarContent - padding condicional
+<SidebarContent className={cn("overflow-x-hidden", isCollapsed ? "px-0" : "px-2")}>
+
+// SidebarGroupLabel - esconder quando colapsado  
+<SidebarGroupLabel asChild className={cn(isCollapsed && "hidden")}>
+
+// Collapsible - forçar aberto quando colapsado
+<Collapsible defaultOpen={isGroupOpen(group) || group.title === 'Comercial' || isCollapsed}>
+
+// Link interno - centralizar ícone quando colapsado
+<Link to={item.href} className={cn("flex items-center", isCollapsed ? "justify-center" : "gap-3")}>
+```
 

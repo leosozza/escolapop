@@ -1,59 +1,43 @@
 
 
-# Plano: Duplicidade de Contatos + Player de Áudio
+# Plano: Busca de contatos não salvos, info do modelo/responsável no chat, horários cortados e temporizador
 
-## 1. Verificação de duplicidade ao cadastrar contato
+## 1. Busca de contatos não salvos na barra de pesquisa
 
-### `AddWhatsAppContactDialog.tsx` — aba Manual
-- Antes de inserir, consultar `leads` pelo telefone (normalizado)
-- Se encontrar, mostrar um alert inline no dialog com: nome do lead existente, telefone, status
-- Botões: "Ver contato existente" (fecha dialog e seleciona o lead) ou "Criar mesmo assim"
-- Não permitir submit automático se duplicado; exigir confirmação explícita
+Atualmente, a busca só filtra contatos que já existem na lista (leads + virtuais com mensagens). Se o operador digitar um número que não tem mensagens nem está cadastrado, não encontra nada.
 
-### `RegisterLeadDialog.tsx` — cadastro de lead virtual
-- Mesmo padrão: antes de inserir, buscar por telefone
-- Se duplicado, exibir alert com dados do lead existente
-- Oferecer opção de vincular mensagens ao lead existente ou criar novo
+**Solução**: Quando a busca parece um número de telefone (só dígitos, 8+ chars) e não encontra resultados nos contatos carregados, criar um contato virtual temporário com esse número para permitir abrir a conversa e iniciar contato.
 
-## 2. Player de áudio robusto
+**Arquivo**: `src/pages/WhatsApp.tsx`
+- No bloco `filteredContacts`, se `searchQuery` parece telefone e resultado é vazio, adicionar um contato virtual fabricado com o número digitado
+- Exibir com badge "Iniciar conversa" para diferenciar
 
-O `InlineAudioPlayer` atual usa `<audio>` nativo que pode falhar com formatos OGG/Opus do WhatsApp em alguns navegadores (Safari, por exemplo).
+## 2. Nome do modelo + responsável no header do chat e na lista de contatos
 
-### Solução: instalar `wavesurfer.js` como player de áudio
-- Instalar `wavesurfer.js` (leve, sem dependências pesadas, suporta OGG/Opus)
-- Substituir o `InlineAudioPlayer` por um componente que usa WaveSurfer para renderizar waveform + play/pause
-- Visual: barra de onda estilo WhatsApp, botão play/pause, duração
-- Fallback: se WaveSurfer falhar ao carregar, usar `<audio controls>` nativo como última opção
+**Arquivo**: `src/pages/WhatsApp.tsx`
+- **Lista de contatos** (linha ~743): Já mostra `full_name`. Adicionar abaixo, em texto menor, o `guardian_name` quando existir (ex: "Resp: Maria Silva")
+- **Header do chat** (linha ~793-796): Mostrar `full_name` como título principal e `guardian_name` como subtítulo abaixo do telefone, quando disponível
 
-### Alternativa mais simples (se preferir evitar dependência):
-- Usar `<audio controls>` nativo do HTML5 diretamente, que funciona na maioria dos navegadores com OGG
-- Estilizar minimamente
+## 3. Horários cortados nas mensagens
 
-**Recomendação**: Usar `wavesurfer.js` para ter a experiência visual de waveform do WhatsApp.
+**Arquivo**: `src/components/whatsapp/WhatsAppMessageList.tsx`
+- O div do horário + status usa `flex items-center gap-1 mt-1` mas pode estar sendo cortado pelo `max-w-[75%]` do container pai ou pelo overflow do conteúdo
+- Adicionar `shrink-0` ao wrapper do horário/status para evitar corte
+- Garantir `whitespace-nowrap` no span do horário
+
+## 4. Temporizador não mostra tempo correndo
+
+Atualmente o "tempo de espera" é calculado uma vez com `differenceInHours` e não atualiza em tempo real.
+
+**Arquivo**: `src/pages/WhatsApp.tsx`
+- Adicionar um `useEffect` com `setInterval` de 60 segundos que incrementa um contador `now` (state)
+- Usar esse `now` nos cálculos de `waitHours` e `getWaitTimeIndicator` para forçar re-render
+- Na lista de contatos, o badge de tempo também passará a atualizar automaticamente
 
 ## Arquivos a modificar
 
 | Arquivo | Ação |
 |---------|------|
-| `src/components/whatsapp/AddWhatsAppContactDialog.tsx` | Verificar duplicidade por telefone antes de inserir; mostrar alert com dados do existente |
-| `src/components/whatsapp/RegisterLeadDialog.tsx` | Mesma verificação de duplicidade por telefone |
-| `src/components/whatsapp/WhatsAppMessageList.tsx` | Substituir `InlineAudioPlayer` por player com wavesurfer.js |
-| `package.json` | Adicionar `wavesurfer.js` |
-
-## Fluxo de duplicidade
-
-```text
-Operador preenche telefone → blur/submit
-→ busca leads com mesmo telefone
-→ se encontrar:
-   ┌──────────────────────────────────────────┐
-   │ ⚠️ Contato já cadastrado!               │
-   │ Nome: João Silva                         │
-   │ Telefone: (11) 99999-9999               │
-   │ Status: Agendado                         │
-   │                                          │
-   │ [Ver contato existente] [Criar mesmo assim] │
-   └──────────────────────────────────────────┘
-→ se não encontrar: prossegue normalmente
-```
+| `src/pages/WhatsApp.tsx` | Busca por telefone não salvo; guardian_name na lista e header; temporizador com tick |
+| `src/components/whatsapp/WhatsAppMessageList.tsx` | Fix horários cortados (whitespace-nowrap, shrink-0) |
 

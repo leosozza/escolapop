@@ -197,10 +197,53 @@ const WhatsApp = () => {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
+  // Auto-select contact from URL param
+  useEffect(() => {
+    if (!phoneParam || contacts.length === 0) return;
+    // Already selected the right contact
+    if (selectedContact) {
+      const currentClean = selectedContact.phone.replace(/\D/g, '');
+      if (currentClean === phoneParam || currentClean.endsWith(phoneParam) || phoneParam.endsWith(currentClean)) return;
+    }
+    // Find matching contact
+    const match = contacts.find(c => {
+      const cp = c.phone.replace(/\D/g, '');
+      return cp === phoneParam || cp.endsWith(phoneParam) || phoneParam.endsWith(cp);
+    });
+    if (match) {
+      setSelectedContact(match);
+      setReplyTo(null);
+    } else {
+      // Create virtual contact from phone param
+      setSelectedContact({
+        id: `url-${phoneParam}`,
+        full_name: phoneParam,
+        guardian_name: null,
+        phone: phoneParam,
+        email: null,
+        source: 'whatsapp' as any,
+        status: 'lead' as LeadStatus,
+        external_id: null,
+        external_source: null,
+        notes: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        assigned_agent_id: null,
+        last_message: null,
+        last_message_at: null,
+        unread_count: 0,
+        _isVirtual: true,
+      });
+      setReplyTo(null);
+    }
+  }, [phoneParam, contacts]);
+
   // Re-fetch contacts when instance changes
   useEffect(() => {
     if (selectedInstanceId) {
       fetchContacts();
+      navigate('/whatsapp', { replace: true });
+      setSelectedContact(null);
     }
   }, [selectedInstanceId]);
 

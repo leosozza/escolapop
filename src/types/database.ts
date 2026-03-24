@@ -106,6 +106,13 @@ export interface UserRole {
   created_at: string;
 }
 
+export type CourseSchool = 'escola_de_modelo' | 'pop_school';
+
+export const COURSE_SCHOOL_CONFIG: Record<CourseSchool, { label: string; headerBg: string; headerText: string }> = {
+  escola_de_modelo: { label: 'Escola de Modelo', headerBg: 'bg-orange-500', headerText: 'text-black' },
+  pop_school: { label: 'Pop School', headerBg: 'bg-purple-600', headerText: 'text-white' },
+};
+
 export interface Course {
   id: string;
   name: string;
@@ -115,6 +122,7 @@ export interface Course {
   price: number | null;
   is_active: boolean;
   cover_image_url: string | null;
+  school: CourseSchool;
   created_at: string;
   updated_at: string;
 }

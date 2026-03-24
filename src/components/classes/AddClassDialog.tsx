@@ -52,7 +52,6 @@ import {
 } from '@/lib/course-schedule-config';
 
 const classSchema = z.object({
-  name: z.string().min(1, 'Nome da turma é obrigatório'),
   course_id: z.string().min(1, 'Selecione um curso'),
   room: z.string().min(1, 'Selecione uma sala'),
   start_date: z.date({ required_error: 'Data de início é obrigatória' }),
@@ -76,7 +75,6 @@ export function AddClassDialog({ open, onOpenChange, onSuccess }: AddClassDialog
   const form = useForm<ClassFormValues>({
     resolver: zodResolver(classSchema),
     defaultValues: {
-      name: '',
       course_id: '',
       room: '',
       schedule_day: '',
@@ -174,10 +172,15 @@ export function AddClassDialog({ open, onOpenChange, onSuccess }: AddClassDialog
         return;
       }
 
+      // Auto-generate name
+      const dayLabel = WEEKDAYS.find(d => d.id === values.schedule_day)?.name || values.schedule_day;
+      const ageLabel = AGE_RANGES.find(r => r.id === values.age_range)?.label || values.age_range;
+      const autoName = `${selectedCourse?.name || 'Turma'} - ${dayLabel} ${formatTimeRange(values.schedule_time, courseDuration)} (${ageLabel})`;
+
       const { error } = await supabase
         .from('classes')
         .insert({
-          name: values.name,
+          name: autoName,
           course_id: values.course_id,
           room: roomName,
           start_date: format(values.start_date, 'yyyy-MM-dd'),
@@ -218,20 +221,6 @@ export function AddClassDialog({ open, onOpenChange, onSuccess }: AddClassDialog
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nome da Turma *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: Passarela Turma A - Manhã" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
             <FormField
               control={form.control}
               name="course_id"

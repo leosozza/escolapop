@@ -31,13 +31,14 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import type { CourseModality } from '@/types/database';
-import { COURSE_MODALITY_CONFIG } from '@/types/database';
+import type { CourseModality, CourseSchool } from '@/types/database';
+import { COURSE_MODALITY_CONFIG, COURSE_SCHOOL_CONFIG } from '@/types/database';
 
 const courseSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   description: z.string().optional(),
   modality: z.string(),
+  school: z.string(),
   duration_hours: z.string().optional(),
   price: z.string().optional(),
   is_active: z.boolean(),
@@ -61,6 +62,7 @@ export function AddCourseDialog({ open, onOpenChange, onSuccess }: AddCourseDial
       name: '',
       description: '',
       modality: 'presencial',
+      school: 'escola_de_modelo',
       duration_hours: '',
       price: '',
       is_active: true,
@@ -74,10 +76,11 @@ export function AddCourseDialog({ open, onOpenChange, onSuccess }: AddCourseDial
         name: data.name,
         description: data.description || null,
         modality: data.modality as CourseModality,
+        school: data.school as CourseSchool,
         duration_hours: data.duration_hours ? parseInt(data.duration_hours) : null,
         price: data.price ? parseFloat(data.price.replace(',', '.')) : null,
         is_active: data.is_active,
-      });
+      } as any);
 
       if (error) throw error;
 
@@ -140,6 +143,31 @@ export function AddCourseDialog({ open, onOpenChange, onSuccess }: AddCourseDial
                       {...field} 
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="school"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Escola</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {Object.entries(COURSE_SCHOOL_CONFIG).map(([key, config]) => (
+                        <SelectItem key={key} value={key}>
+                          {config.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

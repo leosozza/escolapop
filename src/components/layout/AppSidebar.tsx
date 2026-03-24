@@ -155,22 +155,22 @@ export function AppSidebar() {
       </SidebarHeader>
 
       {/* Navigation */}
-      <SidebarContent className="overflow-x-hidden px-2">
+      <SidebarContent className={cn("overflow-x-hidden", isCollapsed ? "px-0" : "px-2")}>
         {sidebarGroups.map((group) =>
         <Collapsible
           key={group.title}
           asChild
-          defaultOpen={isGroupOpen(group) || group.title === 'Comercial'}
+          defaultOpen={isGroupOpen(group) || group.title === 'Comercial' || isCollapsed}
           className="group/collapsible">
           
             <SidebarGroup>
-              <SidebarGroupLabel asChild>
+              <SidebarGroupLabel asChild className={cn(isCollapsed && "hidden")}>
                 <CollapsibleTrigger className="flex w-full items-center gap-2 text-sidebar-foreground/50 hover:text-sidebar-foreground/80 transition-colors duration-200 [&[data-state=open]>svg]:rotate-180">
                   <span className="uppercase tracking-widest text-[10px] font-bold">{group.title}</span>
                   <ChevronDown className="ml-auto size-3 transition-transform duration-200" />
                 </CollapsibleTrigger>
               </SidebarGroupLabel>
-              <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+              <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden" forceMount={isCollapsed ? true : undefined}>
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {group.items.map((item) => {
@@ -189,7 +189,7 @@ export function AppSidebar() {
                             isActive && 'bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-md'
                           )}>
                           
-                            <Link to={item.href} className="flex items-center gap-3">
+                            <Link to={item.href} className={cn("flex items-center", isCollapsed ? "justify-center" : "gap-3")}>
                               <div className="relative">
                                 <item.icon className="size-4" />
                                 {badgeCount > 0 && isCollapsed &&
@@ -201,7 +201,7 @@ export function AppSidebar() {
 
                               }
                               </div>
-                              <span className="flex-1 text-sm">{item.name}</span>
+                              {!isCollapsed && <span className="flex-1 text-sm">{item.name}</span>}
                               {badgeCount > 0 && !isCollapsed &&
                             <NotificationBadge
                               count={badgeCount}

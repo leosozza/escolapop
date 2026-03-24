@@ -49,6 +49,7 @@ import {
 import { useNotificationCounts, NotificationCounts } from '@/hooks/useNotificationCounts';
 import { NotificationBadge } from './NotificationBadge';
 import logoImg from '@/assets/logo-pep.png';
+import faviconImg from '@/assets/favicon_pep.png';
 
 const badgeRouteMap: Record<string, keyof NotificationCounts> = {
   '/crm': 'crm',

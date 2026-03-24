@@ -905,6 +905,31 @@ Deno.serve(async (req) => {
         return json({ success: true, processed, failed, total: pendingMessages.length });
       }
 
+      case "revoke-message": {
+        const { phone: revokePhone, messageId } = params;
+        if (!instanceId || !messageId) {
+          return json({ error: "instanceId and messageId required" }, 400);
+        }
+
+        const inst = await resolveInstanceAuth(instanceId);
+        if (!inst?.wuzapi_token) return json({ error: "Instance not found" }, 404);
+
+        const isConnected = await ensureConnected(instanceId, inst.wuzapi_token);
+        if (!isConnected) return json({ error: "WhatsApp disconnected" }, 503);
+
+        const revokeFormattedPhone = (revokePhone || "").replace(/\D/g, "");
+        const revokePhoneNumber = revokeFormattedPhone.startsWith("55") ? revokeFormattedPhone : `55${revokeFormattedPhone}`;
+
+        const res = await instanceFetch(inst.wuzapi_token, "/chat/revokemessage", {
+          method: "POST",
+          body: JSON.stringify({ Phone: revokePhoneNumber, MessageID: messageId }),
+        });
+
+        console.log("revoke-message response:", JSON.stringify(res.data).slice(0, 500));
+
+        return json({ success: res.ok, data: res.data }, res.ok ? 200 : 500);
+      }
+
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }

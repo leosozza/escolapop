@@ -48,7 +48,7 @@ import { useNavigate } from 'react-router-dom';
 import { AddWhatsAppContactDialog } from '@/components/whatsapp/AddWhatsAppContactDialog';
 import { RegisterLeadDialog } from '@/components/whatsapp/RegisterLeadDialog';
 import { RegisterSiblingDialog } from '@/components/whatsapp/RegisterSiblingDialog';
-import { WhatsAppMessageList } from '@/components/whatsapp/WhatsAppMessageList';
+import { WhatsAppMessageList, ReplyToMessage } from '@/components/whatsapp/WhatsAppMessageList';
 import { WhatsAppChatInput } from '@/components/whatsapp/WhatsAppChatInput';
 import { WhatsAppStatusIndicator } from '@/components/whatsapp/WhatsAppStatusIndicator';
 import { AddEnrollmentDialog } from '@/components/students/AddEnrollmentDialog';
@@ -160,6 +160,7 @@ const WhatsApp = () => {
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notes, setNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [replyTo, setReplyTo] = useState<ReplyToMessage | null>(null);
 
   // Read tracking via localStorage
   const getReadTimestamps = (): Record<string, string> => {
@@ -770,7 +771,7 @@ const WhatsApp = () => {
                       'flex items-start gap-3 px-3 py-3 cursor-pointer transition-colors hover:bg-muted/50 rounded-lg mx-1',
                       selectedContact?.id === contact.id && 'bg-muted'
                     )}
-                    onClick={() => setSelectedContact(contact)}
+                    onClick={() => { setSelectedContact(contact); setReplyTo(null); }}
                   >
                     <div className="relative shrink-0 mt-0.5">
                       <div className={cn('h-10 w-10 rounded-full flex items-center justify-center text-white', avatarBg)}>
@@ -899,7 +900,9 @@ const WhatsApp = () => {
                 <WhatsAppMessageList
                   phone={selectedContact.phone}
                   leadId={selectedContact._isVirtual ? undefined : selectedContact.id}
+                  instanceId={selectedInstanceId}
                   key={`msg-${selectedContact.id}-${refreshKey}`}
+                  onReply={(msg) => setReplyTo(msg)}
                 />
               </div>
               <div className="p-3 bg-background border-t">
@@ -907,8 +910,10 @@ const WhatsApp = () => {
                   phone={selectedContact.phone}
                   leadId={selectedContact._isVirtual ? undefined : selectedContact.id}
                   instanceId={selectedInstanceId}
-                  onMessageSent={() => setRefreshKey(k => k + 1)}
+                  onMessageSent={() => { setRefreshKey(k => k + 1); setReplyTo(null); }}
                   leadName={selectedContact.full_name}
+                  replyTo={replyTo}
+                  onClearReply={() => setReplyTo(null)}
                 />
               </div>
             </div>

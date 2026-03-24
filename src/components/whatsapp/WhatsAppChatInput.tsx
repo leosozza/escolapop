@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Loader2, Mic, X, Paperclip, FileIcon, ImageIcon, Zap, Settings, Smile, Bold, Italic, Strikethrough, Code, Plus, ChevronUp } from 'lucide-react';
+import { Send, Loader2, Mic, X, Paperclip, FileIcon, ImageIcon, Zap, Settings, Smile, Bold, Italic, Strikethrough, Code, Plus, ChevronUp, Reply } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -10,6 +10,7 @@ import { QuickReplyPopup } from './QuickReplyPopup';
 import { QuickRepliesManager } from './QuickRepliesManager';
 import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
+import { ReplyToMessage } from './WhatsAppMessageList';
 
 interface WhatsAppChatInputProps {
   phone: string;
@@ -18,6 +19,8 @@ interface WhatsAppChatInputProps {
   onMessageSent?: () => void;
   leadName?: string;
   courseName?: string;
+  replyTo?: ReplyToMessage | null;
+  onClearReply?: () => void;
 }
 
 interface QuickReply {
@@ -27,7 +30,7 @@ interface QuickReply {
   shortcut: string;
 }
 
-export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, leadName, courseName }: WhatsAppChatInputProps) {
+export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, leadName, courseName, replyTo, onClearReply }: WhatsAppChatInputProps) {
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -121,6 +124,7 @@ export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, le
       if (data?.success) {
         toast.success('Mensagem enviada!');
         setMessage('');
+        onClearReply?.();
         onMessageSent?.();
       } else {
         toast.error(data?.error || 'Erro ao enviar mensagem');
@@ -245,6 +249,27 @@ export function WhatsAppChatInput({ phone, leadId, instanceId, onMessageSent, le
   return (
     <>
       <div className="space-y-1 px-1">
+        {/* Reply bar */}
+        {replyTo && (
+          <div className="flex items-center gap-2 p-2 bg-muted/80 rounded-lg text-xs border-l-2 border-primary">
+            <Reply className="h-3.5 w-3.5 text-primary shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] text-primary font-medium">
+                {replyTo.direction === 'outbound' ? 'Você' : 'Contato'}
+              </p>
+              <p className="truncate text-muted-foreground">
+                {replyTo.message_type === 'audio' ? '🎤 Áudio' :
+                 replyTo.message_type === 'image' ? '📷 Imagem' :
+                 replyTo.message_type === 'video' ? '🎬 Vídeo' :
+                 replyTo.message_type === 'document' ? '📄 Documento' :
+                 replyTo.content || '[sem conteúdo]'}
+              </p>
+            </div>
+            <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" onClick={onClearReply}>
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
         {selectedFile && (
           <div className="flex items-center gap-2 p-2 bg-muted rounded-lg text-xs">
             {selectedFile.type.startsWith('image/') ? <ImageIcon className="h-4 w-4 text-blue-500" /> : <FileIcon className="h-4 w-4 text-muted-foreground" />}

@@ -1,38 +1,46 @@
 
 
-## Corrigir alinhamento dos ícones no sidebar colapsado
+## Redesenhar layout dos itens da lista de conversas WhatsApp
 
 ### Problema
-Quando o sidebar está colapsado, os ícones dos itens de menu não ficam centralizados. Isso acontece porque:
-1. O `SidebarContent` tem `px-2` que consome espaço lateral
-2. Os `SidebarGroupLabel` (títulos dos grupos como "Comercial", "Acadêmico") continuam visíveis e ocupam espaço
-3. O `CollapsibleTrigger` com texto e chevron desalinha o layout
+O layout atual comprime nome, badge de não lida e horário em uma única linha, cortando o horário. A segunda imagem mostra o layout desejado: mais espaçado, com informações em linhas separadas.
 
-### Mudanças planejadas
+### Layout desejado (baseado na referência)
+```text
+┌─────────────────────────────────────────┐
+│ [Avatar]  Nome (bold, maior)    [2] 15:13│
+│    •      5511954001026                  │
+│           🔵 Em Atendimento  🟢 Agendados│
+│           ✓ Preview da mensagem...       │
+│           👤 Nome do agente              │
+└─────────────────────────────────────────┘
+```
 
-**Arquivo: `src/components/layout/AppSidebar.tsx`**
+### Mudanças em `src/pages/WhatsApp.tsx`
 
-1. **Remover padding lateral do SidebarContent quando colapsado** - Trocar `px-2` por padding condicional: `px-2` expandido, `px-0` colapsado.
+**1. Reestruturar o item de contato (linhas ~753-823)**
 
-2. **Esconder os títulos dos grupos quando colapsado** - Adicionar classe condicional no `SidebarGroupLabel` para esconder o trigger inteiro quando `isCollapsed`, já que os grupos não fazem sentido sem texto.
+Reorganizar o conteúdo de cada item para seguir o layout da referência:
 
-3. **Manter os itens do menu sempre visíveis** - Remover o `Collapsible` wrapping quando colapsado, ou forçar `defaultOpen={true}` + esconder o label, para que todos os ícones fiquem acessíveis.
+- **Linha 1**: Nome (font-medium, text-sm → text-base) + badge não lida + horário (alinhado à direita)
+- **Linha 2**: Número de telefone (text-xs, text-muted-foreground) - sempre visível
+- **Linha 3**: Badges de status (Em Atendimento, Agendados, etc.) - mover para antes da preview
+- **Linha 4**: Preview da última mensagem (line-clamp-1)
+- **Linha 5**: Nome do responsável/agente com ícone 👤 (quando disponível)
 
-4. **Centralizar ícones** - Garantir que o `SidebarMenuButton` e o `Link` interno usem `justify-center` quando colapsado, removendo o `gap-3` desnecessário.
+**2. Ajustes de espaçamento**
+
+- Aumentar padding vertical de `py-2.5` para `py-3`
+- Nome com `text-sm` mantido mas com `font-semibold` para destaque
+- Telefone como linha separada abaixo do nome
+- Badges de status movidos para linha própria entre telefone e preview
+
+**3. Garantir que horário e badge de não lida não sejam cortados**
+
+- Manter `shrink-0` no horário e badge
+- Nome com `truncate` e `flex-1` para ocupar espaço disponível sem empurrar o horário
 
 ### Detalhes técnicos
 
-```tsx
-// SidebarContent - padding condicional
-<SidebarContent className={cn("overflow-x-hidden", isCollapsed ? "px-0" : "px-2")}>
-
-// SidebarGroupLabel - esconder quando colapsado  
-<SidebarGroupLabel asChild className={cn(isCollapsed && "hidden")}>
-
-// Collapsible - forçar aberto quando colapsado
-<Collapsible defaultOpen={isGroupOpen(group) || group.title === 'Comercial' || isCollapsed}>
-
-// Link interno - centralizar ícone quando colapsado
-<Link to={item.href} className={cn("flex items-center", isCollapsed ? "justify-center" : "gap-3")}>
-```
+Apenas o bloco de renderização do item na lista (dentro do `.map()`) será alterado. Nenhuma lógica de dados muda - apenas a estrutura visual do JSX.
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   MessageCircle,
   Search,
@@ -239,16 +239,16 @@ const WhatsApp = () => {
   }, [phoneParam, contacts]);
 
   // Re-fetch contacts when instance changes (not on initial mount)
-  const instanceInitRef = useState({ initialized: false })[0];
+  const instanceInitRef = useRef(false);
   useEffect(() => {
     if (selectedInstanceId) {
-      if (instanceInitRef.initialized) {
+      if (instanceInitRef.current) {
         // User switched instance — reset selection and URL
         fetchContacts();
         navigate('/whatsapp', { replace: true });
         setSelectedContact(null);
       } else {
-        instanceInitRef.initialized = true;
+        instanceInitRef.current = true;
       }
     }
   }, [selectedInstanceId]);

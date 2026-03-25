@@ -12,22 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-
-interface Agent {
-  id: string;
-  full_name: string;
-  is_active: boolean;
-}
 
 interface DuplicateLead {
   id: string;
@@ -51,7 +38,6 @@ export function AddWhatsAppContactDialog({
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('manual');
   const [isLoading, setIsLoading] = useState(false);
-  const [agents, setAgents] = useState<Agent[]>([]);
 
   // Manual form state
   const [guardianName, setGuardianName] = useState('');
@@ -67,20 +53,7 @@ export function AddWhatsAppContactDialog({
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  useEffect(() => {
-    if (open) {
-      fetchAgents();
-    }
-  }, [open]);
 
-  const fetchAgents = async () => {
-    const { data } = await supabase
-      .from('agents')
-      .select('id, full_name, is_active')
-      .eq('is_active', true)
-      .order('full_name');
-    setAgents(data || []);
-  };
 
   const checkDuplicate = async (phoneValue: string) => {
     const clean = phoneValue.replace(/\D/g, '');

@@ -245,7 +245,7 @@ const WhatsApp = () => {
       if (instanceInitRef.current) {
         // User switched instance — reset selection and URL
         fetchContacts();
-        navigate('/whatsapp', { replace: true });
+        window.history.replaceState(null, '', '/whatsapp');
         setSelectedContact(null);
       } else {
         instanceInitRef.current = true;
@@ -843,7 +843,7 @@ const WhatsApp = () => {
                       setSelectedContact(contact); 
                       setReplyTo(null);
                       const cleanPhone = contact.phone.replace(/\D/g, '');
-                      navigate(`/whatsapp/${cleanPhone}`, { replace: true });
+                      window.history.replaceState(null, '', `/whatsapp/${cleanPhone}`);
                     }}
                   >
                     <div className="relative shrink-0 mt-0.5">
@@ -1275,7 +1275,7 @@ const WhatsApp = () => {
           if (leadId) {
             supabase.from('leads').select('phone').eq('id', leadId).single()
               .then(({ data }) => {
-                if (data?.phone) navigate(`/whatsapp/${data.phone.replace(/\D/g, '')}`, { replace: true });
+                if (data?.phone) window.history.replaceState(null, '', `/whatsapp/${data.phone.replace(/\D/g, '')}`);
               });
           }
         }}

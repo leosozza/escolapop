@@ -238,12 +238,18 @@ const WhatsApp = () => {
     }
   }, [phoneParam, contacts]);
 
-  // Re-fetch contacts when instance changes
+  // Re-fetch contacts when instance changes (not on initial mount)
+  const instanceInitRef = useState({ initialized: false })[0];
   useEffect(() => {
     if (selectedInstanceId) {
-      fetchContacts();
-      navigate('/whatsapp', { replace: true });
-      setSelectedContact(null);
+      if (instanceInitRef.initialized) {
+        // User switched instance — reset selection and URL
+        fetchContacts();
+        navigate('/whatsapp', { replace: true });
+        setSelectedContact(null);
+      } else {
+        instanceInitRef.initialized = true;
+      }
     }
   }, [selectedInstanceId]);
 

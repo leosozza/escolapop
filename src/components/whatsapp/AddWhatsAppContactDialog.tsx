@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Loader2, Search, UserPlus, AlertTriangle } from 'lucide-react';
 import {
   Dialog,

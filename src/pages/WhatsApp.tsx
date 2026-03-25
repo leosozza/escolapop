@@ -350,30 +350,48 @@ const WhatsApp = () => {
 
       const messageMap = new Map<string, { content: string | null; created_at: string; direction: string; rawPhone: string }>();
       const phonesWithMessages = new Set<string>();
-      const phonesWithInbound = new Set<string>();
-      const unreadCounts = new Map<string, number>();
+      const needsReplySet = new Set<string>();
+      const pendingInboundCounts = new Map<string, number>();
+      const stoppedCounting = new Set<string>();
       const readTimestamps = getReadTimestamps();
       const selectedPhoneKey = selectedContact?.phone.replace(/\D/g, '').slice(-8);
 
       if (lastMessages) {
         for (const msg of lastMessages) {
           const cleanPhone = msg.phone.replace(/\D/g, '').slice(-8);
-          if (!messageMap.has(cleanPhone)) {
-            messageMap.set(cleanPhone, { ...msg, rawPhone: msg.phone });
-            if (msg.direction === 'inbound') {
-              phonesWithInbound.add(cleanPhone);
-            }
-          }
           phonesWithMessages.add(cleanPhone);
 
-          // Count unread inbound messages (after last read timestamp)
-          if (msg.direction === 'inbound') {
-            const lastRead = readTimestamps[cleanPhone];
-            const isCurrentlyOpen = cleanPhone === selectedPhoneKey;
-            if (!isCurrentlyOpen && (!lastRead || new Date(msg.created_at) > new Date(lastRead))) {
-              unreadCounts.set(cleanPhone, (unreadCounts.get(cleanPhone) || 0) + 1);
+          if (!messageMap.has(cleanPhone)) {
+            // First message found (most recent) defines if needs reply
+            messageMap.set(cleanPhone, { ...msg, rawPhone: msg.phone });
+            if (msg.direction === 'inbound') {
+              needsReplySet.add(cleanPhone);
+              pendingInboundCounts.set(cleanPhone, 1);
+            }
+          } else if (needsReplySet.has(cleanPhone) && !stoppedCounting.has(cleanPhone)) {
+            // Continue counting consecutive inbound from the top
+            if (msg.direction === 'inbound') {
+              pendingInboundCounts.set(cleanPhone, (pendingInboundCounts.get(cleanPhone) || 0) + 1);
+            } else {
+              // Found an outbound message, stop counting
+              stoppedCounting.add(cleanPhone);
             }
           }
+        }
+      }
+
+      // Build unread counts: use pendingInboundCounts but zero if conversation is open or read
+      const unreadCounts = new Map<string, number>();
+      for (const [cleanPhone, count] of Array.from(pendingInboundCounts.entries())) {
+        const isCurrentlyOpen = cleanPhone === selectedPhoneKey;
+        const lastRead = readTimestamps[cleanPhone];
+        const lastMsg = messageMap.get(cleanPhone);
+        if (isCurrentlyOpen) {
+          unreadCounts.set(cleanPhone, 0);
+        } else if (lastRead && lastMsg && new Date(lastRead) >= new Date(lastMsg.created_at)) {
+          unreadCounts.set(cleanPhone, 0);
+        } else {
+          unreadCounts.set(cleanPhone, count);
         }
       }
 
@@ -406,7 +424,7 @@ const WhatsApp = () => {
           last_message_at: lastMsg?.created_at || null,
           unread_count: unreadCounts.get(cleanPhone) || 0,
           _hasConversation: phonesWithMessages.has(cleanPhone),
-          _hasNewInbound: phonesWithInbound.has(cleanPhone),
+          _needsReply: needsReplySet.has(cleanPhone),
           _isVirtual: false,
         };
       });
@@ -438,7 +456,7 @@ const WhatsApp = () => {
             unread_count: unreadCounts.get(cleanPhone) || 0,
             _isVirtual: true,
             _hasConversation: true,
-            _hasNewInbound: phonesWithInbound.has(cleanPhone),
+            _needsReply: needsReplySet.has(cleanPhone),
           } as any);
         }
       }
@@ -502,14 +520,14 @@ const WhatsApp = () => {
   const filteredContacts = useMemo(() => {
     let result = contacts.filter(c => {
       const hasConv = !!(c as any)._hasConversation;
-      const hasNewInbound = !!(c as any)._hasNewInbound;
+      const needsReply = !!(c as any)._needsReply;
       const enrollStatuses = enrollmentStatusMap[c.id] || [];
 
       // Apply tab filter first
       if (activeFilter !== 'todas') {
         switch (activeFilter) {
           case 'novas':
-            if (!hasNewInbound) return false;
+            if (!needsReply) return false;
             break;
           case 'matriculados':
             if (c.status !== 'matriculado' && !enrollStatuses.some(s => ['matriculado', 'em_curso', 'ativo'].includes(s))) return false;

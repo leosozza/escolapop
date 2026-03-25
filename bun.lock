@@ -1146,7 +1146,7 @@
 
     "w3c-xmlserializer": ["w3c-xmlserializer@4.0.0", "", { "dependencies": { "xml-name-validator": "^4.0.0" } }, "sha512-d+BFHzbiCx6zGfz0HyQ6Rg69w9k19nviJspaj4yNscGjrHu94sVP+aRm75yEbCh+r2/yR+7q6hux9LVtbuTGBw=="],
 
-    "wavesurfer.js": ["wavesurfer.js@7.12.4", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/wavesurfer.js/-/wavesurfer.js-7.12.4.tgz", {}, "sha512-b/+XnWfJejNdvNUmtm4M5QzQepHhUbTo+62wYybwdV1B/Sn9vHhgb1xckRm0rGY2ZefJwLkE7lYcKnLfIia4cQ=="],
+    "wavesurfer.js": ["wavesurfer.js@7.12.5", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/wavesurfer.js/-/wavesurfer.js-7.12.5.tgz", {}, "sha512-MSZcA13R9ZlxgYpzfakaSYf8dz5tCdZKYbjtN1qnKbCi+UoyfaTuhvjlXHrITi/fgeO3qWfsH7U3BP1AKnwRNg=="],
 
     "webidl-conversions": ["webidl-conversions@7.0.0", "", {}, "sha512-VwddBukDzu71offAQR975unBIGqfKZpM+8ZX6ySk8nYhVoo5CYaZyzt3YBvYtRtO+aoGlqxPg/B87NGVZ/fu6g=="],
 

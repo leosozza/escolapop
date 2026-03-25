@@ -78,7 +78,8 @@ export function AppLayout({ children }: AppLayoutProps) {
     return <Navigate to="/auth" replace />;
   }
 
-  const currentRoute = routeNames[location.pathname];
+  const routeBase = '/' + location.pathname.split('/')[1];
+  const currentRoute = routeNames[location.pathname] || routeNames[routeBase];
   const currentTitle = currentRoute?.title || 'Página';
 
   const getInitials = (name: string) =>
@@ -112,12 +113,12 @@ export function AppLayout({ children }: AppLayoutProps) {
         <main className="flex-1 overflow-hidden">
           <AnimatePresence mode="wait">
             <motion.div
-              key={location.pathname}
+              key={routeBase}
               variants={pageVariants}
               initial="initial"
               animate="animate"
               exit="exit"
-              className={location.pathname === '/whatsapp' ? 'h-full' : 'container py-6 h-full overflow-auto'}
+              className={routeBase === '/whatsapp' ? 'h-full' : 'container py-6 h-full overflow-auto'}
             >
               {children}
             </motion.div>

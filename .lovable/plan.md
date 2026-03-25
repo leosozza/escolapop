@@ -1,44 +1,76 @@
 
 
-## Corrigir botão "+" de adicionar contato no WhatsApp
+## Corrigir lógica de "sem resposta" e contadores no WhatsApp
 
-### Problema
-O dialog `AddWhatsAppContactDialog` tem dois problemas:
-1. **Requer campo "Agente" obrigatório** -- desnecessário para iniciar uma conversa rápida no WhatsApp
-2. **O `onSuccess` no WhatsApp.tsx ignora o `leadId` retornado** -- após criar o lead, não navega para a conversa
-3. **Duplicate check bloqueia na primeira tentativa** -- o fluxo `checkDuplicate` retorna sem submeter na primeira vez
+### Problemas identificados
 
-### Plano
+1. **Filtro "Novas" mostra qualquer conversa com inbound** -- usa `_hasNewInbound` que marca `true` se a última mensagem do telefone é inbound, ignorando se já foi respondida ou lida
+2. **Contador de unread conta TODAS as mensagens inbound desde o último "read"** -- deveria contar apenas mensagens inbound que ainda não foram respondidas (sem outbound posterior)
+3. **"Sem resposta" deveria significar**: cliente enviou mensagem e nenhum outbound foi enviado DEPOIS dela
 
-**1. Simplificar `AddWhatsAppContactDialog.tsx`**
-- Remover campo "Agente de Relacionamento" como obrigatório (tornar opcional)
-- Remover campo "Código Bitrix" (mover para edição posterior no painel lateral)
-- Simplificar validação: exigir apenas Nome e Telefone
-- Corrigir fluxo de duplicate check: na primeira submissão sem duplicata encontrada, submeter direto em vez de retornar
+### Solução
 
-**2. Atualizar `onSuccess` no `WhatsApp.tsx`**
-- Usar o `leadId` retornado pelo dialog para buscar o lead recém-criado
-- Após `fetchContacts()`, navegar para `/whatsapp/{phone}` do novo lead, abrindo a conversa automaticamente
+**Arquivo: `src/pages/WhatsApp.tsx` -- função `fetchContacts`**
 
-### Detalhes Técnicos
+Alterar a lógica de processamento das mensagens (linhas ~350-377):
 
-**`AddWhatsAppContactDialog.tsx`:**
-- Remover validação obrigatória do `agentId`
-- Tornar agente opcional no insert (já aceita null no banco)
-- Corrigir lógica do `handleManualSubmit`: quando `checkDuplicate` retorna sem encontrar duplicata, prosseguir com o insert na mesma chamada
+1. **Novo conceito `_needsReply`**: para cada telefone, verificar se a última mensagem é `inbound` (cliente mandou e ninguém respondeu ainda). Substituir `_hasNewInbound` por `_needsReply`
 
-**`WhatsApp.tsx` (linha ~1254):**
+2. **Contador `unread_count` deve contar apenas mensagens inbound consecutivas no final** (sem outbound depois):
+   - Iterar as mensagens do telefone em ordem cronológica reversa
+   - Contar inbound até encontrar um outbound ou até o `lastRead` timestamp
+   - Se a conversa já foi aberta (markAsRead) E existe outbound posterior ao último inbound, count = 0
+
+3. **Lógica concreta**:
+   - Para cada telefone, ao processar mensagens (já vem `desc`):
+     - `lastDirection`: direção da mensagem mais recente
+     - Se `lastDirection === 'inbound'`: `_needsReply = true`
+     - Contar inbound consecutivos do topo até achar outbound = `pendingInboundCount`
+     - `unread_count` = se conversa está aberta: 0. Se `lastRead` existe E `lastRead` >= último inbound: 0. Senão: `pendingInboundCount`
+
+4. **Filtro "Novas"** (linha ~511): trocar de `_hasNewInbound` para `_needsReply` -- só mostra conversas que precisam de resposta
+
+5. **Badge de unread** na lista de contatos: já usa `unread_count`, vai funcionar automaticamente
+
+### Mudanças detalhadas
+
+**`fetchContacts` -- substituir lógica de tracking**:
 ```
-onSuccess={(leadId) => {
-  fetchContacts();
-  setIsAddDialogOpen(false);
-  // Buscar phone do lead e navegar
-  if (leadId) {
-    supabase.from('leads').select('phone').eq('id', leadId).single()
-      .then(({ data }) => {
-        if (data?.phone) navigate(`/whatsapp/${data.phone.replace(/\D/g, '')}`, { replace: true });
-      });
+// Para cada telefone, rastrear:
+const needsReplySet = new Set<string>();       // última msg é inbound
+const pendingInboundCounts = new Map<string, number>(); // msgs inbound consecutivas no final
+
+// Ao iterar mensagens (já em desc order):
+for (const msg of lastMessages) {
+  const cleanPhone = msg.phone.replace(/\D/g, '').slice(-8);
+  phonesWithMessages.add(cleanPhone);
+  
+  if (!messageMap.has(cleanPhone)) {
+    messageMap.set(cleanPhone, { ...msg, rawPhone: msg.phone });
+    // A primeira msg encontrada (mais recente) define se precisa resposta
+    if (msg.direction === 'inbound') {
+      needsReplySet.add(cleanPhone);
+      pendingInboundCounts.set(cleanPhone, 1);
+    }
+  } else if (needsReplySet.has(cleanPhone) && !pendingInboundCounts.has(cleanPhone + '_stopped')) {
+    // Continuar contando inbound consecutivos
+    if (msg.direction === 'inbound') {
+      pendingInboundCounts.set(cleanPhone, (pendingInboundCounts.get(cleanPhone) || 0) + 1);
+    } else {
+      // Encontrou outbound, parar de contar
+      pendingInboundCounts.set(cleanPhone + '_stopped', 1);
+    }
   }
-}}
+}
+
+// unread_count: usar pendingInboundCounts, mas zerar se conversa aberta ou lida
 ```
+
+**Substituir `_hasNewInbound` por `_needsReply`** em:
+- Montagem de `contactsWithMessages` (linha ~409)
+- Montagem de `virtualContacts` (linha ~441)
+- Filtro `novas` (linha ~512)
+
+### Arquivos alterados
+- `src/pages/WhatsApp.tsx` (apenas)
 

@@ -1251,7 +1251,16 @@ const WhatsApp = () => {
       <AddWhatsAppContactDialog
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
-        onSuccess={() => { fetchContacts(); setIsAddDialogOpen(false); }}
+        onSuccess={(leadId) => {
+          fetchContacts();
+          setIsAddDialogOpen(false);
+          if (leadId) {
+            supabase.from('leads').select('phone').eq('id', leadId).single()
+              .then(({ data }) => {
+                if (data?.phone) navigate(`/whatsapp/${data.phone.replace(/\D/g, '')}`, { replace: true });
+              });
+          }
+        }}
       />
 
       {selectedContact && (

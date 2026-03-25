@@ -57,8 +57,6 @@ export function AddWhatsAppContactDialog({
   const [guardianName, setGuardianName] = useState('');
   const [modelName, setModelName] = useState('');
   const [phone, setPhone] = useState('');
-  const [agentId, setAgentId] = useState('');
-  const [externalCode, setExternalCode] = useState('');
 
   // Duplicate state
   const [duplicateLead, setDuplicateLead] = useState<DuplicateLead | null>(null);
@@ -147,14 +145,8 @@ export function AddWhatsAppContactDialog({
   };
 
   const handleManualSubmit = async () => {
-    if (!modelName.trim() || !phone.trim() || !agentId) {
-      toast({ variant: 'destructive', title: 'Campos obrigatórios', description: 'Preencha o nome do modelo, telefone e agente.' });
-      return;
-    }
-
-    // Check duplicate if not already checked
-    if (!duplicateLead && !duplicateConfirmed) {
-      await checkDuplicate(phone);
+    if (!modelName.trim() || !phone.trim()) {
+      toast({ variant: 'destructive', title: 'Campos obrigatórios', description: 'Preencha o nome do modelo e telefone.' });
       return;
     }
 
@@ -163,14 +155,30 @@ export function AddWhatsAppContactDialog({
       return;
     }
 
+    // Check for duplicates on first submit if not yet checked
+    if (!duplicateLead && !duplicateConfirmed) {
+      const clean = phone.replace(/\D/g, '');
+      if (clean.length >= 8) {
+        const suffix = clean.slice(-8);
+        const { data } = await supabase
+          .from('leads')
+          .select('id, full_name, phone, status, guardian_name')
+          .or(`phone.eq.${clean},phone.like.%${suffix}`)
+          .limit(1);
+        if (data && data.length > 0) {
+          setDuplicateLead(data[0] as DuplicateLead);
+          setDuplicateConfirmed(false);
+          return;
+        }
+      }
+    }
+
     setIsLoading(true);
     try {
       const { data: newLead, error } = await supabase.from('leads').insert({
         full_name: modelName.trim(),
         guardian_name: guardianName.trim() || null,
         phone: phone.replace(/\D/g, ''),
-        external_id: externalCode.trim() || null,
-        external_source: externalCode ? 'bitrix' : null,
         status: 'lead',
         source: 'whatsapp',
       } as any).select().single();
@@ -190,8 +198,6 @@ export function AddWhatsAppContactDialog({
     setGuardianName('');
     setModelName('');
     setPhone('');
-    setAgentId('');
-    setExternalCode('');
     setSearchQuery('');
     setSearchResults([]);
     setActiveTab('manual');
@@ -230,20 +236,14 @@ export function AddWhatsAppContactDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Telefone <span className="text-destructive">*</span></Label>
-                <Input
-                  placeholder="(00) 00000-0000"
-                  value={phone}
-                  onChange={(e) => { setPhone(e.target.value); setDuplicateLead(null); setDuplicateConfirmed(false); }}
-                  onBlur={handlePhoneBlur}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Código Bitrix</Label>
-                <Input placeholder="ID externo (opcional)" value={externalCode} onChange={(e) => setExternalCode(e.target.value)} />
-              </div>
+            <div className="space-y-2">
+              <Label>Telefone <span className="text-destructive">*</span></Label>
+              <Input
+                placeholder="(00) 00000-0000"
+                value={phone}
+                onChange={(e) => { setPhone(e.target.value); setDuplicateLead(null); setDuplicateConfirmed(false); }}
+                onBlur={handlePhoneBlur}
+              />
             </div>
 
             {/* Duplicate warning */}
@@ -270,17 +270,6 @@ export function AddWhatsAppContactDialog({
               </Alert>
             )}
 
-            <div className="space-y-2">
-              <Label>Agente de Relacionamento <span className="text-destructive">*</span></Label>
-              <Select value={agentId} onValueChange={setAgentId}>
-                <SelectTrigger><SelectValue placeholder="Selecione o agente" /></SelectTrigger>
-                <SelectContent>
-                  {agents.map((agent) => (
-                    <SelectItem key={agent.id} value={agent.id}>{agent.full_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>

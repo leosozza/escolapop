@@ -355,22 +355,36 @@ Deno.serve(async (req) => {
 
       console.log("Lead match:", lead?.id || "none", "content:", content.slice(0, 60), "mediaUrl:", mediaUrl?.slice(0, 60) || "none");
 
+      // Dedup: skip if this outbound echo already exists (sent from system)
+      if (isFromMe && msgId) {
+        const { data: existing } = await supabase
+          .from("whatsapp_messages")
+          .select("id")
+          .eq("wuzapi_message_id", msgId)
+          .limit(1)
+          .maybeSingle();
+        if (existing) {
+          console.log("Skipping duplicate outbound echo:", msgId);
+          return okResponse();
+        }
+      }
+
       const { error: insertErr } = await supabase.from("whatsapp_messages").insert({
         phone,
         content,
         lead_id: lead?.id || null,
-        direction: "inbound",
+        direction: isFromMe ? "outbound" : "inbound",
         message_type: messageType,
         media_url: mediaUrl,
         wuzapi_message_id: msgId || null,
-        status: "received",
+        status: isFromMe ? "sent" : "received",
         instance_id: instanceId,
       });
 
       if (insertErr) {
         console.log("Insert error:", insertErr.message);
       } else {
-        console.log("✅ Inbound message saved from:", phone);
+        console.log(isFromMe ? "✅ Outbound echo saved" : "✅ Inbound message saved", "from:", phone);
       }
 
       return okResponse();

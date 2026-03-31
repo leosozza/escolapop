@@ -95,10 +95,7 @@ Deno.serve(async (req) => {
         return okResponse();
       }
 
-      if (isFromMe) {
-        console.log("IsFromMe echo, skipping inbound save");
-        return okResponse();
-      }
+      // isFromMe messages are processed normally (direction=outbound) with dedup
 
       const message = eventData.Message || eventData.RawMessage || {};
 
